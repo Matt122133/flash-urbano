@@ -1,0 +1,31 @@
+hooks:
+  before_plan:
+    - extension: harness
+      command: speckit-clarify
+      optional: false
+      description: "Clarify the spec before planning."
+      prompt: "Planning is blocked until unresolved ambiguity has been reviewed."
+  after_tasks:
+    - extension: harness
+      command: speckit-analyze
+      optional: false
+      description: "Analyze spec, plan, and tasks before the approval gate."
+      prompt: "Promotion is blocked until CRITICAL inconsistencies are reviewed."
+  before_implement:
+    - extension: harness
+      command: harness-gate
+      optional: false
+      description: "Require active analyzed plan and tasks before implementation."
+      prompt: "Implementation is blocked until plan.md is active, analyzed, and tasks.md exists."
+  after_implement:
+    - extension: harness
+      command: harness-verify
+      optional: false
+      description: "Run the active plan's verify command after implementation."
+      prompt: "Convergence is blocked until verify is green or the failure is reported."
+  after_converge:
+    - extension: harness
+      command: harness-loop
+      optional: false
+      description: "Decide whether the unattended loop continues or stops."
+      prompt: "The loop must continue, stop as converged, or stop at the cap with remaining work."

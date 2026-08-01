@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook installed by init-harness-speckit.
+# Stack-neutral: runs only the plan-coverage sensor. Add stack lanes
+# (format, lint, test on affected packages) above the sensor step for this
+# repo's toolchain — see docs/processes/dev-setup.md § Adding stack lanes.
+#
+# Activate per clone:
+#   git config core.hooksPath .githooks
+#
+# Bypass only the plan-coverage check:
+#   HARNESS_BYPASS="<reason>" git commit ...
+
+set -e
+
+# --- add stack lanes here (gofmt / go vet / go test, npm test, etc.) ---
+
+# plan-coverage — every staged file must be covered by the active plan's covers:
+python3 "$(git rev-parse --show-toplevel)/scripts/harness/check_plan_coverage.py"

@@ -1,0 +1,67 @@
+name: Deploy a GitHub Pages
+
+# Publica la web de clientes (web/) como sitio estatico en GitHub Pages.
+# Requiere habilitar Pages una sola vez en el repo:
+#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
+# Sin ese paso, el job de deploy falla aunque el build este bien.
+
+on:
+  push:
+    branches: [mvp-flash-urbano, master]
+    paths:
+      - "web/**"
+      - ".github/workflows/deploy-pages.yml"
+  # Permite lanzarlo a mano desde la pestania Actions.
+  workflow_dispatch:
+
+# Permisos que necesita actions/deploy-pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Si se pushea dos veces seguidas, que la segunda corrida cancele la primera
+# en vez de pisarse entre ellas.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Build estatico
+        # GITHUB_PAGES activa output:export + basePath en next.config.ts.
+        env:
+          GITHUB_PAGES: "true"
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
