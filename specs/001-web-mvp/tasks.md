@@ -58,7 +58,18 @@ confirmación (FR-001 a FR-013).
 ## Phase 7: Polish
 
 - [x] T015 [P] Pass `npm run build` clean (plan.md `verify:`)
-- [ ] T016 Manual pass in a real browser at mobile + desktop widths with the dev server running
+- [x] T016 Manual pass in a real browser — lo hizo Mateo; de ahí salieron los
+  retoques de copy institucional, cooperativa como sí/no, esquina obligatoria
+  y home sin scroll
+
+## Phase 8: Despliegue (agregado sobre la marcha)
+
+- [x] T017 Configurar `output: "export"` + `basePath` condicionados a `GITHUB_PAGES` en `web/next.config.ts`
+- [x] T018 `web/lib/asset.ts` para prefijar el basePath en imágenes de `public/` (Next no lo hace con `images.unoptimized`)
+- [x] T019 Workflow `.github/workflows/deploy-pages.yml`
+- [x] T020 `noindex` mientras el sitio sea una preview con contacto ficticio
+- [x] T021 Verificar el export sirviéndolo bajo `/flash-urbano/`: 5 páginas y todos los assets en 200
+- [ ] T022 Habilitar Pages en Settings → Pages → Source: GitHub Actions (lo tiene que hacer Mateo; requiere acceso al repo)
 
 ---
 
@@ -66,5 +77,6 @@ confirmación (FR-001 a FR-013).
 
 - Tasks marked `[P]` touch different files with no dependencies on each
   other within their phase.
-- T016 is left unchecked deliberately — it needs a human (or a browser tool)
-  actually looking at the running site, not just a green build.
+- T022 queda sin marcar a propósito: es un paso en la UI de GitHub, no algo
+  que se resuelva desde el repo. Hasta que se haga, el workflow corre el
+  build pero el deploy falla.
