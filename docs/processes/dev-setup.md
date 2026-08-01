@@ -33,6 +33,46 @@ All web commands run from `web/`.
 | Lint | `npm run lint` |
 | Tests | none yet — not requested for the `001-web-mvp` milestone (see `specs/001-web-mvp/plan.md`) |
 
+## Despliegue (GitHub Pages)
+
+La web se publica como sitio **estático** en GitHub Pages, vía
+`.github/workflows/deploy-pages.yml`, en cada push a `mvp-flash-urbano` o
+`master` que toque `web/`. URL:
+`https://matt122133.github.io/flash-urbano/`.
+
+**Habilitación única, a mano:** Settings → Pages → Build and deployment →
+Source: **GitHub Actions**. Sin ese paso el job de deploy falla aunque el
+build esté verde.
+
+Reproducir el build de Pages en local:
+
+    cd web
+    GITHUB_PAGES=true npm run build      # genera web/out/
+
+Sin esa variable, `npm run build` se comporta como siempre (sin `out/`, sin
+`basePath`). La config vive en `web/next.config.ts`.
+
+Tres cosas que rompen y ya están resueltas — no deshacerlas sin entender por
+qué están:
+
+1. **`basePath`.** El sitio vive en `…github.io/flash-urbano/`, no en la raíz
+   del dominio. Sin `basePath` todos los links y chunks apuntarían a `/` y
+   darían 404.
+2. **`asset()` en `web/lib/asset.ts`.** Next **no** le agrega el `basePath` a
+   los archivos de `public/` cuando las imágenes van sin optimizar, así que el
+   logo y el mapa salían como `/logo.png` en vez de `/flash-urbano/logo.png`.
+   Toda imagen nueva que salga de `public/` tiene que ir envuelta en
+   `asset("/archivo.png")`.
+3. **`images.unoptimized`.** `/_next/image` necesita un servidor Node, que en
+   Pages no existe. Las imágenes se sirven tal cual, sin redimensionar.
+
+`trailingSlash: true` hace que el export genere `<ruta>/index.html`, que es lo
+que sirve cualquier hosting estático sin reglas de reescritura.
+
+**El sitio lleva `noindex`** mientras sea una preview (ver
+`web/app/layout.tsx`): tiene teléfono y email de contacto ficticios. Quitarlo
+recién cuando los datos de contacto sean reales.
+
 ## Plan-coverage check
 
 The one mechanical sensor in this harness. It enforces the hard constraint

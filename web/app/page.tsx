@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { asset } from "@/lib/asset";
 
 const STEPS = [
   {
@@ -46,7 +47,7 @@ export default function Home() {
       <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
           <Image
-            src="/logo-flash-urbano.png"
+            src={asset("/logo-flash-urbano.png")}
             alt="Flash Urbano — Logística y transporte"
             width={600}
             height={245}

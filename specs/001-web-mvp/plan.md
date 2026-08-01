@@ -4,6 +4,7 @@ status: active
 covers:
   - web/
   - specs/001-web-mvp/
+  - .github/
 verify: cd web && npm run build
 analyzed: 2026-08-01
 ---
@@ -58,8 +59,15 @@ automatizada todavía — no se pidió en el spec
 **Performance Goals**: N/A para este milestone — priorizar time-to-visual
 sobre optimización
 
-**Constraints**: Sin OAuth real, sin base de datos, sin infraestructura de
-despliegue todavía (correr local con `npm run dev` alcanza para esta etapa)
+**Constraints**: Sin OAuth real, sin base de datos.
+
+**Despliegue** (agregado sobre la marcha el 2026-08-01, a pedido del cliente
+interno, para poder mostrarle el MVP a Diego por link): GitHub Pages, sitio
+estático, publicado por GitHub Actions desde `.github/workflows/deploy-pages.yml`.
+Esto amplió el `covers:` de este plan con `.github/`. Implica `output: "export"`
+más `basePath` — activado solo cuando el workflow define `GITHUB_PAGES=true`,
+así el desarrollo local no cambia. Detalle y trampas en
+`docs/processes/dev-setup.md` § Despliegue.
 
 **Scale/Scope**: Un solo operador (Diego); sin requisitos de escala
 

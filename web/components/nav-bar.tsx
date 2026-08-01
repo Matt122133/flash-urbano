@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { asset } from "@/lib/asset";
 
 const LINKS = [
   { href: "/", label: "Inicio" },
@@ -22,7 +23,7 @@ export function NavBar() {
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
           <Image
-            src="/logo-flash-urbano.jpeg"
+            src={asset("/logo-flash-urbano.jpeg")}
             alt="Flash Urbano"
             width={40}
             height={40}

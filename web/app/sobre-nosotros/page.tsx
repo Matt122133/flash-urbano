@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { asset } from "@/lib/asset";
 
 export const metadata: Metadata = {
   title: "Sobre nosotros — Flash Urbano",
@@ -62,7 +63,7 @@ export default function SobreNosotrosPage() {
         </p>
         <div className="relative mt-4 aspect-video w-full overflow-hidden rounded-xl border border-slate-200">
           <Image
-            src="/mapa-zonas-flash-urbano.jpeg"
+            src={asset("/mapa-zonas-flash-urbano.jpeg")}
             alt="Mapa de Montevideo con las cinco zonas de entrega de Flash Urbano pintadas y su precio de referencia: Zona 1 $150, Zona 2 $200, Zona 3 $250, Zona 4 $250 y Zona 5 $350"
             fill
             className="object-cover"

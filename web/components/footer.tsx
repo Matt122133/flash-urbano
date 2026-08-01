@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { asset } from "@/lib/asset";
 
 export function Footer() {
   return (
@@ -7,7 +8,7 @@ export function Footer() {
       <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-2">
           <Image
-            src="/logo-flash-urbano.jpeg"
+            src={asset("/logo-flash-urbano.jpeg")}
             alt="Flash Urbano"
             width={24}
             height={24}
