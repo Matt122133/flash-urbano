@@ -1,0 +1,36 @@
+---
+owner: flash-urbano
+status: living
+last_reviewed: 2026-08-01
+update_trigger: on-debt-added-or-resolved
+---
+
+# Tech debt tracker
+
+Running ledger of known hazards, work-in-progress shortcuts, and deferred
+improvements. Maintained per the harness steering loop (see
+[`processes/harness.md`](processes/harness.md)).
+
+## How this works
+
+Each row is one item. New items go at the top of the relevant section.
+
+- **Severity.** `High` (active hazard or correctness risk), `Medium` (hurts
+  velocity or clarity), `Low` (cosmetic or speculative).
+- **Status.** `Open`, `In progress`, `Resolved`, `Dropped`.
+- **Description.** What the debt is, in one sentence.
+- **Resolution.** How it was paid, with a commit/plan/ADR reference where
+  useful. Empty while `Open`.
+
+## Open
+
+| Date identified | Severity | Description |
+|---|---|---|
+| 2026-08-01 | Medium | Los límites de zona del mapa de `/sobre-nosotros` son una **interpretación**, no un dato validado: las líneas que trazó el cliente son polilíneas abiertas, y para pintar las zonas hubo que cerrar los extremos (ver `web/design-source/README.md`). Las zonas 3 y 5 se cortan en el borde de la captura. Como cada zona define un precio, **pedirle al cliente que confirme los límites** antes de que el mapa se use como referencia de cobro. Regenerable con `node design-source/build-map.js`. |
+| 2026-08-01 | Low | La base del mapa de zonas es una captura de Google Maps modificada y publicada sin atribución en un sitio comercial, lo que no cumple los términos de Google. Sirve para el MVP; si el mapa queda a largo plazo, rehacerlo sobre tiles de OpenStreetMap (permiten uso comercial citando la fuente). |
+| 2026-08-01 | Low | `web/package.json` usa `overrides` para forzar `sharp@^0.35.3` y `postcss@^8.5.25` por encima de lo que declara `next@16.2.12` (`sharp ^0.34.5`, `postcss` pineado en `8.4.31`), que arrastraban advisories de libvips y de PostCSS. `npm audit` queda en 0. Revisar y **quitar los overrides** cuando Next publique una versión que ya traiga esas deps parcheadas — mantenerlos de más nos deja resolviendo versiones que Next no testeó. Verificar con `npm audit` + `npm run build` + una request a `/_next/image` (es lo que ejercita sharp). |
+
+## Resolved
+
+| Date identified | Severity | Description | Resolution |
+|---|---|---|---|

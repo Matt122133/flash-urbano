@@ -1,0 +1,55 @@
+---
+owner: flash-urbano
+status: stable
+last_reviewed: 2026-08-01
+update_trigger: on-doc-added
+---
+
+# Docs Catalog
+
+Entry point for AI context. Read this before any task requiring repo knowledge.
+When you add a doc, add a one-line entry to the matching section.
+
+## Repo-root anchors
+
+Top-level docs that live at the repo root, not under `docs/`.
+
+- [`/AGENTS.md`](../AGENTS.md) — agent entry point: operating principle, hard
+  constraints, phase gates, session bootstrap. `CLAUDE.md` symlinks to it.
+- [`/ARCHITECTURE.md`](../ARCHITECTURE.md) — code map: layout, module pattern,
+  dependency direction, bootstrap, hotspots.
+- [`/SECURITY.md`](../SECURITY.md) — security posture: reporting, dependency
+  scanning, secrets, auth, trust boundaries.
+
+## Specs and plans
+
+Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
+`specs/<feature>/plan.md`.
+
+- `../specs/` — active and completed feature specs, plans, tasks, and design
+  artifacts.
+- [`PLANS.md`](PLANS.md) — the plan style contract for `specs/<feature>/plan.md`.
+
+## Decisions (ADRs)
+
+- [`decisions/harness-design.md`](decisions/harness-design.md) — why this
+  harness exists and what ships.
+- [`decisions/speckit-harness-integration.md`](decisions/speckit-harness-integration.md)
+  — spec-kit as artifact pipeline, harness as governance layer.
+- [`decisions/adr-slug-canonical.md`](decisions/adr-slug-canonical.md) — ADR
+  slugs as the canonical identifier.
+
+## Processes
+
+- [`processes/harness.md`](processes/harness.md) — the operating manual.
+- [`processes/speckit-loop.md`](processes/speckit-loop.md) — the per-feature
+  loop runbook.
+- [`processes/dev-setup.md`](processes/dev-setup.md) — toolchain, commands, and
+  the plan-coverage check wiring.
+
+## Trackers
+
+- [`tech-debt-tracker.md`](tech-debt-tracker.md) — known hazards and deferred
+  work.
+- [`HARNESS-TODO.md`](HARNESS-TODO.md) — non-blocking checklist of harness
+  skeletons the team still needs to fill (delete once all boxes are ticked).
