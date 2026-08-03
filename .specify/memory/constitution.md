@@ -33,21 +33,41 @@ right after a WhatsApp conversation. Forms, navigation, and the address
 composition fields (calle, número, apto, esquina, cooperativa) must work
 cleanly on small screens with minimal typing and clear validation.
 
-### V. Price and logistics stay manual for now
-Per the client's answers: pricing is variable, depends on address, has no
-fixed cost, and there is no cap on daily deliveries — Diego prices and
-accepts jobs manually. The MVP does not attempt automatic pricing or
-capacity limits; it only captures the data needed for him to decide and
-plan a route.
+### V. The site quotes; logistics stay manual
+Pricing is a function of the pickup zone, and the site resolves it without
+human intervention: the customer marks the pickup point, the site determines
+which of the five delivery zones it falls in, and shows the price of that
+zone — as the price, not an estimate. The amount is flat per zone; it is not
+multiplied by package count or adjusted by size. A point outside every zone
+yields no price and no order; it routes to direct contact. Never guess a zone,
+and never fall back to the nearest one — guessing a zone means guessing a
+price.
+
+This makes the zone boundaries **binding for charging**, so they are a data
+asset, not a picture: versioned, regenerable from the client's own file, and
+changeable without touching code. Boundaries the client has not confirmed
+MUST NOT reach production.
+
+Logistics remain manual, as the client's answers describe: no capacity limits,
+no automatic acceptance, no route generation. There is no cap on daily
+deliveries — Diego accepts jobs and plans routes himself. Only pricing is
+automated.
+
+Amended by [ADR zone-based-automatic-pricing](../../docs/decisions/zone-based-automatic-pricing.md),
+which reverses this principle's original form ("price and logistics stay
+manual") on the evidence of the client's own zone map, and records the
+alternative that was rejected.
 
 ## Scope boundaries
 
 Two surfaces, built in this order:
 
-1. **Customer web app** — guest or Google-login order creation, address
-   capture, package type/description, payment method, pickup/delivery
-   windows, retriever info; Sobre Nosotros (hours, delivery zone map,
-   historical volume); Contacto (WhatsApp, email); Reseñas (last, deferred).
+1. **Customer web app** — guest or Google-login order creation; pickup address
+   (written plus a point marked on the map) and delivery address; the zone
+   price shown from that point; package type/description, payment method,
+   pickup/delivery windows, retriever info; Sobre Nosotros (hours, delivery
+   zone map, historical volume); Contacto (WhatsApp, email); Reseñas (last,
+   deferred).
 2. **Admin Android app** — view packages created via the web, filter/select
    which to carry each day, generate an economical route from the admin's
    position, and give feedback at each lifecycle stage (Creación →
@@ -74,4 +94,12 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-01
+**Version**: 2.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-02
+
+### Amendment history
+
+- **2.0.0** (2026-08-02) — Principle V redefined: the site now quotes the price
+  automatically from the pickup zone; logistics stay manual. MAJOR because a
+  principle is reversed, not clarified. See
+  [ADR zone-based-automatic-pricing](../../docs/decisions/zone-based-automatic-pricing.md).
+- **1.0.0** (2026-08-01) — Ratified.

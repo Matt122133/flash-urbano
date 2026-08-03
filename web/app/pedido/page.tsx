@@ -13,8 +13,9 @@ export default function PedidoPage() {
           Crear pedido
         </h1>
         <p className="mt-2 text-sm text-slate-600 sm:text-base">
-          Completá los datos de tu envío. Podés cargarlo como invitado, sin
-          necesidad de crear una cuenta.
+          Completá los datos de tu envío y marcá en el mapa desde dónde
+          retiramos el paquete: con eso te mostramos el precio al instante.
+          Podés cargarlo como invitado, sin necesidad de crear una cuenta.
         </p>
       </div>
       <PedidoForm />

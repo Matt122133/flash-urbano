@@ -30,12 +30,19 @@ ALWAYS_ALLOWED_PREFIXES = ("docs/", "scripts/harness/", "specs/")
 
 
 def _git(args: list[str], cwd: Path | None = None, env: dict[str, str] | None = None) -> str:
+    # `text=True` sin `encoding` decodifica con el codec del sistema, que en
+    # Windows es cp1252. Cualquier plan con acentos hace explotar el hilo lector,
+    # `stdout` vuelve None y el sensor crashea con exit 1 — o sea que rechaza
+    # todo commit. Los artefactos de este repo estan en espanol, asi que hay que
+    # forzar UTF-8.
     return subprocess.run(
         ["git", *args],
         cwd=cwd,
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     ).stdout
 
@@ -185,6 +192,8 @@ def hooks_path_config(root: Path) -> str:
         cwd=root,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     return result.stdout.strip()
 
@@ -236,6 +245,8 @@ def run_case(
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     ok = result.returncode == expect
     print(f"{name}: {'PASS' if ok else 'FAIL'}")

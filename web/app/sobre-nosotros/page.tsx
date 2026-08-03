@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import { asset } from "@/lib/asset";
+import { MapaZonas } from "@/components/mapa-zonas-seccion";
 
 export const metadata: Metadata = {
   title: "Sobre nosotros — Flash Urbano",
@@ -52,29 +51,7 @@ export default function SobreNosotrosPage() {
         </section>
       </div>
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">
-          Zona de entregas
-        </h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Cobertura por zonas dentro de Montevideo. El precio de referencia
-          varía según la zona de retiro/entrega — el valor final se
-          confirma según la dirección exacta.
-        </p>
-        <div className="relative mt-4 aspect-video w-full overflow-hidden rounded-xl border border-slate-200">
-          <Image
-            src={asset("/mapa-zonas-flash-urbano.jpeg")}
-            alt="Mapa de Montevideo con las cinco zonas de entrega de Flash Urbano pintadas y su precio de referencia: Zona 1 $150, Zona 2 $200, Zona 3 $250, Zona 4 $250 y Zona 5 $350"
-            fill
-            className="object-cover"
-            sizes="(min-width: 1024px) 896px, 100vw"
-          />
-        </div>
-        <p className="mt-3 text-xs text-slate-400">
-          Los límites son de referencia. Escribinos si tu dirección queda
-          sobre el borde entre dos zonas.
-        </p>
-      </section>
+      <MapaZonas />
     </div>
   );
 }

@@ -38,6 +38,9 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
   — spec-kit as artifact pipeline, harness as governance layer.
 - [`decisions/adr-slug-canonical.md`](decisions/adr-slug-canonical.md) — ADR
   slugs as the canonical identifier.
+- [`decisions/zone-based-automatic-pricing.md`](decisions/zone-based-automatic-pricing.md)
+  — the site quotes the price itself from the pickup zone; reverses the
+  constitution's Principle V (1.0.0 → 2.0.0).
 
 ## Processes
 
