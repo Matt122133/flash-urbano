@@ -1,7 +1,7 @@
 ---
 owner: flash-urbano
 status: living
-last_reviewed: 2026-08-01
+last_reviewed: 2026-08-02
 update_trigger: on-debt-added-or-resolved
 ---
 
@@ -26,8 +26,9 @@ Each row is one item. New items go at the top of the relevant section.
 
 | Date identified | Severity | Description |
 |---|---|---|
-| 2026-08-01 | Medium | Los límites de zona del mapa de `/sobre-nosotros` son una **interpretación**, no un dato validado: las líneas que trazó el cliente son polilíneas abiertas, y para pintar las zonas hubo que cerrar los extremos (ver `web/design-source/README.md`). Las zonas 3 y 5 se cortan en el borde de la captura. Como cada zona define un precio, **pedirle al cliente que confirme los límites** antes de que el mapa se use como referencia de cobro. Regenerable con `node design-source/build-map.js`. |
-| 2026-08-01 | Low | La base del mapa de zonas es una captura de Google Maps modificada y publicada sin atribución en un sitio comercial, lo que no cumple los términos de Google. Sirve para el MVP; si el mapa queda a largo plazo, rehacerlo sobre tiles de OpenStreetMap (permiten uso comercial citando la fuente). |
+| 2026-08-02 | Medium | En `web/components/pedido-form.tsx`, el mensaje de error del nombre de quien recibe **nunca se muestra**: `validate()` escribe la clave `recieverName` (con la `i` traspuesta) y el render lee `errors.receiverName`. El campo sí bloquea el envío, así que no se cuela un pedido incompleto, pero el usuario no ve por qué. Detectado al planificar `specs/002-mapa-zonas-precio/`; **no se arregló ahí** porque queda fuera de los pasos de ese plan (`AGENTS.md`: nada de limpieza oportunista). Arreglo: unificar la clave en las dos puntas. |
+| 2026-08-01 | Medium | Los límites de zona del mapa de `/sobre-nosotros` son una **interpretación**, no un dato validado: las líneas que trazó el cliente son polilíneas abiertas, y para pintar las zonas hubo que cerrar los extremos (ver `web/design-source/README.md`). Las zonas 3 y 5 se cortan en el borde de la captura. Como cada zona define un precio, **pedirle al cliente que confirme los límites** antes de que el mapa se use como referencia de cobro. Regenerable con `node design-source/build-map.js`. **Lo retira `specs/002-mapa-zonas-precio/`**: el cliente definió los límites por nombre de calle y validó el trazado, y las zonas pasan a ser geometría real. Se cierra cuando ese plan esté implementado y verificado. |
+| 2026-08-01 | Low | La base del mapa de zonas es una captura de Google Maps modificada y publicada sin atribución en un sitio comercial, lo que no cumple los términos de Google. Sirve para el MVP; si el mapa queda a largo plazo, rehacerlo sobre tiles de OpenStreetMap (permiten uso comercial citando la fuente). **Lo retira `specs/002-mapa-zonas-precio/`**, que hace exactamente eso. Ojo con la precisión: ODbL cubre los *datos*; los *servidores* de mosaicos de OSM tienen su propia política de uso, orientada a volumen bajo (ver `research.md` D2). |
 | 2026-08-01 | Low | `web/package.json` usa `overrides` para forzar `sharp@^0.35.3` y `postcss@^8.5.25` por encima de lo que declara `next@16.2.12` (`sharp ^0.34.5`, `postcss` pineado en `8.4.31`), que arrastraban advisories de libvips y de PostCSS. `npm audit` queda en 0. Revisar y **quitar los overrides** cuando Next publique una versión que ya traiga esas deps parcheadas — mantenerlos de más nos deja resolviendo versiones que Next no testeó. Verificar con `npm audit` + `npm run build` + una request a `/_next/image` (es lo que ejercita sharp). |
 
 ## Resolved

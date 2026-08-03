@@ -45,7 +45,14 @@ one flat component folder is easier to navigate than a per-feature split.
 ```text
 web/app/<route>/page.tsx   # One page per route folder
 web/components/            # Shared, reusable components (NavBar, Footer, forms)
+web/lib/                   # Non-UI modules: generated data and pure logic
 ```
+
+Inside `web/lib/`, generated data and hand-written logic are kept in separate
+files. `zonas.ts` is emitted by `design-source/build-zonas.js` from the client's
+KML and is never edited by hand; `zona-lookup.ts` is the code that queries it.
+The split exists so a corrected zone boundary can be regenerated without
+touching the logic or its tests.
 
 ## Dependency direction
 
@@ -70,6 +77,16 @@ default; components that need interactivity (forms, nav toggle) are marked
   `specs/001-web-mvp/spec.md`); the highest-priority surface per the
   constitution's Principle II. Client-side validation and the field set live
   here; if the client's brief changes, this is usually the file to touch.
+- `web/lib/zona-lookup.ts` — resolves which delivery zone a marked point falls
+  in, and therefore what the customer is charged. The only module in the repo
+  with unit tests (`zona-lookup.test.ts`), because it is the only one where a
+  bug costs money rather than looks. Its tie-break on shared borders is
+  deliberate and documented; do not "improve" it into a nearest-zone fallback.
+- `web/lib/zonas.ts` — **generated**, never hand-edited. Regenerate with
+  `design-source/build-zonas.js`; see `web/design-source/README.md`.
+- `web/components/mapa-zonas.tsx` — the Leaflet map, shared by `/pedido` and
+  `/sobre-nosotros`. Must stay client-only (`ssr: false` via
+  `mapa-zonas-dinamico.tsx`) because Leaflet touches `window` on import.
 - `web/app/layout.tsx` + `web/components/nav-bar.tsx` — the site shell.
   Adding a new top-level section means updating the `LINKS` array here too.
 - `docs/decisions/`, `AGENTS.md`, `.specify/memory/constitution.md` — not

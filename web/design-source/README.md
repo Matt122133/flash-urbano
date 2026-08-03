@@ -1,47 +1,53 @@
 # design-source
 
-Material fuente y generadores de los assets de `web/public/`. Esta carpeta
-**no se sirve** (Next.js solo publica `public/`), es solo para poder rehacer
-las imágenes sin partir de cero.
+Material fuente y generadores de assets. Esta carpeta **no se sirve** (Next.js
+solo publica `public/`): existe para poder rehacer lo generado sin partir de
+cero.
 
-Los scripts usan `sharp`, que ya viene como dependencia de Next.
+## Zonas de entrega
 
-## `mapa-zonas-flash-urbano.jpeg`
+Los límites de las cinco zonas **los definió el cliente por nombre de calle**,
+escritos sobre `mapa-costos-original.jpeg`, la captura que entregó. Ese archivo
+se conserva por eso: es el documento donde están las calles y los precios.
 
-Mapa de zonas con precios que se muestra en `/sobre-nosotros`.
+Las calles están transcritas a texto en
+[`specs/002-mapa-zonas-precio/spec.md`](../../specs/002-mapa-zonas-precio/spec.md)
+§ Límites de zona. **Esa lista es la definición autoritativa**: si un polígono
+se aparta de su calle, el defecto está en el polígono.
+
+`zonas-flash-urbano.kml` son esos límites trazados sobre Google My Maps y
+exportados. El cliente validó el resultado.
+
+### Regenerar `web/lib/zonas.ts`
 
 ```bash
 cd web
-node design-source/build-map.js \
-  design-source/mapa-costos-original.jpeg \
-  public/mapa-zonas-flash-urbano.jpeg \
-  12
+node design-source/build-zonas.js \
+  design-source/zonas-flash-urbano.kml \
+  lib/zonas.ts
 ```
 
-Entrada: `mapa-costos-original.jpeg`, la captura de Google Maps que entregó el
-cliente con las divisiones de zona trazadas a mano y los precios.
+Lee el KML, normaliza los nombres (el export trae `"Zona  4"` con un espacio
+duro), le asigna a cada zona su precio y emite un módulo TypeScript tipado que
+**se commitea**.
 
-Qué hace: detecta las líneas negras dibujadas y la costa como barreras,
-rellena cada zona por *flood fill* partiendo de su etiqueta, y compone los
-rellenos semitransparentes, las etiquetas recoloreadas y el panel de leyenda.
+Se emite código y no un `.geojson` servido desde `public/` a propósito:
+importando el módulo, los polígonos viajan en el bundle y el cálculo del precio
+no depende de que salga bien una request. El precio es en firme, así que no
+conviene atarlo a la red.
 
-El tercer argumento es el **radio de dilatación** (12 por defecto). Existe
-porque las líneas que trazó el cliente son polilíneas **abiertas**: no cierran
-polígonos, se cortan antes de llegar a la costa o al borde. Dilatar la barrera
-cierra esos huecos. El valor cambia el resultado, así que **los límites del
-mapa son una interpretación, no un dato exacto** — ver la advertencia abajo.
+El script **falla ruidosamente** si un anillo no cierra, si falta una zona o si
+un nombre no mapea a un precio conocido. Un archivo generado a medias es peor
+que ninguno cuando de él depende cuánto se le cobra a alguien.
 
-### Advertencias
+**Los precios viven en una tabla dentro de `build-zonas.js` y en ningún otro
+lado.** Para cambiar uno, se edita ahí y se regenera.
 
-- **Los límites no están validados por el cliente.** Se derivaron de las
-  líneas dibujadas y de cerrar los extremos abiertos. Antes de tratarlos como
-  fuente de verdad para cobrar, el cliente tiene que confirmarlos.
-- **Las zonas 3 y 5 se cortan en el borde de la imagen.** En la realidad se
-  extienden más al oeste y al este; la captura no las contiene enteras.
-- **La base es una captura de Google Maps.** Publicarla modificada y sin
-  atribución en un sitio comercial no cumple los términos de Google. Si el
-  mapa se va a mantener a largo plazo, conviene rehacerlo sobre tiles de
-  OpenStreetMap, que permiten esto citando la fuente.
+### Corregir un límite
+
+No se toca código. Se corrige el trazado en Google My Maps, se reexporta el KML
+sobre `zonas-flash-urbano.kml`, se regenera `lib/zonas.ts` y se corre
+`npm test` — hay un test que verifica que todos los anillos cierren.
 
 ## `logo-flash-urbano.png`
 
@@ -57,5 +63,5 @@ node design-source/make-logo-transparent.js \
 ```
 
 Borra el fondo azul con un flood fill desde los bordes, así respeta los
-detalles internos que son del mismo azul (los centros de las ruedas), y
-recorta al contenido.
+detalles internos que son del mismo azul (los centros de las ruedas), y recorta
+al contenido.
