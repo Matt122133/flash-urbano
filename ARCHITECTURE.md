@@ -54,6 +54,14 @@ KML and is never edited by hand; `zona-lookup.ts` is the code that queries it.
 The split exists so a corrected zone boundary can be regenerated without
 touching the logic or its tests.
 
+The same split applies to the street index, with one difference that matters:
+**generated data big enough to hurt the bundle lives in `web/public/`, not in
+`web/lib/`.** `public/calles-mvd.json` is ~1.3 MB (0.47 MB over the wire) and is
+fetched on demand the first time someone touches an address field, so a visitor
+who only reads `/contacto` never pays for it. `lib/direcciones.ts` is the code
+that queries it. Zones went the other way — five polygons are small, and
+in-bundle means the price never depends on a request succeeding.
+
 ## Dependency direction
 
 `app/*/page.tsx` imports from `components/`; `components/` never imports
@@ -84,6 +92,18 @@ default; components that need interactivity (forms, nav toggle) are marked
   deliberate and documented; do not "improve" it into a nearest-zone fallback.
 - `web/lib/zonas.ts` — **generated**, never hand-edited. Regenerate with
   `design-source/build-zonas.js`; see `web/design-source/README.md`.
+- `web/lib/direcciones.ts` — resolves an address from a street/corner pair, and
+  computes how far the pin may be dragged from it. That drag bound is not a UX
+  nicety: the pin decides the price, so an unbounded pin makes the charge
+  gameable. Tested for the same reason `zona-lookup.ts` is. Its search
+  normalisation must stay in step with `design-source/build-calles.js`.
+- `web/public/calles-mvd.json` — **generated**, never hand-edited, and not
+  imported: it is fetched at runtime. Regenerate with
+  `design-source/build-calles.js`, which needs source data that does **not**
+  live in this repo; see `web/design-source/README.md`.
+- `web/components/campo-autocompletado.tsx` — the hand-rolled accessible
+  combobox. It replaced the free-text address fields, so if its keyboard and
+  screen-reader support breaks, people who could order before cannot.
 - `web/components/mapa-zonas.tsx` — the Leaflet map, shared by `/pedido` and
   `/sobre-nosotros`. Must stay client-only (`ssr: false` via
   `mapa-zonas-dinamico.tsx`) because Leaflet touches `window` on import.

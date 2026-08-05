@@ -6,7 +6,7 @@ export const metadata: Metadata = {
 
 // TODO: reemplazar por el número de WhatsApp y el email reales de la empresa.
 const WHATSAPP_NUMBER = "59899000000";
-const EMAIL = "contacto@flashurbano.uy";
+const EMAIL = "flashurbanomvd@gmail.com";
 
 export default function ContactoPage() {
   const whatsappHref = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(

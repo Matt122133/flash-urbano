@@ -4,18 +4,32 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { ZONAS } from "@/lib/zonas";
+import { acercarALaRegion, contiene, type Region } from "@/lib/direcciones";
 
 export type EstadoMosaicos = "cargando" | "ok" | "no-disponible";
 
 export type Punto = { lat: number; lng: number };
 
 export type MapaZonasProps = {
-  /** Solo lectura (Sobre Nosotros) o permite marcar punto (formulario). */
+  /**
+   * Si el marcador se puede arrastrar. **No habilita colocar el punto tocando
+   * el mapa**: desde 003 el punto lo pone el cruce de calles resuelto y desde
+   * ahi solo se ajusta arrastrando dentro de `region` (FR-010c).
+   */
   interactivo?: boolean;
   /** Punto marcado. El componente es controlado por quien lo usa. */
   punto?: Punto | null;
-  /** Se dispara al tocar el mapa o soltar el marcador. Solo si `interactivo`. */
+  /** Se dispara al soltar el marcador, ya clampeado a `region`. */
   onPunto?: (p: Punto) => void;
+  /**
+   * Hasta donde puede moverse el marcador: las cuadras de la calle declarada.
+   * Se dibuja, para que se vea el limite antes de chocarlo.
+   */
+  region?: Region | null;
+  /** Se avisa cuando hubo que traer el pin de vuelta al borde. */
+  onFueraDeRegion?: () => void;
+  /** Cruces candidatos cuando el par calle/esquina es ambiguo (FR-021). */
+  candidatos?: Punto[];
   /**
    * Recentra la vista cuando cambia. Va aparte de `punto` a proposito: el mapa
    * NO debe saltar cada vez que el usuario toca en otro lado, solo cuando la
@@ -56,10 +70,26 @@ const ICONO = L.divIcon({
   iconAnchor: [11, 11],
 });
 
+// Marcador chico para los cruces candidatos: se distingue del pin elegido
+// porque todavia no hay nada elegido.
+const ICONO_CANDIDATO = L.divIcon({
+  className: "",
+  html: `<div style="
+    width:14px;height:14px;border-radius:9999px;
+    background:#fff;border:3px solid #ea580c;
+    box-shadow:0 1px 4px rgba(0,0,0,.35);
+  "></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
 export default function MapaZonas({
   interactivo = false,
   punto = null,
   onPunto,
+  region = null,
+  onFueraDeRegion,
+  candidatos,
   centrarEn = null,
   zoomExtra = 0,
   onEstadoMosaicos,
@@ -68,6 +98,10 @@ export default function MapaZonas({
   const contenedor = useRef<HTMLDivElement>(null);
   const mapa = useRef<L.Map | null>(null);
   const marcador = useRef<L.Marker | null>(null);
+  const capaRegion = useRef<L.Polyline | null>(null);
+  const capaCandidatos = useRef<L.LayerGroup | null>(null);
+  const regionActual = useRef<Region | null>(region);
+  const cbFuera = useRef(onFueraDeRegion);
 
   // Los callbacks y el modo van por ref para que el efecto de montaje no dependa
   // de su identidad: si dependiera, cada render del padre desmontaria y
@@ -88,7 +122,9 @@ export default function MapaZonas({
   useEffect(() => {
     cbPunto.current = onPunto;
     cbEstado.current = onEstadoMosaicos;
+    cbFuera.current = onFueraDeRegion;
     modoInteractivo.current = interactivo;
+    regionActual.current = region;
   });
 
   useEffect(() => {
@@ -148,10 +184,11 @@ export default function MapaZonas({
     m.fitBounds(limites, { padding: [16, 16] });
     if (zoomInicial.current) m.setZoom(m.getZoom() + zoomInicial.current);
 
-    m.on("click", (e: L.LeafletMouseEvent) => {
-      if (!modoInteractivo.current) return;
-      cbPunto.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
-    });
+    // Sin manejador de click a proposito (FR-010c). Antes tocar el mapa
+    // colocaba el punto, y esa era la via por la que el pin podia terminar en
+    // cualquier lado: como el punto decide el precio, moverlo libremente vuelve
+    // el cobro manipulable. Ahora el punto lo pone el cruce resuelto y desde
+    // ahi solo se arrastra dentro de la cuadra declarada.
 
     return () => {
       clearTimeout(reloj);
@@ -179,7 +216,20 @@ export default function MapaZonas({
         keyboard: false,
       }).addTo(m);
       marcador.current.on("dragend", (e) => {
-        const { lat, lng } = (e.target as L.Marker).getLatLng();
+        const marca = e.target as L.Marker;
+        const { lat, lng } = marca.getLatLng();
+        const region = regionActual.current;
+
+        // Se clampea al soltar en vez de rechazar al enviar (FR-015): asi el
+        // estado invalido no llega a existir, y la persona ve en el momento
+        // hasta donde puede llegar en vez de enterarse al final.
+        if (region && !contiene(region, { lat, lng })) {
+          const dentro = acercarALaRegion(region, { lat, lng });
+          marca.setLatLng([dentro.lat, dentro.lng]);
+          cbFuera.current?.();
+          cbPunto.current?.(dentro);
+          return;
+        }
         cbPunto.current?.({ lat, lng });
       });
     } else {
@@ -192,9 +242,93 @@ export default function MapaZonas({
     mapa.current.setView([centrarEn.lat, centrarEn.lng], 16);
   }, [centrarEn]);
 
+  // La region se dibuja como una polilinea gruesa con puntas y codos
+  // redondeados. No es un truco visual: el buffer de una polilinea *es* eso, asi
+  // que lo que se ve coincide exactamente con lo que `contiene()` acepta.
+  //
+  // El grosor va en pixeles y el margen en metros, asi que hay que recalcularlo
+  // en cada zoom. Si no, el limite dibujado mentiria en todos los zooms menos
+  // uno — y este limite es el que sostiene la integridad del precio.
+  useEffect(() => {
+    const m = mapa.current;
+    if (!m) return;
+
+    capaRegion.current?.remove();
+    capaRegion.current = null;
+    if (!region) return;
+
+    const linea = L.polyline(
+      region.eje.map((p) => [p.lat, p.lng] as [number, number]),
+      {
+        color: "#ea580c",
+        opacity: 0.18,
+        lineCap: "round",
+        lineJoin: "round",
+        interactive: false,
+      },
+    ).addTo(m);
+    capaRegion.current = linea;
+
+    const ajustarGrosor = () => {
+      const lat = region.eje[1].lat;
+      const metrosPorPixel =
+        (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** m.getZoom();
+      linea.setStyle({ weight: (2 * region.margenM) / metrosPorPixel });
+    };
+    ajustarGrosor();
+    m.on("zoomend", ajustarGrosor);
+
+    return () => {
+      m.off("zoomend", ajustarGrosor);
+      linea.remove();
+      if (capaRegion.current === linea) capaRegion.current = null;
+    };
+  }, [region]);
+
+  // Los cruces candidatos, cuando el par calle/esquina resuelve a mas de uno.
+  // Se muestran todos y no se elige ninguno: elegir en silencio seria adivinar
+  // una zona (FR-021).
+  useEffect(() => {
+    const m = mapa.current;
+    if (!m) return;
+
+    capaCandidatos.current?.remove();
+    capaCandidatos.current = null;
+    if (!candidatos || candidatos.length === 0) return;
+
+    const grupo = L.layerGroup(
+      candidatos.map((p, i) =>
+        L.marker([p.lat, p.lng], { icon: ICONO_CANDIDATO, keyboard: false })
+          .bindTooltip(`Opción ${i + 1}`, { permanent: false }),
+      ),
+    ).addTo(m);
+    capaCandidatos.current = grupo;
+
+    m.fitBounds(L.latLngBounds(candidatos.map((p) => [p.lat, p.lng])), {
+      padding: [48, 48],
+      maxZoom: 16,
+    });
+
+    return () => {
+      grupo.remove();
+      if (capaCandidatos.current === grupo) capaCandidatos.current = null;
+    };
+  }, [candidatos]);
+
   // Sin aria-hidden: Leaflet inyecta controles enfocables adentro, y ocultar del
   // arbol de accesibilidad un subarbol con foco es un error, no una mejora. La
   // informacion de zonas y precios viaja por la leyenda en texto (FR-007), que
   // no depende de este mapa.
-  return <div ref={contenedor} className={className} />;
+  //
+  // `isolate` (isolation: isolate) encierra a Leaflet en su propio contexto de
+  // apilado. Sin eso, el CSS de la libreria declara z-index 400 en .leaflet-pane
+  // y 1000 en .leaflet-top, y esos valores compiten con el resto de la pagina: el
+  // mapa terminaba dibujandose sobre la navbar sticky (z-50) y sobre las listas
+  // de sugerencias del formulario.
+  //
+  // La salida NO es subirle el z-index a la navbar: eso arranca una carrera
+  // contra una libreria que ya usa 1000, y la proxima capa flotante que se
+  // agregue vuelve a perderla. Conteniendo el apilado adentro, los z-index
+  // internos de Leaflet dejan de existir para afuera (FR-022).
+  return <div ref={contenedor} className={`isolate ${className}`} />;
 }

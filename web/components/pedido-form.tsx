@@ -1,10 +1,24 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MapaZonasDinamico } from "./mapa-zonas-dinamico";
 import type { EstadoMosaicos, Punto } from "./mapa-zonas";
+import {
+  BloqueDireccion,
+  ESTADO_DIRECCION_VACIO,
+  type EstadoDireccion,
+} from "./bloque-direccion";
+import { componerDireccion } from "@/lib/direccion";
+import {
+  MARGEN_MINIMO_MINUTOS,
+  MENSAJES_DE_FECHAS,
+  hoy,
+  problemaDeFechas,
+} from "@/lib/fechas";
+import { contiene, regionPermitida } from "@/lib/direcciones";
 import { resolverZona } from "@/lib/zona-lookup";
+import type { Zona } from "@/lib/zonas";
 
 type ClientType = "particular" | "empresa";
 type PackageMode = "predefinido" | "libre";
@@ -15,22 +29,17 @@ type FormState = {
   clientType: ClientType;
   name: string;
   phone: string;
-  calle: string;
-  numero: string;
-  apto: string;
-  esquina: string;
-  cooperativa: boolean;
-  // Donde hay que retirar el paquete. La zona y el precio NO se guardan acá: se
-  // derivan de este punto con resolverZona() en cada render, para que no puedan
-  // quedar desincronizados de la ubicacion. Son plata.
-  ubicacionRetiro: Punto | null;
-  // Domicilio de entrega. No se marca en el mapa, no resuelve zona y no afecta
-  // al precio: el precio depende solo del retiro (FR-024).
-  entregaCalle: string;
-  entregaNumero: string;
-  entregaApto: string;
-  entregaEsquina: string;
-  entregaCooperativa: boolean;
+  // Donde hay que retirar el paquete. La direccion y el punto son lo mismo desde
+  // 003: el punto sale del cruce de calles, no de tocar el mapa.
+  //
+  // La zona y el precio NO se guardan acá: se derivan del punto con
+  // resolverZona() en cada render, para que no puedan quedar desincronizados de
+  // la ubicacion. Son plata.
+  retiro: EstadoDireccion;
+  // Domicilio de entrega. Tiene autocompletado igual que el retiro, pero no
+  // resuelve punto ni afecta al precio: el precio depende solo del retiro
+  // (FR-020). Y el autocompletado no bloquea (FR-007b).
+  entrega: EstadoDireccion;
   packageMode: PackageMode;
   packageSize: PackageSize | "";
   packageDescription: string;
@@ -48,17 +57,8 @@ const INITIAL_STATE: FormState = {
   clientType: "particular",
   name: "",
   phone: "",
-  calle: "",
-  numero: "",
-  apto: "",
-  esquina: "",
-  cooperativa: false,
-  ubicacionRetiro: null,
-  entregaCalle: "",
-  entregaNumero: "",
-  entregaApto: "",
-  entregaEsquina: "",
-  entregaCooperativa: false,
+  retiro: ESTADO_DIRECCION_VACIO,
+  entrega: ESTADO_DIRECCION_VACIO,
   packageMode: "predefinido",
   packageSize: "",
   packageDescription: "",
@@ -108,104 +108,6 @@ function Field({
   );
 }
 
-/**
- * Que claves de FormState usa cada bloque de direccion. Los dos domicilios
- * tienen los mismos campos (FR-023), asi que se renderizan con el mismo
- * componente y lo unico que cambia es a donde escribe.
- */
-type CamposDireccionMap = {
-  calle: "calle" | "entregaCalle";
-  numero: "numero" | "entregaNumero";
-  apto: "apto" | "entregaApto";
-  esquina: "esquina" | "entregaEsquina";
-  cooperativa: "cooperativa" | "entregaCooperativa";
-};
-
-const CAMPOS_RETIRO: CamposDireccionMap = {
-  calle: "calle",
-  numero: "numero",
-  apto: "apto",
-  esquina: "esquina",
-  cooperativa: "cooperativa",
-};
-
-const CAMPOS_ENTREGA: CamposDireccionMap = {
-  calle: "entregaCalle",
-  numero: "entregaNumero",
-  apto: "entregaApto",
-  esquina: "entregaEsquina",
-  cooperativa: "entregaCooperativa",
-};
-
-function CamposDireccion({
-  id,
-  form,
-  errors,
-  update,
-  campos,
-}: {
-  /** Prefijo de los `id`/`htmlFor`, para que los dos bloques no colisionen. */
-  id: string;
-  form: FormState;
-  errors: Record<string, string>;
-  update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
-  campos: CamposDireccionMap;
-}) {
-  const texto = (
-    label: string,
-    campo: "calle" | "numero" | "apto" | "esquina",
-    optional?: boolean,
-  ) => {
-    const clave = campos[campo];
-    return (
-      <Field
-        label={label}
-        htmlFor={`${id}-${campo}`}
-        error={errors[clave]}
-        optional={optional}
-      >
-        <input
-          id={`${id}-${campo}`}
-          className={inputClass}
-          value={form[clave] as string}
-          onChange={(e) => update(clave, e.target.value)}
-        />
-      </Field>
-    );
-  };
-
-  const cooperativa = form[campos.cooperativa] as boolean;
-
-  return (
-    <div className="mt-3 grid gap-4 sm:grid-cols-2">
-      {texto("Calle", "calle")}
-      {texto("Número de puerta", "numero")}
-      {texto("Apto", "apto", true)}
-      {texto("Esquina", "esquina")}
-      <div>
-        <span className={labelClass}>¿Es una cooperativa?</span>
-        <div className="flex gap-3">
-          {([true, false] as const).map((valor) => (
-            <button
-              key={String(valor)}
-              type="button"
-              aria-pressed={cooperativa === valor}
-              onClick={() => update(campos.cooperativa, valor)}
-              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-                cooperativa === valor
-                  ? "border-brand bg-brand/10 text-brand"
-                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {valor ? "Sí" : "No"}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function validate(
   form: FormState,
   estadoMosaicos: EstadoMosaicos,
@@ -221,32 +123,51 @@ function validate(
     errors.phone = "Ingresá un teléfono válido (mínimo 8 dígitos).";
   }
 
-  if (!form.calle.trim()) errors.calle = "Ingresá la calle.";
-  if (!form.numero.trim()) errors.numero = "Ingresá el número de puerta.";
-  if (!form.esquina.trim()) errors.esquina = "Ingresá la esquina.";
+  const retiro = form.retiro;
+  if (!retiro.direccion.calle.trim()) errors.calle = "Elegí la calle.";
+  else if (!retiro.direccion.esquina.trim()) errors.esquina = "Elegí la esquina.";
+  else if (retiro.candidatos.length > 1) {
+    errors.esquina = "Hay más de un cruce con ese nombre: elegí cuál es el tuyo.";
+  } else if (!retiro.esquina) {
+    errors.esquina = "No encontramos ese cruce. Revisá los nombres.";
+  }
+  if (retiro.esquina && !retiro.direccion.numero.trim()) {
+    errors.numero = "Ingresá el número de puerta.";
+  }
 
   // La ubicacion es obligatoria: de ella sale el precio, y el precio es en firme.
-  // Sin punto no hay pedido, y con el mapa caido tampoco — marcar sin calles de
-  // fondo no es base confiable para cobrar.
+  // Sin punto no hay pedido, y con el mapa caido tampoco — no se cobra sobre un
+  // mapa que la persona no pudo ver.
+  const punto = retiro.direccion.punto;
   if (estadoMosaicos === "no-disponible") {
     errors.ubicacionRetiro =
       "No podemos cargar el mapa en este momento, así que no podemos calcular el precio. Escribinos y lo resolvemos.";
-  } else if (!form.ubicacionRetiro) {
-    errors.ubicacionRetiro = "Marcá en el mapa desde dónde retiramos el paquete.";
-  } else if (
-    !resolverZona(form.ubicacionRetiro.lat, form.ubicacionRetiro.lng)
-  ) {
+  } else if (retiro.esquina && !punto) {
+    errors.ubicacionRetiro = "Todavía no pudimos ubicar esa dirección.";
+  } else if (punto && !resolverZona(punto.lat, punto.lng)) {
     errors.ubicacionRetiro =
       "Ese punto queda fuera de nuestra zona de cobertura. Escribinos y vemos cómo ayudarte.";
+  } else if (
+    punto &&
+    retiro.esquina &&
+    !contiene(regionPermitida(retiro.esquina, retiro.cualEsLaCalle), punto)
+  ) {
+    // Guarda barata, no el control principal: el arrastre ya se clampea al
+    // soltar (FR-018). Si esto salta, algo movio el punto por otra via.
+    errors.ubicacionRetiro =
+      "El punto quedó fuera de la cuadra que indicaste. Movelo de nuevo.";
   }
 
-  // El destino se valida solo por completitud. NO se comprueba contra las zonas
-  // de cobertura: se cobra por retiro, asi que una entrega fuera de las cinco
-  // zonas es un pedido valido (FR-024).
-  if (!form.entregaCalle.trim()) errors.entregaCalle = "Ingresá la calle.";
-  if (!form.entregaNumero.trim())
+  // El destino se valida solo por completitud, y contra el texto: NO se exige
+  // que la calle exista en el indice. El indice cubre el area de servicio y una
+  // entrega fuera de ella es un pedido valido (FR-007b), asi que exigirlo
+  // rechazaria entregas reales. Tampoco se comprueba contra las zonas: se cobra
+  // por retiro (FR-020).
+  const entrega = form.entrega.direccion;
+  if (!entrega.calle.trim()) errors.entregaCalle = "Ingresá la calle.";
+  if (!entrega.numero.trim())
     errors.entregaNumero = "Ingresá el número de puerta.";
-  if (!form.entregaEsquina.trim()) errors.entregaEsquina = "Ingresá la esquina.";
+  if (!entrega.esquina.trim()) errors.entregaEsquina = "Ingresá la esquina.";
 
   if (form.packageMode === "predefinido" && !form.packageSize) {
     errors.packageSize = "Elegí un tamaño de paquete.";
@@ -261,6 +182,21 @@ function validate(
   if (!form.deliveryTime) errors.deliveryTime = "Elegí un horario de entrega.";
   if (!form.pickupDate) errors.pickupDate = "Elegí una fecha de retiro.";
   if (!form.pickupTime) errors.pickupTime = "Elegí un horario de retiro.";
+
+  // Coherencia entre las dos fechas (FR-026, FR-027). La logica vive en
+  // lib/fechas.ts para poder probar los bordes — mismo dia, mismo instante,
+  // cambio de mes — sin depender del reloj de quien corra los tests.
+  const problema = problemaDeFechas({
+    fechaRetiro: form.pickupDate,
+    horaRetiro: form.pickupTime,
+    fechaEntrega: form.deliveryDate,
+    horaEntrega: form.deliveryTime,
+  });
+  if (problema === "retiro-en-el-pasado") {
+    errors.pickupDate = MENSAJES_DE_FECHAS[problema];
+  } else if (problema) {
+    errors.deliveryDate = MENSAJES_DE_FECHAS[problema];
+  }
 
   if (!form.recieverName.trim())
     errors.recieverName = "Ingresá el nombre de quien recibe.";
@@ -281,49 +217,74 @@ export function PedidoForm() {
   const [submitted, setSubmitted] = useState<FormState | null>(null);
   const [estadoMosaicos, setEstadoMosaicos] =
     useState<EstadoMosaicos>("cargando");
-  // Solo se setea cuando la posicion llega del GPS, para que el mapa no salte
-  // cada vez que el usuario toca en otro lado.
+  // Se recentra cuando el cruce se resuelve, no en cada cambio del punto: el
+  // mapa no debe saltar mientras la persona arrastra el pin.
   const [centrarEn, setCentrarEn] = useState<Punto | null>(null);
-  const [geoEstado, setGeoEstado] = useState<
-    "inactivo" | "buscando" | "rechazado" | "error"
-  >("inactivo");
+  const [salioDeLaCuadra, setSalioDeLaCuadra] = useState(false);
 
-  function usarMiUbicacion() {
-    if (!navigator.geolocation) {
-      setGeoEstado("error");
-      return;
-    }
-    setGeoEstado("buscando");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        update("ubicacionRetiro", p);
-        setCentrarEn(p);
-        setGeoEstado("inactivo");
-      },
-      (err) => {
-        // Se distingue el rechazo del permiso de la falla tecnica: el mensaje
-        // util es distinto. En los dos casos el marcado manual sigue disponible,
-        // asi que nada se rompe (US3, escenario 2).
-        setGeoEstado(err.code === err.PERMISSION_DENIED ? "rechazado" : "error");
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
-  }
-
-  function quitarUbicacion() {
-    update("ubicacionRetiro", null);
-    setCentrarEn(null);
-    setGeoEstado("inactivo");
-  }
+  const punto = form.retiro.direccion.punto ?? null;
 
   // Derivada, no guardada. Ver el comentario en FormState.
-  const zona = form.ubicacionRetiro
-    ? resolverZona(form.ubicacionRetiro.lat, form.ubicacionRetiro.lng)
+  const zona = punto ? resolverZona(punto.lat, punto.lng) : null;
+
+  const region = form.retiro.esquina
+    ? regionPermitida(form.retiro.esquina, form.retiro.cualEsLaCalle)
     : null;
+
+  // Mover el pin puede cruzar de zona y cambiar el precio. Eso se muestra, pero
+  // no se frena: la persona reacomoda el pin varias veces hasta encontrar su
+  // puerta, y un dialogo de confirmacion en cada cruce de zona pelea con el
+  // Principio IV (FR-017). El punto de confirmacion es el resumen previo al
+  // envio (FR-017a).
+  const zonaPrevia = useRef<Zona | null>(null);
+  const [cambioDeZona, setCambioDeZona] = useState<{
+    antes: Zona;
+    ahora: Zona;
+  } | null>(null);
+
+  useEffect(() => {
+    const anterior = zonaPrevia.current;
+    if (anterior && zona && anterior.id !== zona.id) {
+      setCambioDeZona({ antes: anterior, ahora: zona });
+    }
+    zonaPrevia.current = zona;
+  }, [zona]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  /**
+   * Revisa la coherencia de fechas al salir de un campo, en vez de esperar al
+   * envio (FR-030). Enterarse al final obliga a volver a subir por todo el
+   * formulario, que en un telefono es varias pantallas.
+   *
+   * Solo toca los errores de coherencia: si habia un "Elegí una fecha" de un
+   * intento de envio anterior, se respeta. Por eso el borrado se hace
+   * comparando contra los mensajes conocidos y no vaciando la clave.
+   */
+  function revisarFechas() {
+    const problema = problemaDeFechas({
+      fechaRetiro: form.pickupDate,
+      horaRetiro: form.pickupTime,
+      fechaEntrega: form.deliveryDate,
+      horaEntrega: form.deliveryTime,
+    });
+    const deCoherencia = (mensaje?: string) =>
+      Boolean(mensaje) &&
+      Object.values(MENSAJES_DE_FECHAS).includes(mensaje as string);
+
+    setErrors((prev) => {
+      const siguiente = { ...prev };
+      if (deCoherencia(siguiente.pickupDate)) delete siguiente.pickupDate;
+      if (deCoherencia(siguiente.deliveryDate)) delete siguiente.deliveryDate;
+      if (problema === "retiro-en-el-pasado") {
+        siguiente.pickupDate = MENSAJES_DE_FECHAS[problema];
+      } else if (problema) {
+        siguiente.deliveryDate = MENSAJES_DE_FECHAS[problema];
+      }
+      return siguiente;
+    });
   }
 
   function handleSubmit(e: FormEvent) {
@@ -397,79 +358,97 @@ export function PedidoForm() {
           ¿De dónde retiramos el paquete?
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Marcá el punto en el mapa: de ahí sale la zona y el precio del envío.
+          Escribí la calle y la esquina: con eso ubicamos el punto y de ahí sale
+          la zona y el precio del envío.
         </p>
 
-        {estadoMosaicos !== "no-disponible" && (
-          <div className="mt-3">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={usarMiUbicacion}
-                disabled={geoEstado === "buscando"}
-                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
-              >
-                {geoEstado === "buscando"
-                  ? "Buscando tu ubicación…"
-                  : form.ubicacionRetiro
-                    ? "Volver a mi ubicación"
-                    : "Usar mi ubicación"}
-              </button>
-              {form.ubicacionRetiro && (
-                <button
-                  type="button"
-                  onClick={quitarUbicacion}
-                  className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50"
-                >
-                  Quitar ubicación
-                </button>
-              )}
+        <BloqueDireccion
+          id="retiro"
+          valor={form.retiro}
+          errors={errors}
+          onCambio={(estado) => {
+            update("retiro", estado);
+            setSalioDeLaCuadra(false);
+            // Solo se recentra al resolverse un cruce nuevo, no al arrastrar.
+            if (estado.esquina && estado.esquina !== form.retiro.esquina) {
+              setCentrarEn(estado.esquina.punto);
+            }
+          }}
+        />
+
+        {/*
+          El mapa va DEBAJO de los campos y no arriba (FR-010b): los campos son
+          lo primero de la pantalla, y el mapa es la respuesta a lo que la
+          persona escribio. Mientras no hay cruce resuelto se reserva el espacio
+          en vez de dejar el mapa vacio (FR-010a): asi no salta el layout al
+          aparecer, y nadie intenta tocar un mapa que ya no coloca el punto.
+        */}
+        <div className="mt-4">
+          {form.retiro.esquina || form.retiro.candidatos.length > 1 ? (
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <MapaZonasDinamico
+                interactivo={Boolean(form.retiro.esquina)}
+                punto={punto}
+                onPunto={(p) =>
+                  update("retiro", {
+                    ...form.retiro,
+                    direccion: { ...form.retiro.direccion, punto: p },
+                  })
+                }
+                region={region}
+                onFueraDeRegion={() => setSalioDeLaCuadra(true)}
+                candidatos={
+                  form.retiro.candidatos.length > 1
+                    ? form.retiro.candidatos.map((c) => c.punto)
+                    : undefined
+                }
+                centrarEn={centrarEn}
+                onEstadoMosaicos={setEstadoMosaicos}
+                className="h-[340px] w-full sm:h-[420px]"
+              />
             </div>
-            {geoEstado === "rechazado" && (
-              <p className="mt-2 text-xs text-slate-500">
-                No nos diste permiso para acceder a tu ubicación. No hay
-                problema: marcá el punto en el mapa a mano.
-              </p>
-            )}
-            {geoEstado === "error" && (
-              <p className="mt-2 text-xs text-slate-500">
-                No pudimos obtener tu ubicación. Marcá el punto en el mapa a
-                mano.
-              </p>
-            )}
-          </div>
+          ) : (
+            <div className="flex h-[340px] w-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 text-center text-sm text-slate-500 sm:h-[420px]">
+              Cuando elijas la calle y la esquina, acá te mostramos el punto en
+              el mapa y el precio.
+            </div>
+          )}
+        </div>
+
+        {form.retiro.esquina && (
+          <p className="mt-2 text-xs text-slate-500">
+            Podés arrastrar el punto dentro de la cuadra sombreada para dejarlo
+            en tu puerta.
+          </p>
         )}
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-          <MapaZonasDinamico
-            interactivo
-            punto={form.ubicacionRetiro}
-            onPunto={(p) => update("ubicacionRetiro", p)}
-            centrarEn={centrarEn}
-            onEstadoMosaicos={setEstadoMosaicos}
-            className="h-[340px] w-full sm:h-[420px]"
-          />
-        </div>
+        {salioDeLaCuadra && (
+          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Lo trajimos de vuelta: el punto solo puede moverse dentro de las
+            cuadras de {form.retiro.direccion.calle} que tocan la esquina que
+            elegiste. Si tu puerta está más lejos, revisá la esquina.
+          </p>
+        )}
+
+        {cambioDeZona && (
+          <p
+            role="status"
+            className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-950"
+          >
+            Al mover el punto cambiaste de {cambioDeZona.antes.nombre} a{" "}
+            {cambioDeZona.ahora.nombre}: el envío pasa de $&nbsp;
+            {cambioDeZona.antes.precio} a $&nbsp;{cambioDeZona.ahora.precio}.
+          </p>
+        )}
 
         <ResultadoZona
           estadoMosaicos={estadoMosaicos}
-          punto={form.ubicacionRetiro}
+          punto={punto}
           zona={zona}
         />
         {errors.ubicacionRetiro && (
           <p className={errorClass}>{errors.ubicacionRetiro}</p>
         )}
-
-        <h3 className="mt-6 text-sm font-semibold text-slate-900">
-          Dirección de retiro
-        </h3>
-        <CamposDireccion
-          id="retiro"
-          form={form}
-          errors={errors}
-          update={update}
-          campos={CAMPOS_RETIRO}
-        />
       </section>
 
       <section className={sectionClass}>
@@ -477,15 +456,18 @@ export function PedidoForm() {
           ¿A dónde lo llevamos?
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          El domicilio de entrega. No cambia el precio: el envío se cobra según
-          la zona desde la que retiramos.
+          El lugar de entrega.
         </p>
-        <CamposDireccion
+        <BloqueDireccion
           id="entrega"
-          form={form}
-          errors={errors}
-          update={update}
-          campos={CAMPOS_ENTREGA}
+          modo="entrega"
+          valor={form.entrega}
+          onCambio={(estado) => update("entrega", estado)}
+          errors={{
+            calle: errors.entregaCalle,
+            esquina: errors.entregaEsquina,
+            numero: errors.entregaNumero,
+          }}
         />
       </section>
 
@@ -573,14 +555,20 @@ export function PedidoForm() {
         <h2 className="text-base font-semibold text-slate-900">
           Fechas y forma de pago
         </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Necesitamos al menos {MARGEN_MINIMO_MINUTOS / 60} horas entre el
+          retiro y la entrega.
+        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Fecha de retiro" htmlFor="pickupDate" error={errors.pickupDate}>
             <input
               id="pickupDate"
               type="date"
               className={inputClass}
+              min={hoy()}
               value={form.pickupDate}
               onChange={(e) => update("pickupDate", e.target.value)}
+              onBlur={revisarFechas}
             />
           </Field>
           <Field label="Horario de retiro" htmlFor="pickupTime" error={errors.pickupTime}>
@@ -590,6 +578,7 @@ export function PedidoForm() {
               className={inputClass}
               value={form.pickupTime}
               onChange={(e) => update("pickupTime", e.target.value)}
+              onBlur={revisarFechas}
             />
           </Field>
           <Field label="Fecha de entrega" htmlFor="deliveryDate" error={errors.deliveryDate}>
@@ -597,8 +586,10 @@ export function PedidoForm() {
               id="deliveryDate"
               type="date"
               className={inputClass}
+              min={form.pickupDate || hoy()}
               value={form.deliveryDate}
               onChange={(e) => update("deliveryDate", e.target.value)}
+              onBlur={revisarFechas}
             />
           </Field>
           <Field label="Horario de entrega" htmlFor="deliveryTime" error={errors.deliveryTime}>
@@ -608,6 +599,7 @@ export function PedidoForm() {
               className={inputClass}
               value={form.deliveryTime}
               onChange={(e) => update("deliveryTime", e.target.value)}
+              onBlur={revisarFechas}
             />
           </Field>
           <Field
@@ -676,47 +668,19 @@ function Confirmation({
   form: FormState;
   onReset: () => void;
 }) {
-  const componerDireccion = (
-    calle: string,
-    numero: string,
-    apto: string,
-    esquina: string,
-    cooperativa: boolean,
-  ) =>
-    [
-      `${calle} ${numero}`,
-      apto && `apto ${apto}`,
-      esquina && `esq. ${esquina}`,
-      cooperativa && "cooperativa",
-    ]
-      .filter(Boolean)
-      .join(", ");
-
-  const direccionRetiro = componerDireccion(
-    form.calle,
-    form.numero,
-    form.apto,
-    form.esquina,
-    form.cooperativa,
-  );
-  const direccionEntrega = componerDireccion(
-    form.entregaCalle,
-    form.entregaNumero,
-    form.entregaApto,
-    form.entregaEsquina,
-    form.entregaCooperativa,
-  );
+  const direccionRetiro = componerDireccion(form.retiro.direccion);
+  const direccionEntrega = componerDireccion(form.entrega.direccion);
 
   const paquete =
     form.packageMode === "predefinido"
       ? `Tamaño ${form.packageSize}`
       : form.packageDescription;
 
+  const punto = form.retiro.direccion.punto ?? null;
+
   // Se recalcula desde el punto en vez de arrastrarse en el estado: el punto es
   // la unica fuente de verdad del precio.
-  const zona = form.ubicacionRetiro
-    ? resolverZona(form.ubicacionRetiro.lat, form.ubicacionRetiro.lng)
-    : null;
+  const zona = punto ? resolverZona(punto.lat, punto.lng) : null;
 
   return (
     <div className={`${sectionClass} flex flex-col items-start gap-6`}>

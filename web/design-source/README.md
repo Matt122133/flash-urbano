@@ -49,6 +49,61 @@ No se toca código. Se corrige el trazado en Google My Maps, se reexporta el KML
 sobre `zonas-flash-urbano.kml`, se regenera `lib/zonas.ts` y se corre
 `npm test` — hay un test que verifica que todos los anillos cierren.
 
+## Calles y esquinas de Montevideo
+
+`web/public/calles-mvd.json` es el índice que le permite al formulario resolver
+una dirección a partir de calle y esquina. Es **dato generado, no se edita a
+mano**.
+
+### De dónde salió el dato
+
+La fuente son los **ejes viales que la Facultad entregó como material del curso
+de TSIG** (Tecnólogo en Informática). El dueño de este repo cursó esa materia y
+es coautor del trabajo donde se usó esa capa; autorizó su uso acá.
+
+La capa original es una tabla de PostGIS con tres columnas —identificador,
+nombre y geometría de línea en EPSG:4326— y cubre todo el país. **No tiene
+numeración domiciliaria**: por eso el formulario ubica por cruce de calles y el
+número de puerta es sólo informativo para el repartidor.
+
+Los archivos `.sql` de origen pesan unos 65 MB y **no se versionan acá**: lo que
+se commitea es el índice ya recortado y procesado. Quien necesite regenerarlo
+tiene que conseguir esos archivos aparte. Es un paso manual y poco frecuente,
+igual que reexportar el KML de zonas.
+
+### Regenerar `web/public/calles-mvd.json`
+
+```bash
+cd web
+node design-source/build-calles.js \
+  <carpeta-con-los-sql> \
+  public/calles-mvd.json
+```
+
+El script recorta al área de servicio, descarta los tramos sin nombre y los
+rotulados con nombres genéricos de clasificación vial, calcula las
+intersecciones geométricas reales entre ejes, colapsa las calzadas dobles y
+resuelve las esquinas contiguas de cada calle.
+
+Al terminar imprime cuántas calles y esquinas emitió y cuánto pesa el índice
+crudo y comprimido. **Hay que mirarlo**: el techo comprimido es 1 MB, y las
+referencias conocidas son ~5.746 calles y ~20.884 esquinas. Si los números se
+apartan mucho, algo cambió en el dato de origen o en las reglas.
+
+### Dos cosas que el script NO hace, a propósito
+
+**No fusiona geometría por nombre canónico.** `Avenida José Pedro Varela` y
+`José Pedro Varela` se encuentran juntas al *buscar*, pero sus geometrías no se
+unen: al hacerlo, "josé pedro varela" pasaba a medir 15,6 km porque juntaba
+calles homónimas de barrios distintos. Eso fabricaría esquinas entre calles que
+nunca se tocan, y una esquina inventada es un precio inventado.
+
+**No agrupa extremos compartidos en vez de intersectar.** Es mucho más barato,
+pero la red no viene cortada en todos los cruces: el atajo pierde alrededor del 80% de las esquinas.
+
+El detalle de ambas mediciones está en
+[`specs/003-direccion-por-esquina/research.md`](../../specs/003-direccion-por-esquina/research.md).
+
 ## `logo-flash-urbano.png`
 
 Versión con fondo transparente del logo, para usarlo sobre la sección azul del

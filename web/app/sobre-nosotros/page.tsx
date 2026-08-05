@@ -18,8 +18,7 @@ export default function SobreNosotrosPage() {
         Sobre nosotros
       </h1>
       <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
-        Flash Urbano es un servicio de paquetería y logística de retiro y
-        entrega dentro de la ciudad — sin local físico, solo retiro y envío.
+        Flash Urbano es un servicio de paquetería y logística de entrega dentro de la ciudad — sin local físico, solo envío.
       </p>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
