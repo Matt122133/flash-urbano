@@ -62,7 +62,7 @@ export default function Home() {
 
           <div>
             <h1 className="max-w-xl text-2xl font-bold leading-tight tracking-tight sm:text-4xl">
-              Enviá y retirá paquetes de forma rápida, simple y segura
+              Enviá y recibí paquetes de forma rápida, simple y segura
             </h1>
 
             <p className="mt-3 max-w-xl text-sm text-blue-100 sm:text-base">
