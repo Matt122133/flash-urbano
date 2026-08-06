@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ZONAS } from "./zonas";
-import { resolverZona } from "./zona-lookup";
+import { ZONAS, type Zona, type ZonaId } from "./zonas";
+import { resolverZona, resolverZonaEntre } from "./zona-lookup";
 
-// Estos son los unicos tests del repo, y estan aca por un motivo concreto: esta
-// funcion decide cuanto se le cobra a una persona. Un borde mal resuelto no se
-// ve mirando la pantalla, se ve en la factura.
+// Estos tests estan aca por un motivo concreto: esta funcion decide cuanto se le
+// cobra a una persona. Un borde mal resuelto no se ve mirando la pantalla, se ve
+// en la factura.
 //
 // Los puntos interiores se verificaron contra los poligonos generados antes de
 // escribirlos; no son estimaciones a ojo.
@@ -37,19 +37,115 @@ describe("resolverZona", () => {
   it("nunca devuelve la zona mas cercana: fuera es null, no un precio", () => {
     // Justo al este del limite de Zona 5, todavia dentro del bounding box
     // general. Si algun dia alguien mete un fallback "la mas cercana", esto lo
-    // agarra: la respuesta correcta es que no hay cobertura (FR-012).
+    // agarra: la respuesta correcta es que no hay cobertura (FR-023).
     expect(resolverZona(-34.83, -55.7)).toBeNull();
   });
+});
 
-  // FR-018. Sobre un borde compartido no hay respuesta correcta —las dos zonas
-  // lo reclaman— asi que lo unico exigible es que sea SIEMPRE la misma. El punto
-  // de abajo es un vertice que comparten las zonas 1, 2 y 3.
-  it("resuelve un borde compartido de forma determinista", () => {
-    const lat = -34.8708445;
-    const lng = -56.2417988;
-    const primera = resolverZona(lat, lng);
+// FR-020, FR-021, FR-022. Sobre un borde compartido hay dos zonas que reclaman
+// el punto, y cual cobra lo contesto el cliente el 2026-08-06: la mas barata.
+//
+// Contra las cinco zonas reales esta regla NO se puede verificar, y esa es
+// justamente la razon de ser de este bloque: `ZONAS` viene ordenada por id y sus
+// precios resultan crecientes (150, 200, 250, 250, 350), asi que "la primera que
+// contenga" y "la mas barata que contenga" dan el mismo resultado. Cualquiera de
+// las dos implementaciones pasaria. Por eso los casos de abajo corren contra
+// poligonos sinteticos, con el caro deliberadamente primero en la lista.
+describe("resolverZonaEntre — la mas barata gana", () => {
+  const cuadrado = (
+    id: ZonaId,
+    precio: number,
+    [latMin, latMax]: [number, number],
+    [lngMin, lngMax]: [number, number],
+  ): Zona => ({
+    id,
+    nombre: `Sintetica ${id}`,
+    precio,
+    color: "#000000",
+    anillo: [
+      [latMin, lngMin],
+      [latMin, lngMax],
+      [latMax, lngMax],
+      [latMax, lngMin],
+      [latMin, lngMin],
+    ],
+  });
+
+  // Dos cuadrados que se pisan entre lat -34.85..-34.80 y lng -56.25..-56.20.
+  const caro = cuadrado(2, 350, [-34.9, -34.8], [-56.3, -56.2]);
+  const barato = cuadrado(5, 150, [-34.85, -34.75], [-56.25, -56.15]);
+  // Adentro de los dos.
+  const LAT = -34.83;
+  const LNG = -56.22;
+
+  it("con el caro primero en la lista, igual gana el barato", () => {
+    // El caso que importa. Si esto pasa con la implementacion vieja ("la primera
+    // que contenga"), esta mal escrito.
+    expect(resolverZonaEntre([caro, barato], LAT, LNG)?.id).toBe(5);
+    expect(resolverZonaEntre([caro, barato], LAT, LNG)?.precio).toBe(150);
+  });
+
+  it("el resultado no depende del orden de la lista", () => {
+    expect(resolverZonaEntre([barato, caro], LAT, LNG)?.id).toBe(5);
+  });
+
+  it("con precios empatados gana el id mas bajo, y es estable", () => {
+    const alto = cuadrado(4, 250, [-34.9, -34.8], [-56.3, -56.2]);
+    const bajo = cuadrado(3, 250, [-34.85, -34.75], [-56.25, -56.15]);
+    // El de id mayor va primero: si ganara por posicion, daria 4.
     for (let i = 0; i < 20; i++) {
-      expect(resolverZona(lat, lng)?.id).toBe(primera?.id);
+      expect(resolverZonaEntre([alto, bajo], LAT, LNG)?.id).toBe(3);
+    }
+  });
+
+  it("con una sola zona que contiene el punto, devuelve esa aunque sea la cara", () => {
+    // Fuera del cuadrado barato, adentro del caro.
+    expect(resolverZonaEntre([caro, barato], -34.88, -56.28)?.id).toBe(2);
+  });
+
+  it("sin ninguna zona que contenga el punto, devuelve null", () => {
+    expect(resolverZonaEntre([caro, barato], -34.5, -56.0)).toBeNull();
+  });
+
+  it("con la lista vacia devuelve null y no explota", () => {
+    expect(resolverZonaEntre([], LAT, LNG)).toBeNull();
+  });
+});
+
+describe("resolverZona sobre un borde real", () => {
+  // Un vertice que reclaman de verdad dos zonas reales (1 y 2). Se encontro
+  // barriendo los anillos y una grilla de ~50 m sobre toda el area de servicio:
+  // de 551.601 puntos, solo 16 tienen dos reclamantes, mas 10 vertices y 26
+  // puntos medios de lado. El ray casting usa desigualdad estricta y eso manda
+  // casi todo el borde a una sola zona, asi que el punto NO se puede elegir a
+  // ojo — el que estaba antes aca lo reclamaba una sola zona, y el test decia
+  // estar probando un borde compartido sin estarlo.
+  //
+  // El valor esperado no se escribe a mano: se deriva de ZONAS, para que el test
+  // siga siendo correcto si el cliente repricea una zona. Lo que se afirma es la
+  // REGLA, no el numero.
+  const LAT = -34.838349;
+  const LNG = -56.1386762;
+
+  const reclaman = ZONAS.filter(
+    (z) => resolverZonaEntre([z], LAT, LNG) !== null,
+  );
+
+  it("el punto elegido es realmente un borde compartido", () => {
+    // Si esto falla, el test de abajo dejo de probar lo que dice probar y hay
+    // que buscar otro punto — no relajar la afirmacion.
+    expect(reclaman.length).toBeGreaterThan(1);
+  });
+
+  it("paga la mas barata de las zonas que lo reclaman", () => {
+    const masBarata = Math.min(...reclaman.map((z) => z.precio));
+    expect(resolverZona(LAT, LNG)?.precio).toBe(masBarata);
+  });
+
+  it("y lo hace de forma estable", () => {
+    const primera = resolverZona(LAT, LNG);
+    for (let i = 0; i < 20; i++) {
+      expect(resolverZona(LAT, LNG)?.id).toBe(primera?.id);
     }
   });
 });
@@ -64,7 +160,7 @@ describe("ZONAS (dato generado)", () => {
   });
 
   it("tiene los nombres normalizados, sin espacios duros ni repetidos", () => {
-    // El KML entrega "Zona  4"; si la normalizacion se rompe, esto lo agarra.
+    // El KML entrega "Zona  4"; si la normalizacion se rompe, esto lo agarra.
     expect(ZONAS.map((z) => z.nombre)).toEqual([
       "Zona 1",
       "Zona 2",

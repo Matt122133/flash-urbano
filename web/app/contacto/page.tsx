@@ -4,8 +4,17 @@ export const metadata: Metadata = {
   title: "Contacto — Flash Urbano",
 };
 
-// TODO: reemplazar por el número de WhatsApp y el email reales de la empresa.
-const WHATSAPP_NUMBER = "59899000000";
+// El único lugar del sitio donde vive el número (FR-019). El formulario de
+// pedido enlaza a esta página en vez de repetirlo, para no tener que acordarse
+// de dos lugares el día que cambie.
+//
+// La empresa tiene un segundo número (091 060 320) que no se publica: el enlace
+// tiene que abrir la conversación directamente, y ofrecer dos le traslada a
+// quien escribe una decisión que le da lo mismo.
+const WHATSAPP_VISIBLE = "092 171 791";
+// Formato internacional para wa.me: sin +, sin espacios, y sin el cero de la
+// marcación nacional. 598 + 92171791.
+const WHATSAPP_NUMBER = "59892171791";
 const EMAIL = "flashurbanomvd@gmail.com";
 
 export default function ContactoPage() {
@@ -42,6 +51,7 @@ export default function ContactoPage() {
           </span>
           <div>
             <h2 className="text-base font-semibold text-slate-900">WhatsApp</h2>
+            <p className="mt-1 text-sm text-slate-600">{WHATSAPP_VISIBLE}</p>
             <p className="mt-1 text-sm text-slate-600">
               La forma más rápida de coordinar tu envío.
             </p>

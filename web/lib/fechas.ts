@@ -1,49 +1,26 @@
 /**
- * Coherencia entre las fechas de retiro y de entrega.
+ * La fecha de retiro.
  *
- * Vive en `lib/` y no adentro del formulario para poder probarlo: son cuatro
- * campos sueltos (`<input type="date">` y `<input type="time">`) y los errores
- * que importan estan todos en los bordes — mismo dia con distinta hora, mismo
- * instante exacto, cambio de mes. Eso se verifica con tests, no mirando la
- * pantalla.
+ * Vive en `lib/` y no adentro del formulario para poder probarlo: los errores
+ * que importan estan en los bordes —cambio de mes, cambio de anio, el dia de
+ * hoy— y eso se verifica con tests, no mirando la pantalla.
  *
  * Todo aca es puro: recibe strings y devuelve un veredicto. Sin `Date.now()`
  * escondido — el "hoy" entra por parametro, porque si no el test tendria que
  * viajar en el tiempo para correr dos veces igual.
+ *
+ * **Antes este modulo comparaba retiro contra entrega**: margen minimo de dos
+ * horas, entrega no anterior al retiro, cruce de medianoche. Todo eso se fue en
+ * `004`, cuando el cliente reemplazo la ventana de entrega elegida por quien
+ * pide por un compromiso fijo de 24 horas desde el retiro. Ya no hay dos
+ * momentos que comparar, asi que no hay coherencia que validar: queda una sola
+ * regla, y por eso queda una sola funcion.
  */
 
 /** `YYYY-MM-DD`, tal como lo entrega un `<input type="date">`. */
 export type Fecha = string;
 /** `HH:MM`, tal como lo entrega un `<input type="time">`. */
 export type Hora = string;
-
-export type ProblemaDeFechas =
-  | "retiro-en-el-pasado"
-  | "entrega-antes-del-retiro"
-  | "margen-insuficiente";
-
-/**
- * Cuanto tiene que haber, como minimo, entre retiro y entrega.
- *
- * No sale de ninguna restriccion tecnica: es cuanto tarda una persona en
- * cruzar Montevideo con un paquete. Aceptar un minuto de diferencia era
- * aceptar un pedido imposible de cumplir.
- */
-export const MARGEN_MINIMO_MINUTOS = 120;
-
-/**
- * Fecha y hora llevadas a minutos, para poder restarlas.
- *
- * Se arma con `Date.UTC` y no con `new Date(...)` local: aca no se quiere
- * ninguna zona horaria, solo aritmetica. Estas fechas son locales de Montevideo
- * por definicion, y lo unico que se hace con ellas es medir cuanto hay entre
- * una y otra.
- */
-function enMinutos(fecha: Fecha, hora: Hora): number {
-  const [a, m, d] = fecha.split("-").map(Number);
-  const [h, min] = (hora || "00:00").split(":").map(Number);
-  return Date.UTC(a, m - 1, d, h, min) / 60000;
-}
 
 /** El dia de hoy en formato `YYYY-MM-DD`, en la zona horaria del navegador. */
 export function hoy(ahora: Date = new Date()): Fecha {
@@ -56,48 +33,37 @@ export function hoy(ahora: Date = new Date()): Fecha {
 }
 
 /**
- * Que tiene de malo esta combinacion de fechas, o `null` si esta bien.
+ * Si la fecha de retiro cayo en un dia que ya termino.
  *
- * Sólo mira coherencia: que los campos esten completos lo valida el formulario
- * aparte, y con campos incompletos esta funcion no opina.
+ * Se compara **por dia y no por instante**, y es deliberado: alguien cargando un
+ * pedido a las 9 para retirar "hoy a las 8" es un caso raro, y rechazarlo por
+ * minutos molestaria mas de lo que ayuda. Lo que no puede pasar es un dia que ya
+ * paso.
+ *
+ * La comparacion es de strings y funciona porque `YYYY-MM-DD` ordena
+ * lexicograficamente igual que cronologicamente — con el relleno de ceros que
+ * garantiza `hoy()`.
+ *
+ * Con la fecha vacia no opina: que el campo este completo lo valida el
+ * formulario aparte.
  */
-export function problemaDeFechas(
-  {
-    fechaRetiro,
-    horaRetiro,
-    fechaEntrega,
-    horaEntrega,
-  }: {
-    fechaRetiro: Fecha;
-    horaRetiro: Hora;
-    fechaEntrega: Fecha;
-    horaEntrega: Hora;
-  },
+export function retiroEnElPasado(
+  fechaRetiro: Fecha,
   diaDeHoy: Fecha = hoy(),
-): ProblemaDeFechas | null {
-  if (!fechaRetiro || !fechaEntrega) return null;
-
-  // El retiro se compara por dia y no por instante: alguien cargando un pedido
-  // a las 9 para retirar "hoy a las 8" es un caso raro, y rechazarlo por
-  // minutos molestaria mas de lo que ayuda. Lo que no puede pasar es un dia que
-  // ya termino.
-  if (fechaRetiro < diaDeHoy) return "retiro-en-el-pasado";
-
-  if (!horaRetiro || !horaEntrega) {
-    // Sin horas, alcanza con comparar los dias.
-    if (fechaEntrega < fechaRetiro) return "entrega-antes-del-retiro";
-    return null;
-  }
-
-  const margen = enMinutos(fechaEntrega, horaEntrega) - enMinutos(fechaRetiro, horaRetiro);
-  if (margen < 0) return "entrega-antes-del-retiro";
-  if (margen < MARGEN_MINIMO_MINUTOS) return "margen-insuficiente";
-  return null;
+): boolean {
+  if (!fechaRetiro) return false;
+  return fechaRetiro < diaDeHoy;
 }
 
-export const MENSAJES_DE_FECHAS: Record<ProblemaDeFechas, string> = {
-  "retiro-en-el-pasado": "Esa fecha ya pasó. Elegí hoy o un día posterior.",
-  "entrega-antes-del-retiro":
-    "La entrega no puede ser antes del retiro: primero pasamos a buscar el paquete.",
-  "margen-insuficiente": `Necesitamos al menos ${MARGEN_MINIMO_MINUTOS / 60} horas entre el retiro y la entrega.`,
-};
+export const MENSAJE_RETIRO_EN_EL_PASADO =
+  "Esa fecha ya pasó. Elegí hoy o un día posterior.";
+
+/**
+ * Cuanto tarda la entrega desde el retiro, tal como se le comunica a quien pide.
+ *
+ * Es **texto fijo y no un momento calculado** (FR-009a de `004`): el cliente
+ * pidio un aviso, no una fecha de entrega. Calcular un instante concreto
+ * reintroduce por la ventana el compromiso con horario que este cambio saca por
+ * la puerta, y le pone minutero a una promesa que se cumple a mano.
+ */
+export const PLAZO_DE_ENTREGA = "Entregamos dentro de las 24 horas del retiro.";
