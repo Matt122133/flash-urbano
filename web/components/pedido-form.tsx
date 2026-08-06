@@ -11,22 +11,18 @@ import {
 } from "./bloque-direccion";
 import { componerDireccion } from "@/lib/direccion";
 import {
-  MARGEN_MINIMO_MINUTOS,
-  MENSAJES_DE_FECHAS,
+  MENSAJE_RETIRO_EN_EL_PASADO,
+  PLAZO_DE_ENTREGA,
   hoy,
-  problemaDeFechas,
+  retiroEnElPasado,
 } from "@/lib/fechas";
 import { contiene, regionPermitida } from "@/lib/direcciones";
 import { resolverZona } from "@/lib/zona-lookup";
 import type { Zona } from "@/lib/zonas";
 
-type ClientType = "particular" | "empresa";
-type PackageMode = "predefinido" | "libre";
 type PackageSize = "chico" | "mediano" | "grande";
-type PaymentMethod = "efectivo" | "transferencia";
 
 type FormState = {
-  clientType: ClientType;
   name: string;
   phone: string;
   // Donde hay que retirar el paquete. La direccion y el punto son lo mismo desde
@@ -40,35 +36,31 @@ type FormState = {
   // resuelve punto ni afecta al precio: el precio depende solo del retiro
   // (FR-020). Y el autocompletado no bloquea (FR-007b).
   entrega: EstadoDireccion;
-  packageMode: PackageMode;
+  // Única forma de declarar qué se envía. La descripción libre se quitó en
+  // `004`: el cliente ya la había marcado como no necesaria en el relevamiento
+  // original, y se implementó igual en `001`.
   packageSize: PackageSize | "";
-  packageDescription: string;
-  paymentMethod: PaymentMethod | "";
-  deliveryDate: string;
-  deliveryTime: string;
+  // Cuando pasamos a buscar el paquete. No hay contraparte de entrega: desde
+  // `004` la entrega no se agenda, se promete — PLAZO_DE_ENTREGA, fijo para todo
+  // pedido.
   pickupDate: string;
   pickupTime: string;
-  recieverName: string;
-  recieverCI: string;
+  // Para coordinar la entrega con quien recibe. El nombre y la cedula ya no se
+  // piden acá: los carga el administrador desde la app Android al entregar, que
+  // es el momento en que se sabe quién recibió de verdad.
+  receiverPhone: string;
   quantity: string;
 };
 
 const INITIAL_STATE: FormState = {
-  clientType: "particular",
   name: "",
   phone: "",
   retiro: ESTADO_DIRECCION_VACIO,
   entrega: ESTADO_DIRECCION_VACIO,
-  packageMode: "predefinido",
   packageSize: "",
-  packageDescription: "",
-  paymentMethod: "",
-  deliveryDate: "",
-  deliveryTime: "",
   pickupDate: "",
   pickupTime: "",
-  recieverName: "",
-  recieverCI: "",
+  receiverPhone: "",
   quantity: "1",
 };
 
@@ -108,6 +100,21 @@ function Field({
   );
 }
 
+/**
+ * Qué tiene de malo un teléfono, o `null` si está bien.
+ *
+ * Una sola función para el de quien envía y el de quien recibe: FR-013 pide que
+ * se validen igual, y dos copias de la misma regla es la forma más segura de
+ * que dejen de validar igual.
+ */
+function problemaTelefono(valor: string): string | null {
+  if (!valor.trim()) return "Ingresá un teléfono.";
+  if (valor.replace(/[^0-9]/g, "").length < 8) {
+    return "Ingresá un teléfono válido (mínimo 8 dígitos).";
+  }
+  return null;
+}
+
 function validate(
   form: FormState,
   estadoMosaicos: EstadoMosaicos,
@@ -116,12 +123,8 @@ function validate(
 
   if (!form.name.trim()) errors.name = "Ingresá un nombre.";
 
-  const phoneDigits = form.phone.replace(/[^0-9]/g, "");
-  if (!form.phone.trim()) {
-    errors.phone = "Ingresá un teléfono.";
-  } else if (phoneDigits.length < 8) {
-    errors.phone = "Ingresá un teléfono válido (mínimo 8 dígitos).";
-  }
+  const problemaDeTelefono = problemaTelefono(form.phone);
+  if (problemaDeTelefono) errors.phone = problemaDeTelefono;
 
   const retiro = form.retiro;
   if (!retiro.direccion.calle.trim()) errors.calle = "Elegí la calle.";
@@ -169,39 +172,24 @@ function validate(
     errors.entregaNumero = "Ingresá el número de puerta.";
   if (!entrega.esquina.trim()) errors.entregaEsquina = "Ingresá la esquina.";
 
-  if (form.packageMode === "predefinido" && !form.packageSize) {
-    errors.packageSize = "Elegí un tamaño de paquete.";
-  }
-  if (form.packageMode === "libre" && !form.packageDescription.trim()) {
-    errors.packageDescription = "Contanos qué es el paquete.";
-  }
+  if (!form.packageSize) errors.packageSize = "Elegí un tamaño de paquete.";
 
-  if (!form.paymentMethod) errors.paymentMethod = "Elegí una forma de pago.";
-
-  if (!form.deliveryDate) errors.deliveryDate = "Elegí una fecha de entrega.";
-  if (!form.deliveryTime) errors.deliveryTime = "Elegí un horario de entrega.";
   if (!form.pickupDate) errors.pickupDate = "Elegí una fecha de retiro.";
   if (!form.pickupTime) errors.pickupTime = "Elegí un horario de retiro.";
 
-  // Coherencia entre las dos fechas (FR-026, FR-027). La logica vive en
-  // lib/fechas.ts para poder probar los bordes — mismo dia, mismo instante,
-  // cambio de mes — sin depender del reloj de quien corra los tests.
-  const problema = problemaDeFechas({
-    fechaRetiro: form.pickupDate,
-    horaRetiro: form.pickupTime,
-    fechaEntrega: form.deliveryDate,
-    horaEntrega: form.deliveryTime,
-  });
-  if (problema === "retiro-en-el-pasado") {
-    errors.pickupDate = MENSAJES_DE_FECHAS[problema];
-  } else if (problema) {
-    errors.deliveryDate = MENSAJES_DE_FECHAS[problema];
+  // Ya no hay coherencia entre dos fechas que validar: la entrega dejó de
+  // agendarse en `004`. Queda la única regla que sobrevive sola — un día que ya
+  // terminó no sirve para pasar a buscar nada. La lógica vive en lib/fechas.ts
+  // para poder probar los bordes (cambio de mes, cambio de año) sin depender del
+  // reloj de quien corra los tests.
+  if (retiroEnElPasado(form.pickupDate)) {
+    errors.pickupDate = MENSAJE_RETIRO_EN_EL_PASADO;
   }
 
-  if (!form.recieverName.trim())
-    errors.recieverName = "Ingresá el nombre de quien recibe.";
-  if (!form.recieverCI.trim())
-    errors.recieverCI = "Ingresá la cédula de quien recibe.";
+  const problemaDeTelefonoDestino = problemaTelefono(form.receiverPhone);
+  if (problemaDeTelefonoDestino) {
+    errors.receiverPhone = problemaDeTelefonoDestino;
+  }
 
   const quantity = Number(form.quantity);
   if (!form.quantity || Number.isNaN(quantity) || quantity < 1) {
@@ -255,34 +243,23 @@ export function PedidoForm() {
   }
 
   /**
-   * Revisa la coherencia de fechas al salir de un campo, en vez de esperar al
-   * envio (FR-030). Enterarse al final obliga a volver a subir por todo el
+   * Revisa la fecha de retiro al salir del campo, en vez de esperar al envio
+   * (FR-030). Enterarse al final obliga a volver a subir por todo el
    * formulario, que en un telefono es varias pantallas.
    *
-   * Solo toca los errores de coherencia: si habia un "Elegí una fecha" de un
+   * Solo toca el error de fecha pasada: si habia un "Elegí una fecha" de un
    * intento de envio anterior, se respeta. Por eso el borrado se hace
-   * comparando contra los mensajes conocidos y no vaciando la clave.
+   * comparando contra el mensaje conocido y no vaciando la clave.
    */
-  function revisarFechas() {
-    const problema = problemaDeFechas({
-      fechaRetiro: form.pickupDate,
-      horaRetiro: form.pickupTime,
-      fechaEntrega: form.deliveryDate,
-      horaEntrega: form.deliveryTime,
-    });
-    const deCoherencia = (mensaje?: string) =>
-      Boolean(mensaje) &&
-      Object.values(MENSAJES_DE_FECHAS).includes(mensaje as string);
+  function revisarFechaDeRetiro() {
+    const enElPasado = retiroEnElPasado(form.pickupDate);
 
     setErrors((prev) => {
       const siguiente = { ...prev };
-      if (deCoherencia(siguiente.pickupDate)) delete siguiente.pickupDate;
-      if (deCoherencia(siguiente.deliveryDate)) delete siguiente.deliveryDate;
-      if (problema === "retiro-en-el-pasado") {
-        siguiente.pickupDate = MENSAJES_DE_FECHAS[problema];
-      } else if (problema) {
-        siguiente.deliveryDate = MENSAJES_DE_FECHAS[problema];
+      if (siguiente.pickupDate === MENSAJE_RETIRO_EN_EL_PASADO) {
+        delete siguiente.pickupDate;
       }
+      if (enElPasado) siguiente.pickupDate = MENSAJE_RETIRO_EN_EL_PASADO;
       return siguiente;
     });
   }
@@ -312,23 +289,6 @@ export function PedidoForm() {
           ¿Quién envía?
         </h2>
         <div className="mt-4 flex flex-col gap-4">
-          <div className="flex gap-3">
-            {(["particular", "empresa"] as ClientType[]).map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => update("clientType", type)}
-                className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
-                  form.clientType === type
-                    ? "border-brand bg-brand/10 text-brand"
-                    : "border-slate-300 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Nombre" htmlFor="name" error={errors.name}>
               <input
@@ -476,67 +436,25 @@ export function PedidoForm() {
           ¿Qué envías?
         </h2>
         <div className="mt-4 flex flex-col gap-4">
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => update("packageMode", "predefinido")}
-              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-                form.packageMode === "predefinido"
-                  ? "border-brand bg-brand/10 text-brand"
-                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
-              }`}
+          <Field
+            label="Tamaño del paquete"
+            htmlFor="packageSize"
+            error={errors.packageSize}
+          >
+            <select
+              id="packageSize"
+              className={inputClass}
+              value={form.packageSize}
+              onChange={(e) =>
+                update("packageSize", e.target.value as PackageSize)
+              }
             >
-              Tamaño predefinido
-            </button>
-            <button
-              type="button"
-              onClick={() => update("packageMode", "libre")}
-              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-                form.packageMode === "libre"
-                  ? "border-brand bg-brand/10 text-brand"
-                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Describir el paquete
-            </button>
-          </div>
-
-          {form.packageMode === "predefinido" ? (
-            <Field
-              label="Tamaño del paquete"
-              htmlFor="packageSize"
-              error={errors.packageSize}
-            >
-              <select
-                id="packageSize"
-                className={inputClass}
-                value={form.packageSize}
-                onChange={(e) =>
-                  update("packageSize", e.target.value as PackageSize)
-                }
-              >
-                <option value="">Seleccioná un tamaño</option>
-                <option value="chico">Chico</option>
-                <option value="mediano">Mediano</option>
-                <option value="grande">Grande</option>
-              </select>
-            </Field>
-          ) : (
-            <Field
-              label="Descripción del paquete"
-              htmlFor="packageDescription"
-              error={errors.packageDescription}
-            >
-              <textarea
-                id="packageDescription"
-                rows={3}
-                className={inputClass}
-                placeholder="Contanos qué es y cómo viene embalado"
-                value={form.packageDescription}
-                onChange={(e) => update("packageDescription", e.target.value)}
-              />
-            </Field>
-          )}
+              <option value="">Seleccioná un tamaño</option>
+              <option value="chico">Chico</option>
+              <option value="mediano">Mediano</option>
+              <option value="grande">Grande</option>
+            </select>
+          </Field>
 
           <Field label="Cantidad de paquetes" htmlFor="quantity" error={errors.quantity}>
             <input
@@ -553,12 +471,8 @@ export function PedidoForm() {
 
       <section className={sectionClass}>
         <h2 className="text-base font-semibold text-slate-900">
-          Fechas y forma de pago
+          ¿Cuándo pasamos a buscarlo?
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Necesitamos al menos {MARGEN_MINIMO_MINUTOS / 60} horas entre el
-          retiro y la entrega.
-        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Fecha de retiro" htmlFor="pickupDate" error={errors.pickupDate}>
             <input
@@ -568,7 +482,7 @@ export function PedidoForm() {
               min={hoy()}
               value={form.pickupDate}
               onChange={(e) => update("pickupDate", e.target.value)}
-              onBlur={revisarFechas}
+              onBlur={revisarFechaDeRetiro}
             />
           </Field>
           <Field label="Horario de retiro" htmlFor="pickupTime" error={errors.pickupTime}>
@@ -578,74 +492,40 @@ export function PedidoForm() {
               className={inputClass}
               value={form.pickupTime}
               onChange={(e) => update("pickupTime", e.target.value)}
-              onBlur={revisarFechas}
             />
-          </Field>
-          <Field label="Fecha de entrega" htmlFor="deliveryDate" error={errors.deliveryDate}>
-            <input
-              id="deliveryDate"
-              type="date"
-              className={inputClass}
-              min={form.pickupDate || hoy()}
-              value={form.deliveryDate}
-              onChange={(e) => update("deliveryDate", e.target.value)}
-              onBlur={revisarFechas}
-            />
-          </Field>
-          <Field label="Horario de entrega" htmlFor="deliveryTime" error={errors.deliveryTime}>
-            <input
-              id="deliveryTime"
-              type="time"
-              className={inputClass}
-              value={form.deliveryTime}
-              onChange={(e) => update("deliveryTime", e.target.value)}
-              onBlur={revisarFechas}
-            />
-          </Field>
-          <Field
-            label="Forma de pago"
-            htmlFor="paymentMethod"
-            error={errors.paymentMethod}
-          >
-            <select
-              id="paymentMethod"
-              className={inputClass}
-              value={form.paymentMethod}
-              onChange={(e) =>
-                update("paymentMethod", e.target.value as PaymentMethod)
-              }
-            >
-              <option value="">Seleccioná una opción</option>
-              <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
-            </select>
           </Field>
         </div>
+        {/*
+          El plazo de entrega es un aviso, no un campo: la persona ya no elige
+          cuándo se entrega (FR-009a). El texto es fijo y no se calcula desde el
+          retiro — mostrar un momento concreto volvería a convertir una promesa
+          en un horario pactado.
+        */}
+        <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+          {PLAZO_DE_ENTREGA}
+        </p>
       </section>
 
       <section className={sectionClass}>
         <h2 className="text-base font-semibold text-slate-900">
           ¿Quién recibe el paquete?
         </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Un teléfono para coordinar la entrega con esa persona.
+        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field
-            label="Nombre de quien recibe"
-            htmlFor="receiverName"
-            error={errors.receiverName}
+            label="Teléfono de quien recibe"
+            htmlFor="receiverPhone"
+            error={errors.receiverPhone}
           >
             <input
-              id="receiverName"
+              id="receiverPhone"
+              type="tel"
               className={inputClass}
-              value={form.recieverName}
-              onChange={(e) => update("recieverName", e.target.value)}
-            />
-          </Field>
-          <Field label="Cédula (CI)" htmlFor="receiverCI" error={errors.recieverCI}>
-            <input
-              id="receiverCI"
-              className={inputClass}
-              value={form.recieverCI}
-              onChange={(e) => update("recieverCI", e.target.value)}
+              placeholder="09X XXX XXX"
+              value={form.receiverPhone}
+              onChange={(e) => update("receiverPhone", e.target.value)}
             />
           </Field>
         </div>
@@ -671,10 +551,7 @@ function Confirmation({
   const direccionRetiro = componerDireccion(form.retiro.direccion);
   const direccionEntrega = componerDireccion(form.entrega.direccion);
 
-  const paquete =
-    form.packageMode === "predefinido"
-      ? `Tamaño ${form.packageSize}`
-      : form.packageDescription;
+  const paquete = `Tamaño ${form.packageSize}`;
 
   const punto = form.retiro.direccion.punto ?? null;
 
@@ -708,7 +585,7 @@ function Confirmation({
       </div>
 
       <dl className="grid w-full gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-        <SummaryRow label="Cliente" value={`${form.name} (${form.clientType})`} />
+        <SummaryRow label="Cliente" value={form.name} />
         <SummaryRow label="Teléfono" value={form.phone} />
         <SummaryRow label="Dirección de retiro" value={direccionRetiro} />
         <SummaryRow label="Dirección de entrega" value={direccionEntrega} />
@@ -723,18 +600,9 @@ function Confirmation({
           label="Retiro"
           value={`${form.pickupDate} ${form.pickupTime}`}
         />
-        <SummaryRow
-          label="Entrega"
-          value={`${form.deliveryDate} ${form.deliveryTime}`}
-        />
-        <SummaryRow
-          label="Forma de pago"
-          value={form.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
-        />
-        <SummaryRow
-          label="Recibe el paquete"
-          value={`${form.recieverName} (CI ${form.recieverCI})`}
-        />
+        {/* Texto fijo, igual en todo pedido: no se deriva del retiro (FR-009a). */}
+        <SummaryRow label="Entrega" value={PLAZO_DE_ENTREGA} />
+        <SummaryRow label="Teléfono de quien recibe" value={form.receiverPhone} />
       </dl>
 
       <button

@@ -18,12 +18,6 @@ export const metadata: Metadata = {
   title: "Flash Urbano — Paquetería y logística",
   description:
     "Enviá y retirá paquetes con Flash Urbano. Cargá tu pedido online de forma rápida, simple y segura.",
-  // QUITAR AL SALIR A PRODUCCION DE VERDAD.
-  // Mientras esto es una preview para mostrarle al cliente, el sitio tiene
-  // telefono y email de contacto ficticios y precios de zona sin validar.
-  // Si Google lo indexa, gente real puede encontrarlo y escribir a un numero
-  // que no es de la empresa.
-  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
