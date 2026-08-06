@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   - web/components/
   - web/lib/

@@ -41,6 +41,10 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
 - [`decisions/zone-based-automatic-pricing.md`](decisions/zone-based-automatic-pricing.md)
   — the site quotes the price itself from the pickup zone; reverses the
   constitution's Principle V (1.0.0 → 2.0.0).
+- [`decisions/backend-persistence-stack.md`](decisions/backend-persistence-stack.md)
+  — where the backend goes when it is built: TypeScript in the same Next on
+  Vercel, Postgres with PostGIS on Neon. **Direction only, not in effect** — the
+  site stays on GitHub Pages for now. Leaves auth open pending the client.
 
 ## Processes
 
