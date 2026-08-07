@@ -59,5 +59,7 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
 
 - [`tech-debt-tracker.md`](tech-debt-tracker.md) — known hazards and deferred
   work.
+- [`preguntas-cliente.md`](preguntas-cliente.md) — open questions for the client,
+  which of them block the backend spec, and what has already been answered.
 - [`HARNESS-TODO.md`](HARNESS-TODO.md) — non-blocking checklist of harness
   skeletons the team still needs to fill (delete once all boxes are ticked).

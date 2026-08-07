@@ -152,16 +152,69 @@ order creation", and guest ordering is exactly what this removes. Resolving it
 means amending the constitution, which is a decision for the repo owner and is
 **not taken in this ADR**.
 
-Two things remain genuinely unresolved and **must be confirmed with the client
-before the backend spec plans an auth model**:
+### How that constraint is met
 
-1. Whether unknown visitors can order at all, or whether the public form becomes
-   a contact/request form and only approved clients reach the real one.
-2. How access is granted in practice — Diego approving a self-service signup, or
-   him creating the account outright.
+Settled with the repo owner on 2026-08-06. **Still his interpretation of what
+the client meant, not the client's own words — question 1 of the pending list
+asks Diego to confirm it.**
 
-Until those are answered, no auth code should be written. Guessing here does not
-produce a wrong screen; it produces a wrong data model.
+- **Quoting is open; ordering requires an account.** Anyone can enter a street
+  and corner, see the point on the map, and see the price, with no account at
+  all. Confirming the order is what requires signing in. The wall moves to the
+  moment where registering makes sense to the person, and the site keeps working
+  as a sales tool for someone who is only comparing prices. It costs nothing to
+  implement, because the quote is computed in the browser and never touches the
+  API.
+- **Sign-up is self-service.** Diego does not approve anyone. "Random" is read
+  as *anonymous and untraceable*, not as *unknown to Diego* — and a real Google
+  account or a verified email address answers that.
+- **Two ways in, no passwords.** Google sign-in, plus a **six-digit code sent by
+  email** for anyone who does not use Google. Passwords are excluded on the
+  client's explicit instruction, and a "temporary password to change later" was
+  considered and rejected: it reintroduces credential storage, recovery flows
+  and a change-password screen, still depends on email arriving, and buys
+  nothing the code does not already give.
+- **The code, concretely**: six digits, valid ten minutes, five attempts before
+  it is invalidated, rate-limited per address and per IP, generated with a
+  cryptographically secure source and stored hashed. The session it produces
+  lasts weeks, so a regular customer asks for a code once and effectively never
+  again.
+- **Not a cookie.** The API issues its own session token after verifying either
+  Google's token or the emailed code, and the browser sends it in a header. This
+  is what sidesteps the cross-origin cookie problem the split architecture
+  creates — no `SameSite=None`, nothing for Safari to block.
+- **Admin access is an environment variable** holding Diego's address, not a
+  flag someone has to set by hand in the database. It avoids the question of who
+  creates the first administrator.
+
+**A custom domain is a prerequisite for the emailed code**, and this is the one
+item that costs the client money. Mail claiming to come from a `@gmail.com`
+address cannot be sent through a third-party provider — Google's own
+authentication rules reject it — so the options are sending through Gmail's SMTP
+with the business's own mailbox, or owning a domain. Owning one is better on
+every axis: the codes reach the inbox, the site stops living at
+`matt122133.github.io/flash-urbano`, and GitHub Pages serves a custom domain for
+free over HTTPS, so it changes nothing about the current hosting.
+
+Product decisions taken in the same conversation, recorded here because they
+shape the schema and there is no spec yet to hold them:
+
+- **Three lifecycle states**: `creacion` → `aceptacion` → `entrega`. Not a
+  native Postgres enum but a text column with a `CHECK` constraint, precisely
+  because the client has not settled them — redefining the list has to be one
+  line of migration.
+- **No cancellations** for now. States move forward only.
+- **The profile mirrors the form.** A signed-in customer's name, phone and
+  pickup address live on their user record and pre-fill the form, so nobody
+  retypes the same address every time. **The profile pre-fills; the order
+  copies.** An order must never read its address through a foreign key to a row
+  the user can later edit, or a customer moving house silently rewrites where
+  Diego went six months ago.
+- **A short human-readable order code** (`FU-0142`) alongside the UUID, from a
+  database sequence. Diego refers to orders over WhatsApp and a UUID is unusable
+  for that.
+- **Nobody home at pickup is handled by Diego calling.** No state, no automatic
+  behaviour, nothing for the system to do.
 
 ## Consequences
 
