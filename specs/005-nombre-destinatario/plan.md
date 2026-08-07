@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   - web/components/pedido-form.tsx
   # La enmienda 2.1.0 dejó escrito que de quien recibe se pide solo el teléfono.
