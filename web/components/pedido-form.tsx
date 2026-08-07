@@ -45,9 +45,15 @@ type FormState = {
   // pedido.
   pickupDate: string;
   pickupTime: string;
-  // Para coordinar la entrega con quien recibe. El nombre y la cedula ya no se
-  // piden acá: los carga el administrador desde la app Android al entregar, que
-  // es el momento en que se sabe quién recibió de verdad.
+  // Quien recibe: a nombre de quién va el paquete, y un teléfono para coordinar
+  // la entrega con esa persona.
+  //
+  // `004` había sacado los dos datos que se pedían acá —nombre y cédula— sobre
+  // el supuesto de que ambos se capturan en la app Android al entregar. El
+  // cliente corrigió en `005`: el nombre sí hace falta al pedir, porque si no el
+  // repartidor llega a una puerta sin saber a quién preguntar. **La cédula no
+  // vuelve**: al momento de pedir no se usa para nada.
+  receiverName: string;
   receiverPhone: string;
   quantity: string;
 };
@@ -60,6 +66,7 @@ const INITIAL_STATE: FormState = {
   packageSize: "",
   pickupDate: "",
   pickupTime: "",
+  receiverName: "",
   receiverPhone: "",
   quantity: "1",
 };
@@ -184,6 +191,15 @@ function validate(
   // reloj de quien corra los tests.
   if (retiroEnElPasado(form.pickupDate)) {
     errors.pickupDate = MENSAJE_RETIRO_EN_EL_PASADO;
+  }
+
+  // Las claves de abajo tienen que estar escritas IDENTICAS en el render, o el
+  // mensaje no se muestra nunca y el formulario se niega a enviarse sin decir
+  // por qué. No es hipotético: el campo del nombre de quien recibe cargó
+  // exactamente ese defecto durante dos features, con `recieverName` de un lado
+  // y `receiverName` del otro.
+  if (!form.receiverName.trim()) {
+    errors.receiverName = "Ingresá el nombre de quien recibe.";
   }
 
   const problemaDeTelefonoDestino = problemaTelefono(form.receiverPhone);
@@ -511,9 +527,23 @@ export function PedidoForm() {
           ¿Quién recibe el paquete?
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Un teléfono para coordinar la entrega con esa persona.
+          A nombre de quién va el paquete, y un teléfono para coordinar la
+          entrega con esa persona.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Nombre de quien recibe"
+            htmlFor="receiverName"
+            error={errors.receiverName}
+          >
+            <input
+              id="receiverName"
+              className={inputClass}
+              placeholder="Nombre y apellido"
+              value={form.receiverName}
+              onChange={(e) => update("receiverName", e.target.value)}
+            />
+          </Field>
           <Field
             label="Teléfono de quien recibe"
             htmlFor="receiverPhone"
@@ -602,7 +632,10 @@ function Confirmation({
         />
         {/* Texto fijo, igual en todo pedido: no se deriva del retiro (FR-009a). */}
         <SummaryRow label="Entrega" value={PLAZO_DE_ENTREGA} />
-        <SummaryRow label="Teléfono de quien recibe" value={form.receiverPhone} />
+        <SummaryRow
+          label="Recibe el paquete"
+          value={`${form.receiverName} · ${form.receiverPhone}`}
+        />
       </dl>
 
       <button
