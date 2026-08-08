@@ -1,7 +1,7 @@
 ---
 owner: flash-urbano
 status: living
-last_reviewed: 2026-08-01
+last_reviewed: 2026-08-08
 update_trigger: on-toolchain-change
 ---
 
@@ -16,9 +16,35 @@ The harness model is described in [harness.md](harness.md).
   (App Router, Turbopack by default), TypeScript 5, Tailwind CSS 4. Installed
   via `create-next-app`; no separate linter/formatter install needed —
   `eslint` and `eslint-config-next` ship as devDependencies.
+- **Backend service** (`backend/`): Go 1.26+. Nothing beyond the toolchain —
+  see `specs/006-backend-auth/research.md` D5 for why there is no HTTP
+  framework.
 - **Harness scripts** (`scripts/harness/`): stdlib Python >= 3.9, no
   installs. On Windows without a real `python3.exe` on `PATH`, add a shim
   (see `docs/HARNESS-TODO.md`).
+
+### Installing Go on Windows without administrator rights
+
+`winget install GoLang.Go` fails with *no applicable installer* when run
+unelevated: Go publishes no user-scope installer, and a machine-scope MSI needs
+UAC. The way that works without administrator rights is the official zip:
+
+1. Read the current version from `https://go.dev/VERSION?m=text`.
+2. Take the matching `sha256` from `https://go.dev/dl/?mode=json&include=all`
+   and **verify the downloaded zip against it before extracting**. This is a
+   compiler; do not skip this step.
+3. Extract to a user-writable directory. This clone used
+   `C:\Users\<user>\golang`, which yields `…\golang\go`.
+
+   Do **not** extract to `C:\Users\<user>\Go`: Windows paths are
+   case-insensitive, so it collides with the default `GOPATH` at
+   `C:\Users\<user>\go`.
+4. Append `…\golang\go\bin` and `…\go\bin` (for `go install`ed tools) to the
+   **user** `PATH`. Use `[Environment]::SetEnvironmentVariable("Path", …, "User")`
+   after reading the existing value — not `setx`, which truncates at 1024
+   characters.
+
+Terminals opened before the change keep the old `PATH`; open a new one.
 
 ## Common commands
 
@@ -31,7 +57,10 @@ All web commands run from `web/`.
 | Build | `npm run build` |
 | Start (prod build) | `npm run start` |
 | Lint | `npm run lint` |
-| Tests | none yet — not requested for the `001-web-mvp` milestone (see `specs/001-web-mvp/plan.md`) |
+| Tests | `npm test` (Vitest). Added in `002`; this row used to say "none yet" |
+
+Backend commands run from `backend/`: `go vet ./...`, `go test ./...`,
+`go build ./...`.
 
 ## Despliegue (GitHub Pages)
 
@@ -69,9 +98,9 @@ qué están:
 `trailingSlash: true` hace que el export genere `<ruta>/index.html`, que es lo
 que sirve cualquier hosting estático sin reglas de reescritura.
 
-**El sitio lleva `noindex`** mientras sea una preview (ver
-`web/app/layout.tsx`): tiene teléfono y email de contacto ficticios. Quitarlo
-recién cuando los datos de contacto sean reales.
+**El `noindex` ya no está.** Se quitó en `004`, cuando el cliente confirmó el
+WhatsApp y el email reales. El sitio es indexable desde entonces — cosa que
+importa porque el formulario de pedido todavía no le llega a nadie.
 
 ## Plan-coverage check
 
