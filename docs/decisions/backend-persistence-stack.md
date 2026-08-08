@@ -2,7 +2,7 @@
 id: backend-persistence-stack
 owner: flash-urbano
 status: accepted
-last_reviewed: 2026-08-06
+last_reviewed: 2026-08-08
 update_trigger: on-hosting-or-datastore-change
 ---
 
@@ -154,9 +154,10 @@ means amending the constitution, which is a decision for the repo owner and is
 
 ### How that constraint is met
 
-Settled with the repo owner on 2026-08-06. **Still his interpretation of what
-the client meant, not the client's own words — question 1 of the pending list
-asks Diego to confirm it.**
+Settled with the repo owner on 2026-08-06 and **confirmed by the client on
+2026-08-08**: quoting stays open to anyone, and creating an order requires being
+signed in — with Google or with an account in our own system. No anonymous
+orders, and no manual approval by Diego. This is no longer an interpretation.
 
 - **Quoting is open; ordering requires an account.** Anyone can enter a street
   and corner, see the point on the map, and see the price, with no account at
