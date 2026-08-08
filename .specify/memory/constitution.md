@@ -65,18 +65,21 @@ Two surfaces, built in this order:
 1. **Customer web app** — guest or Google-login order creation; pickup address
    (written plus a point marked on the map) and delivery address; the zone
    price shown from that point; package type/description, quantity; the pickup
-   window; a phone number for whoever receives the package; Sobre Nosotros
-   (hours, delivery zone map, historical volume); Contacto (WhatsApp, email);
-   Reseñas (last, deferred).
+   window; the name and phone number of whoever receives the package; Sobre
+   Nosotros (hours, delivery zone map, historical volume); Contacto (WhatsApp,
+   email); Reseñas (last, deferred).
 
    Three things this list used to name and deliberately no longer does, on the
    client's own instruction: **payment method** (never confirmed — the options
    shown were placeholder), **the delivery window** (replaced by a fixed
    commitment to deliver within 24 hours of pickup, which the site states and
-   does not enforce), and **the recipient's name and ID** (captured in the
-   Android app at the moment of delivery, which is when it is actually known —
-   asking for it at order time collected a sensitive document number that
-   nothing used).
+   does not enforce), and **the recipient's ID document** (a sensitive number
+   collected at order time that nothing used; captured in the Android app at
+   delivery if it is needed at all).
+
+   The recipient's **name** left this list on 2026-08-06 and came back the same
+   day, once the client clarified. Without it the courier arrives at a door with
+   a phone number and no idea who to ask for. The ID did not come back.
 2. **Admin Android app** — view packages created via the web, filter/select
    which to carry each day, generate an economical route from the admin's
    position, and give feedback at each lifecycle stage (Creación →
@@ -103,10 +106,17 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 2.1.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-06
+**Version**: 2.2.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-06
 
 ### Amendment history
 
+- **2.2.0** (2026-08-06) — The recipient's **name** returns to the order form,
+  before the phone number. 2.1.0 removed it together with the ID document, on
+  the reading that both are captured in the Android app at delivery; the client
+  clarified the same day that the name is needed when the order is placed. The
+  **ID document stays out**. MINOR for the same reason as 2.1.0 — scope moves,
+  no principle is reversed, and it is the client adjusting his own brief. No
+  ADR. See `specs/005-nombre-destinatario/`.
 - **2.1.0** (2026-08-06) — Scope boundaries narrowed for the customer web app:
   payment method, the delivery window, and the recipient's name/ID leave the
   order form; a recipient phone number and a fixed 24-hour delivery commitment
