@@ -60,6 +60,30 @@ recién en `007`.
   una pantalla que no hace nada, en un sitio que es público e indexable desde
   `004`. Descartado también precargar el formulario acá: es alcance declarado de
   `007` y moverlo desdibuja el límite entre los dos features.
+- Q: ¿Qué forma tiene la dirección de retiro guardada en el perfil? → A: **La
+  misma que el formulario**: `calle`, `esquina`, `número` y el `punto` ya
+  ajustado, todo guardado. Precargar restituye el estado exacto, incluido el
+  arrastre que la persona hizo dentro de la cuadra, de modo que no vuelva a
+  tipear ni a reajustar lo que ya hizo. Descartado guardar sólo calle/esquina y
+  recalcular el punto: evitaría un punto viejo si se regenera el índice de
+  calles, pero tira el ajuste manual. Que el punto guardado caiga dentro de la
+  cuadra declarada se valida **al crear el pedido**, que es alcance de `007`.
+- Q: ¿El sistema deja rastro de los intentos de ingreso? → A: **Sí, exitosos y
+  fallidos**, con lo mínimo para diagnosticar: cuándo, qué dirección, por qué
+  camino, con qué resultado y desde qué origen. El código nunca se registra, y
+  el rastro se guarda por un tiempo acotado. Se descartó registrar sólo lo
+  fallido: guarda menos dato personal, pero deja sin forma de reconstruir un
+  ingreso legítimo si alguien reclama. Es la única parte del feature que, si
+  falla en silencio, no se detecta nunca.
+- Q: Quien entra con código por mail no tiene nombre. ¿Se lo pedimos en el alta?
+  → A: **Sí, y también el teléfono.** El alta pide nombre y teléfono, para que
+  el perfil sirva desde el primer momento en vez de quedar vacío hasta el primer
+  pedido. Se descartó dejar el alta en un solo paso: ahorra tipeo en el momento
+  del ingreso, pero deja al cliente sin nada visible a cambio de haberse
+  registrado. **Se aplica a los dos caminos**, no sólo al del código: si Google
+  no pidiera lo mismo, los usuarios de Google quedarían con el perfil a medias,
+  que es justo lo que esta decisión evita. Google precarga el nombre; el
+  teléfono lo pone la persona.
 - Q: Si alguien entra con Google usando `x@gmail.com` y otro día pide un código
   para `x@gmail.com`, ¿es el mismo usuario? → A: **El mismo. Una sola cuenta por
   dirección de mail.** El camino de ingreso es sólo la forma de probar que esa
@@ -125,7 +149,8 @@ cuenta de Google. Entregable por sí solo.
 1. **Given** un visitante sin sesión en el teléfono, **When** entra con su
    cuenta de Google, **Then** vuelve al sitio identificado y ve su nombre.
 2. **Given** un usuario que entra por primera vez, **When** completa el ingreso,
-   **Then** queda creado como usuario sin que nadie lo apruebe.
+   **Then** se le pide nombre y teléfono —con el nombre ya precargado de
+   Google— y queda creado como usuario sin que nadie lo apruebe.
 3. **Given** un usuario identificado, **When** cierra el navegador y vuelve
    días después, **Then** sigue identificado sin volver a ingresar.
 4. **Given** un usuario identificado, **When** elige salir, **Then** su sesión
@@ -153,8 +178,9 @@ bandeja de entrada y no a spam**.
 
 1. **Given** un visitante que escribe su mail, **When** pide el código,
    **Then** le llega un código de seis dígitos a la bandeja de entrada.
-2. **Given** un código recién recibido, **When** lo escribe bien, **Then** queda
-   identificado con la misma sesión larga que da el camino de Google.
+2. **Given** un código recién recibido, **When** lo escribe bien, **Then** se le
+   pide nombre y teléfono si es su primera vez, y queda identificado con la
+   misma sesión larga que da el camino de Google.
 3. **Given** un código de más de diez minutos, **When** lo escribe, **Then** es
    rechazado y se le ofrece pedir uno nuevo.
 4. **Given** un código ya usado, **When** se intenta usar de nuevo, **Then** es
@@ -307,15 +333,41 @@ sistema la distingue; entrar con otra y comprobar que no.
 
 - **FR-019**: Los usuarios MUST poder guardar y editar su nombre, su teléfono y
   su dirección de retiro.
+- **FR-019a**: La dirección de retiro guardada MUST tener la misma forma que la
+  del formulario —calle, esquina, número y el punto ya ajustado— de modo que
+  volver a usarla restituya el estado exacto, incluido el ajuste que la persona
+  haya hecho al punto dentro de su cuadra.
+- **FR-019b**: El sistema MUST NOT dar por válido el punto guardado en un perfil
+  por el solo hecho de estar guardado. Que caiga dentro de la cuadra declarada
+  se verifica cuando se usa para cobrar, no cuando se guarda.
 - **FR-020**: Un usuario MUST NOT poder leer ni modificar los datos de otro.
 - **FR-021**: El nombre MUST venir precargado desde Google cuando ese sea el
   camino de ingreso, y MUST ser editable.
+- **FR-021a**: El alta MUST pedir **nombre y teléfono**, por cualquiera de los
+  dos caminos de ingreso, de modo que ningún usuario quede creado sin ellos. La
+  dirección de retiro NO se pide en el alta: es opcional y se carga después.
+- **FR-021b**: Un ingreso interrumpido antes de completar nombre y teléfono
+  MUST NOT dejar una cuenta a medias que después no se pueda completar. Quien
+  vuelve a entrar con la misma dirección retoma donde estaba.
 
 **Administración**
 
 - **FR-022**: El sistema MUST determinar quién es administrador a partir de la
   configuración del entorno del servicio, y MUST NOT ofrecer ninguna forma de
   volverse administrador desde el sitio.
+
+**Dejar rastro**
+
+- **FR-022a**: El sistema MUST registrar cada intento de ingreso, exitoso o
+  fallido, con el momento, la dirección de mail, el camino usado, el resultado y
+  el origen de la conexión.
+- **FR-022b**: El sistema MUST NOT registrar nunca el código de acceso ni la
+  credencial de sesión, ni en el rastro ni en ningún otro lado legible.
+- **FR-022c**: El rastro MUST guardarse por un plazo acotado y conocido, no
+  indefinidamente. Son datos personales de clientes reales.
+- **FR-022d**: El rastro MUST permitir distinguir un bloqueo por límite de
+  frecuencia de un código simplemente equivocado, porque son problemas
+  distintos y se resuelven distinto.
 
 **Que mover el dominio no sea tocar código**
 
@@ -343,11 +395,19 @@ sistema la distingue; entrar con otra y comprobar que no.
   verificada. Guarda nombre, teléfono y dirección de retiro. Su condición de
   administrador no es un dato suyo: se decide comparando su dirección contra la
   configuración del servicio.
+- **Dirección de retiro guardada**: Calle, esquina, número y punto, con la misma
+  forma que usa el formulario. Es un dato **de conveniencia**, no de cobro: nada
+  se cobra a partir de lo que dice un perfil. Cuando `007` lo use para armar un
+  pedido, el pedido **copia** estos valores en vez de referenciarlos, para que
+  alguien que se muda no reescriba adónde fue Diego hace seis meses.
 - **Sesión**: La prueba de que un usuario se identificó, con un momento de
   vencimiento y la capacidad de ser anulada antes. Es lo que el navegador
   presenta en cada pedido.
 - **Código de acceso**: Un valor de un solo uso asociado a una dirección de
   mail, con vencimiento, cuenta de intentos, y guardado de forma no reversible.
+- **Rastro de ingreso**: Qué pasó en cada intento —cuándo, qué dirección, qué
+  camino, qué resultado, qué origen—, guardado por un plazo acotado y sin
+  contener nunca el código ni la credencial de sesión.
 
 ## Success Criteria *(mandatory)*
 
@@ -379,6 +439,10 @@ sistema la distingue; entrar con otra y comprobar que no.
   con código, devuelve **un solo** usuario con el mismo perfil guardado.
 - **SC-011**: La base se levanta desde vacía aplicando las migraciones del repo,
   sin pasos manuales.
+- **SC-012**: Dado un intento de ingreso concreto, se puede reconstruir desde el
+  rastro qué pasó y por qué falló, sin que aparezca el código en ningún lado.
+- **SC-013**: Un alta completa —por los dos caminos— deja el usuario con nombre
+  y teléfono cargados, y ningún usuario creado queda sin ellos.
 
 ## Assumptions
 
@@ -401,10 +465,14 @@ sistema la distingue; entrar con otra y comprobar que no.
   feature. El agujero de que el formulario no le llegue a nadie **no se cierra
   acá**: se cierra en `007`. El sitio es indexable desde `004`, así que ese
   agujero sigue abierto en producción mientras dure este trabajo.
-- **No se borran cuentas ni datos personales en este feature.** Guardar
-  direcciones y teléfonos de personas reales abre una obligación de borrado que
+- **No hay borrado de cuenta a pedido del usuario en este feature.** Guardar
+  nombres, teléfonos y direcciones de personas reales abre una obligación que
   hoy el producto no tiene resuelta; queda registrada como deuda, no como
-  alcance.
+  alcance. **El rastro de ingreso es la excepción** y sí se borra solo: FR-022c
+  le pone un plazo acotado, porque es el dato que más rápido se acumula y el que
+  menos falta hace conservar.
+- **El plazo del rastro se toma como noventa días**, salvo indicación distinta.
+  Es configurable, no una constante de negocio.
 
 ## Dependencies
 

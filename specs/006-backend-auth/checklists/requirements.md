@@ -31,9 +31,30 @@
 
 ## Notes
 
-**14 de 14 en verde.** Los dos que fallaban en la primera pasada se cerraron el
-mismo día contestando las dos preguntas de alcance; quedaron registradas en
-*Clarifications*, sesión 2026-08-08.
+**14 de 14 en verde**, sin regresiones tras la ronda de `/speckit-clarify`.
+
+### Ronda 2 — `/speckit-clarify`, 2026-08-08
+
+Tres preguntas más, ninguna de las cuales destildó nada. Lo que agregaron:
+
+- **Forma de la dirección de retiro guardada** → la misma del formulario, con el
+  punto ya ajustado. **FR-019a**, y **FR-019b** que salió sola: un punto
+  guardado en un perfil no vale por estar guardado, se revalida contra la cuadra
+  al cobrar. Sin eso, editar el perfil reabría el agujero que cerró `003`.
+- **Nombre y teléfono en el alta** → sí, y por los dos caminos, no sólo por el
+  del código. **FR-021a**, **FR-021b** (un alta interrumpida no deja cuenta a
+  medias) y **SC-013**.
+- **Rastro de los intentos de ingreso** → exitosos y fallidos. **FR-022a** a
+  **FR-022d**, **SC-012**, y una entidad nueva.
+
+Efecto colateral corregido en la misma pasada: FR-022c pide borrar el rastro
+pasado un plazo, lo que contradecía la assumption de que en este feature no se
+borra ningún dato personal. La assumption se reescribió para nombrar el rastro
+como la excepción explícita.
+
+### Ronda 1 — `/speckit-specify`, 2026-08-08
+
+Los dos ítems que fallaban en la primera pasada se cerraron el mismo día.
 
 - **Q1 — ¿`006` le pone la puerta al formulario de pedido?** No. El formulario
   no se toca; la puerta la pone `007`. Cerró con **FR-007b**, que lo escribe
