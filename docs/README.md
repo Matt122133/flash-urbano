@@ -42,9 +42,10 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
   — the site quotes the price itself from the pickup zone; reverses the
   constitution's Principle V (1.0.0 → 2.0.0).
 - [`decisions/backend-persistence-stack.md`](decisions/backend-persistence-stack.md)
-  — where the backend goes when it is built: TypeScript in the same Next on
-  Vercel, Postgres with PostGIS on Neon. **Direction only, not in effect** — the
-  site stays on GitHub Pages for now. Leaves auth open pending the client.
+  — where the backend goes when it is built: the site stays static on GitHub
+  Pages, a separate Go service and Postgres with PostGIS run on Railway.
+  **Direction only, not in effect.** Flags a conflict with guest ordering that
+  the backend spec must resolve.
 
 ## Processes
 
@@ -58,5 +59,7 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
 
 - [`tech-debt-tracker.md`](tech-debt-tracker.md) — known hazards and deferred
   work.
+- [`preguntas-cliente.md`](preguntas-cliente.md) — open questions for the client,
+  which of them block the backend spec, and what has already been answered.
 - [`HARNESS-TODO.md`](HARNESS-TODO.md) — non-blocking checklist of harness
   skeletons the team still needs to fill (delete once all boxes are ticked).
