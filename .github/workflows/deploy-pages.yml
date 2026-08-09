@@ -46,8 +46,25 @@ jobs:
 
       - name: Build estatico
         # GITHUB_PAGES activa output:export + basePath en next.config.ts.
+        #
+        # Las dos NEXT_PUBLIC_ se inyectan en el bundle en tiempo de build. Van
+        # como *variables* de repositorio (vars) y no como secretos (secrets),
+        # y es deliberado: las dos terminan dentro del JavaScript que cualquiera
+        # puede leer, asi que tratarlas de secretas seria mentirse. Ninguna de
+        # las dos lo es — el Client ID de Google es publico por diseno.
+        #
+        # Estan aca y no escritas en el codigo por FR-024: mudar el sitio a
+        # flashurbano.uy, o rotar el cliente OAuth, tiene que ser cambiar una
+        # variable y no editar pantallas.
+        #
+        # Configurarlas en: Settings -> Secrets and variables -> Actions ->
+        # Variables. Si NEXT_PUBLIC_API_URL falta, el sitio compila igual pero
+        # el ingreso falla con "el sitio no tiene configurada la direccion del
+        # servicio", que es el mensaje que lib/api.ts da para este caso.
         env:
           GITHUB_PAGES: "true"
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - uses: actions/configure-pages@v5

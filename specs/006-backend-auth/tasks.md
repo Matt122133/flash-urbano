@@ -50,11 +50,11 @@ exentos en el sensor: esos **no** hacen falta en `covers:`, tal como dice el pla
 
 **Purpose**: que `backend/` exista y compile antes de que haya lógica.
 
-- [ ] T001 Inicializar el módulo Go en `backend/go.mod` (Go 1.26) y crear los directorios de [plan.md](plan.md#project-structure) con un `.keep` en los vacíos
-- [ ] T002 [P] Escribir `backend/.gitignore` (binario compilado, `.env`, artefactos locales). El `.gitignore` de la raíz no se toca: no está en `covers:` y no hace falta
-- [ ] T003 [P] Escribir `backend/README.md` con la lista de variables de entorno obligatorias y cómo correr el servicio en local. **Nombres de variables solamente, ningún valor** (FR-028)
-- [ ] T004 [P] Escribir `backend/Dockerfile` para el despliegue en Railway
-- [ ] T005 Escribir `backend/cmd/api/main.go` mínimo que compile y arranque un servidor vacío, para que `go build ./...` esté verde desde la primera tarea
+- [x] T001 Inicializar el módulo Go en `backend/go.mod` (Go 1.26) y crear los directorios de [plan.md](plan.md#project-structure) con un `.keep` en los vacíos
+- [x] T002 [P] Escribir `backend/.gitignore` (binario compilado, `.env`, artefactos locales). El `.gitignore` de la raíz no se toca: no está en `covers:` y no hace falta
+- [x] T003 [P] Escribir `backend/README.md` con la lista de variables de entorno obligatorias y cómo correr el servicio en local. **Nombres de variables solamente, ningún valor** (FR-028)
+- [x] T004 [P] Escribir `backend/Dockerfile` para el despliegue en Railway
+- [x] T005 Escribir `backend/cmd/api/main.go` mínimo que compile y arranque un servidor vacío, para que `go build ./...` esté verde desde la primera tarea
 
 **Checkpoint**: `cd backend && go vet ./... && go build ./...` verde.
 
@@ -69,32 +69,32 @@ despliegue y cruce orígenes, **antes** de que haya auth que culpar.
 
 ### Configuración y base
 
-- [ ] T006 Implementar la lectura del entorno en `backend/internal/config/config.go`: dirección de la base, orígenes permitidos, credenciales de Google, clave del proveedor de mail, mails administradores, duración de sesión y del rastro. **El servicio no arranca si falta una obligatoria** (FR-028)
-- [ ] T007 [P] Probar en `backend/internal/config/config_test.go` que falta una variable obligatoria ⇒ error al arrancar, y que los valores configurables (sesión, rastro) tienen los defaults del spec: cuatro semanas y noventa días
-- [ ] T008 Escribir la migración `backend/migrations/0001_esquema_inicial.sql`: extensión PostGIS, tabla de control de migraciones, y las cuatro entidades de [data-model.md](data-model.md) — `usuarios` (con los cuatro campos de retiro y `retiro_punto` como `geography(Point,4326)`), `sesiones`, `codigos_acceso`, `rastro_ingresos` con sus `CHECK` de `camino` y `resultado`. **Sin columna de administrador y sin columna de contraseña**, y **`nombre` y `telefono` nulables**: la obligatoriedad la impone `perfil_completo`, no el esquema, o el primer ingreso de FR-021b no se puede escribir
-- [ ] T009 Implementar la conexión a Postgres en `backend/internal/db/db.go`
-- [ ] T010 Implementar el aplicador de migraciones en `backend/internal/db/migrate.go`: sólo hacia adelante, al arrancar, registrando qué se aplicó (research D7)
-- [ ] T011 Probar en `backend/internal/db/migrate_test.go` que una base **vacía** queda migrada sin pasos manuales (SC-011, FR-027)
+- [x] T006 Implementar la lectura del entorno en `backend/internal/config/config.go`: dirección de la base, orígenes permitidos, credenciales de Google, clave del proveedor de mail, mails administradores, duración de sesión y del rastro. **El servicio no arranca si falta una obligatoria** (FR-028)
+- [x] T007 [P] Probar en `backend/internal/config/config_test.go` que falta una variable obligatoria ⇒ error al arrancar, y que los valores configurables (sesión, rastro) tienen los defaults del spec: cuatro semanas y noventa días
+- [x] T008 Escribir la migración `backend/migrations/0001_esquema_inicial.sql`: extensión PostGIS, tabla de control de migraciones, y las cuatro entidades de [data-model.md](data-model.md) — `usuarios` (con los cuatro campos de retiro y `retiro_punto` como `geography(Point,4326)`), `sesiones`, `codigos_acceso`, `rastro_ingresos` con sus `CHECK` de `camino` y `resultado`. **Sin columna de administrador y sin columna de contraseña**, y **`nombre` y `telefono` nulables**: la obligatoriedad la impone `perfil_completo`, no el esquema, o el primer ingreso de FR-021b no se puede escribir
+- [x] T009 Implementar la conexión a Postgres en `backend/internal/db/db.go`
+- [x] T010 Implementar el aplicador de migraciones en `backend/internal/db/migrate.go`: sólo hacia adelante, al arrancar, registrando qué se aplicó (research D7)
+- [x] T011 Probar en `backend/internal/db/migrate_test.go` que una base **vacía** queda migrada sin pasos manuales (SC-011, FR-027)
 
 ### HTTP, CORS y salud
 
-- [ ] T012 [P] Implementar la forma de los errores JSON en `backend/internal/httpx/errores.go`. Hacia afuera nunca distinguen "código incorrecto" de "código vencido" ni revelan si un mail existe (FR-014)
-- [ ] T013 Implementar CORS por entorno en `backend/internal/httpx/cors.go`: sólo los orígenes de la configuración (FR-023, FR-025)
-- [ ] T014 [P] Probar en `backend/internal/httpx/cors_test.go` que un origen no autorizado es rechazado y uno autorizado pasa (SC-008), y que agregar un origen es cambiar configuración, no código (SC-009)
-- [ ] T015 Cablear en `backend/cmd/api/main.go`: config → base → migraciones al arrancar → `ServeMux` con patrones de método → CORS, y el endpoint `GET /salud` que responde que el servicio vive y la base contesta
+- [x] T012 [P] Implementar la forma de los errores JSON en `backend/internal/httpx/errores.go`. Hacia afuera nunca distinguen "código incorrecto" de "código vencido" ni revelan si un mail existe (FR-014)
+- [x] T013 Implementar CORS por entorno en `backend/internal/httpx/cors.go`: sólo los orígenes de la configuración (FR-023, FR-025)
+- [x] T014 [P] Probar en `backend/internal/httpx/cors_test.go` que un origen no autorizado es rechazado y uno autorizado pasa (SC-008), y que agregar un origen es cambiar configuración, no código (SC-009)
+- [x] T015 Cablear en `backend/cmd/api/main.go`: config → base → migraciones al arrancar → `ServeMux` con patrones de método → CORS, y el endpoint `GET /salud` que responde que el servicio vive y la base contesta
 
 ### El rastro (transversal: lo escriben US2 y US3)
 
-- [ ] T016 Implementar el registro de intentos en `backend/internal/rastro/rastro.go` con los siete resultados de [data-model.md](data-model.md): `exito`, `codigo_incorrecto`, `codigo_vencido`, `codigo_agotado`, `limite_excedido`, `google_rechazado`, `email_no_verificado` (FR-022a, FR-022d)
-- [ ] T017 [P] Probar en `backend/internal/rastro/rastro_test.go` que un intento fallido se puede reconstruir y que **el código no aparece en ningún registro** (SC-012, FR-022b)
-- [ ] T018 Implementar el borrado por antigüedad: la purga del rastro en `backend/internal/rastro/purga.go` con su prueba —noventa días por defecto, configurable (FR-022c)— y el **disparador** en `backend/internal/db/janitor.go`, una goroutine con ticker arrancada desde `backend/cmd/api/main.go`. El janitor recibe las funciones de purga, así que US3 le engancha la suya sin tocar esta tarea. Que no lo dispare nadie es el modo de falla real: la tabla que más rápido crece se acumularía para siempre
+- [x] T016 Implementar el registro de intentos en `backend/internal/rastro/rastro.go` con los siete resultados de [data-model.md](data-model.md): `exito`, `codigo_incorrecto`, `codigo_vencido`, `codigo_agotado`, `limite_excedido`, `google_rechazado`, `email_no_verificado` (FR-022a, FR-022d)
+- [x] T017 [P] Probar en `backend/internal/rastro/rastro_test.go` que un intento fallido se puede reconstruir y que **el código no aparece en ningún registro** (SC-012, FR-022b)
+- [x] T018 Implementar el borrado por antigüedad: la purga del rastro en `backend/internal/rastro/purga.go` con su prueba —noventa días por defecto, configurable (FR-022c)— y el **disparador** en `backend/internal/db/janitor.go`, una goroutine con ticker arrancada desde `backend/cmd/api/main.go`. El janitor recibe las funciones de purga, así que US3 le engancha la suya sin tocar esta tarea. Que no lo dispare nadie es el modo de falla real: la tabla que más rápido crece se acumularía para siempre
 
 ### El sitio habla con el servicio
 
 - [ ] T019 Desplegar en Railway: servicio público, base provisionada, PostGIS habilitado, migraciones corriendo desde vacío, variables de entorno cargadas. Verificar `GET /salud` desde afuera (FR-026, FR-029 — Pages no cambia). **Manual, sin archivo**
-- [ ] T020 Escribir el cliente del API en `web/lib/api.ts`: base URL desde `NEXT_PUBLIC_API_URL` (FR-024), credencial en `Authorization: Bearer` (FR-016), y errores de red que no rompan la página
-- [ ] T021 [P] Probar en `web/lib/api.test.ts` que el header se arma bien y que la base URL sale de la configuración, no del código
-- [ ] T022 Agregar `NEXT_PUBLIC_API_URL` y `NEXT_PUBLIC_GOOGLE_CLIENT_ID` al paso de build en `.github/workflows/deploy-pages.yml`, al lado de `GITHUB_PAGES`. El Client ID es un identificador **público** por diseño —viaja en el bundle igual que la base URL— pero no va escrito en el código por el mismo motivo que FR-024: mudar de dominio o rotar el cliente OAuth no puede ser tocar una pantalla. Va como variable de repositorio de GitHub, no como secreto
+- [x] T020 Escribir el cliente del API en `web/lib/api.ts`: base URL desde `NEXT_PUBLIC_API_URL` (FR-024), credencial en `Authorization: Bearer` (FR-016), y errores de red que no rompan la página
+- [x] T021 [P] Probar en `web/lib/api.test.ts` que el header se arma bien y que la base URL sale de la configuración, no del código
+- [x] T022 Agregar `NEXT_PUBLIC_API_URL` y `NEXT_PUBLIC_GOOGLE_CLIENT_ID` al paso de build en `.github/workflows/deploy-pages.yml`, al lado de `GITHUB_PAGES`. El Client ID es un identificador **público** por diseño —viaja en el bundle igual que la base URL— pero no va escrito en el código por el mismo motivo que FR-024: mudar de dominio o rotar el cliente OAuth no puede ser tocar una pantalla. Va como variable de repositorio de GitHub, no como secreto
 - [ ] T023 Probar el cruce de orígenes a mano: desde el sitio publicado, pedir `GET /salud` y ver que pasa CORS. **Antes de que exista login.** Es la guarda de proceso contra el riesgo que el ADR nombra como el más probable de quemar un día
 
 **Checkpoint**: hay un servicio desplegado que no hace nada, y el sitio le habla desde otro origen.

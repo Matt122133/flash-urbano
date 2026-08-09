@@ -1,0 +1,15 @@
+# Binario compilado.
+/api
+/api.exe
+/bin/
+
+# Configuracion local. El repo es PUBLICO (FR-028): ningun valor real de
+# ninguna variable puede entrar nunca al arbol. El unico archivo de entorno
+# versionado es .env.example, que lleva nombres y nada mas.
+.env
+.env.*
+!.env.example
+
+# Salidas de pruebas y perfilado.
+*.out
+*.test

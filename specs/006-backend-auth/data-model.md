@@ -107,6 +107,7 @@ la computadora. Cerrar sesión revoca **esa** sesión, no todas.
 | `id` | UUID | Clave primaria |
 | `email` | texto | Normalizado. **No** referencia a `usuarios`: se pide antes de existir |
 | `codigo_hash` | bytea | Hashing lento (research D2), no un digest rápido |
+| `origen` | texto | Origen de la conexión que pidió el código. Ver abajo |
 | `creado_en` | timestamptz | |
 | `expira_en` | timestamptz | Diez minutos (FR-009) |
 | `intentos` | entero | Arranca en 0. A los 5 el código muere (FR-010) |
@@ -117,6 +118,13 @@ usuario, así que en ese momento la fila de `usuarios` puede no existir.
 
 **El código en claro no se guarda en ningún lado, ni acá ni en el rastro**
 (FR-012, FR-022b). Vive en el mail que recibió la persona y nada más.
+
+**`origen` se agregó al implementar** (2026-08-09, migración `0001`). FR-013 pide
+limitar la frecuencia por dirección **y por origen de conexión**, y research D6
+decidió llevar esos contadores en Postgres. Esta fila ya existe una vez por
+pedido de código, así que contar sobre ella cubre los dos límites **sin una
+tabla de contadores aparte** — que es exactamente la infraestructura que D6
+quería no agregar. Sale de `X-Forwarded-For`, con la salvedad de D6.
 
 Las filas vencidas se borran por antigüedad. No hacen falta.
 
