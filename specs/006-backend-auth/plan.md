@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # El servicio Go entero. No existe todavía: este feature lo crea.
   - backend/
@@ -37,7 +37,7 @@ covers:
   # feature; dejarlo fuera de covers: hace que el sensor de pre-commit lo
   # imponga en vez de confiar en que alguien se acuerde.
 verify: (cd backend && go vet ./... && go test ./... && go build ./...) && (cd web && npm run lint && npm test && npm run build)
-analyzed:
+analyzed: 2026-08-09
 ---
 
 # Implementation Plan: El backend existe y sabe quién pide
