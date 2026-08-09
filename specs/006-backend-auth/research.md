@@ -123,8 +123,24 @@ la base. Acá el volumen es de un pedido de código cada varios minutos en el pe
 caso. Sumar un segundo servicio a mantener, desplegar y pagar para contar eso
 sería infraestructura anticipada, que es lo que el Principio III prohíbe.
 
+**De dónde sale "el origen de la conexión"**: de `X-Forwarded-For`, **no** de
+`RemoteAddr`. Railway pone un proxy adelante del servicio, así que `RemoteAddr`
+es la dirección del proxy y es **la misma para todo el mundo**. Contar por ahí
+convierte un límite por origen en un límite global: el primero que pida diez
+códigos deja a todos los demás afuera. Es un modo de falla que no se ve en local
+—donde no hay proxy y `RemoteAddr` es correcto— y que aparece recién en
+producción, contra usuarios reales.
+
+La dirección a usar es la **última** que el proxy de confianza agregó al
+encabezado, no la primera: el cliente puede mandar un `X-Forwarded-For` inventado
+y esas entradas quedan a la izquierda. Confiar en la primera es dejar que
+cualquiera se saltee el límite cambiando una cadena.
+
+El mismo valor es el que va a `rastro_ingresos.origen`, con la misma salvedad.
+
 **Descartado**: Redis. Contadores en memoria del proceso, que se pierden al
-reiniciar y no sirven si algún día hay más de una instancia.
+reiniciar y no sirven si algún día hay más de una instancia. `RemoteAddr` a
+secas, por lo anterior.
 
 ---
 

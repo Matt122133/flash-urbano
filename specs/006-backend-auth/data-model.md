@@ -15,8 +15,8 @@ Quien puede crear pedidos. La identidad es la dirección de mail verificada.
 |---|---|---|
 | `id` | UUID | Clave primaria |
 | `email` | texto | **Único**, normalizado a minúsculas. Es la identidad (FR-007a) |
-| `nombre` | texto | Obligatorio desde el alta (FR-021a) |
-| `telefono` | texto | Obligatorio desde el alta (FR-021a) |
+| `nombre` | texto | **Nulable en el esquema.** Obligatorio como regla (FR-021a), no como `NOT NULL` — ver abajo |
+| `telefono` | texto | **Nulable en el esquema.** Ídem |
 | `perfil_completo` | booleano | `false` entre el primer ingreso y la carga de nombre y teléfono (FR-021b) |
 | `creado_en` | timestamptz | |
 | `actualizado_en` | timestamptz | |
@@ -35,6 +35,21 @@ la ponga en `true` a mano, que es justo lo que la decisión evita.
 el navegador antes de cargar nombre y teléfono deja una fila a medias. Al volver
 con la misma dirección retoma donde estaba en vez de chocar contra una fila que
 no puede completar.
+
+**Y por eso `nombre` y `telefono` no pueden ser `NOT NULL`.** Es la contradicción
+más fácil de escribir mal en la migración: FR-021a dice "obligatorio desde el
+alta" y FR-021b describe exactamente la fila que existe sin tenerlos. Las dos son
+ciertas porque **la obligatoriedad no la impone el esquema, la impone
+`perfil_completo`**: mientras esté en `false`, el usuario existe pero el sitio no
+lo deja seguir sin completarlos. Poner `NOT NULL` haría imposible crear la fila
+del primer ingreso, que es justo lo que FR-021b pide que se pueda hacer.
+
+Cómo se lee entonces SC-013 ("ningún usuario creado queda sin nombre y
+teléfono"): es una afirmación sobre las altas **completas**, no sobre las filas
+de la tabla. Un usuario con `perfil_completo: false` es un alta en curso, no un
+usuario creado. La prueba que corresponde es que ninguna fila quede en `false`
+después de un alta terminada por cualquiera de los dos caminos, y que una fila en
+`false` siempre se pueda completar.
 
 ### Dirección de retiro guardada
 

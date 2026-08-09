@@ -10,6 +10,20 @@ covers:
   # El cliente del API y el manejo de la credencial de sesión en el browser.
   - web/lib/api.ts
   - web/lib/sesion.ts
+  # Las pruebas de esos dos módulos, nombradas una por una. El sensor compara
+  # por prefijo, así que `web/lib/api.ts` NO cubre `web/lib/api.test.ts`. Se
+  # listan explícitas en vez de cubrir `web/lib/` entero, que arrastraría
+  # `zonas.ts` y `zona-lookup.ts` — justo lo que FR-001 y FR-002 protegen.
+  - web/lib/api.test.ts
+  - web/lib/sesion.test.ts
+  # La guarda automática de la Historia 1: que cotizar no dependa del servicio.
+  # Es el único lugar cubierto donde puede vivir, y sin él esa historia queda
+  # sólo con verificación manual.
+  - web/lib/cotizar-abierto.test.ts
+  # FR-024: el sitio publicado toma la dirección del servicio del build. Sin
+  # esta línea en el workflow, el sitio de Pages compila apuntando a la nada y
+  # el requisito queda cierto sólo en local.
+  - .github/workflows/deploy-pages.yml
   # Componentes nuevos de sesión, y la navbar que muestra quién está adentro.
   - web/components/sesion/
   - web/components/nav-bar.tsx
@@ -232,9 +246,13 @@ no cookie (FR-016), así que no hay `SameSite=None` que Safari pueda bloquear—
 pero la guarda de proceso es el paso segundo: probar el cruce de orígenes contra
 un endpoint trivial antes de que haya login que culpar.
 
-**El dominio está pendiente de alta.** Comprado y pagado el 2026-08-08, todavía
-no anotado en el registro `.uy`. Bloquea la Historia 3 y SC-004, y **nada más**:
-por eso Google es P1 y el código por mail P2.
+**El dominio no resuelve.** El alta en el registro `.uy` ya se ejecutó, pero al
+2026-08-09 la zona DNS no existe: el registro delega a los nameservers del
+registrador y ésos responden `REFUSED`. El panel del registrador **no tiene
+editor de zona**, así que la zona se muda a Cloudflare — ver
+[`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md).
+Bloquea la Historia 3 y SC-004, y **nada más**: por eso Google es P1 y el código
+por mail P2.
 
 **Primeros secretos reales en un repo público.** Hasta hoy no había nada que
 filtrar. Ahora hay URL de base de datos, credenciales de Google y clave del
