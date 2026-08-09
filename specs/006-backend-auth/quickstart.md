@@ -10,14 +10,21 @@ teléfono real, y eso ningún comando lo verifica.
 `C:\Users\USUARIO\golang\go` y agregado al PATH de usuario. Si `go version` no
 responde, la terminal es anterior a la instalación — abrir una nueva.
 
-**`flashurbano.uy` activo.** Comprado y pagado el 2026-08-08, pendiente de alta
-en el registro. Sólo hace falta para el camino del código por mail. Comprobar:
+**`flashurbano.uy` resolviendo.** Sólo hace falta para el camino del código por
+mail. **El alta ya se ejecutó**, pero al 2026-08-09 la zona DNS no existe: los
+nameservers a los que el registro delega responden `REFUSED`. Ver
+[`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md) para
+el estado y el plan.
+
+La comprobación que importa **no** es la delegación sino que la zona conteste:
 
 ```bash
-nslookup -type=NS flashurbano.uy a.nic.uy
+nslookup -type=SOA flashurbano.uy 1.1.1.1
 ```
 
-Mientras responda `Non-existent domain`, no está dado de alta.
+Mientras responda `Server failed`, no hay zona y no hay mail posible. Ver los NS
+con `nslookup -type=NS flashurbano.uy a.nic.uy` sólo dice a quién delega el
+registro, no que ese alguien esté sirviendo algo.
 
 **Variables de entorno del servicio.** Ninguna en el árbol: el repo es público
 (FR-028). El servicio **no arranca** si falta alguna — dirección de la base,
