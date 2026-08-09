@@ -54,6 +54,9 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
   loop runbook.
 - [`processes/dev-setup.md`](processes/dev-setup.md) — toolchain, commands, and
   the plan-coverage check wiring.
+- [`processes/dominio-y-dns.md`](processes/dominio-y-dns.md) — estado de
+  `flashurbano.uy`, la delegación coja que hay que arreglar, y qué registro DNS
+  hace falta para el mail, para el sitio y para el API.
 
 ## Trackers
 
