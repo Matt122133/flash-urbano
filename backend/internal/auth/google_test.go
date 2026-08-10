@@ -259,6 +259,37 @@ func TestGoogleRechaza(t *testing.T) {
 	}
 }
 
+// TestGoogleDevuelveLaDireccionCuandoNoEstaVerificada fija la unica excepcion a
+// "la identidad solo vale si el error es nil".
+//
+// El handler la necesita: sin la direccion, la fila del rastro de un ingreso
+// rechazado por `email_verified` no dice A QUIEN se le rechazo, que es
+// justamente lo que FR-022a pide poder reconstruir. Y las demas causas tienen
+// que seguir devolviendo la identidad vacia, porque ahi no hay nada verificado
+// que contar — eso es lo que comprueba la segunda mitad.
+func TestGoogleDevuelveLaDireccionCuandoNoEstaVerificada(t *testing.T) {
+	v := verificadorDePrueba(t)
+
+	sinVerificar := firmar(t, claveBuena, reclamosCon(map[string]any{"email_verified": false}))
+	identidad, err := v.Verificar(context.Background(), sinVerificar)
+	if !errors.Is(err, ErrEmailNoVerificado) {
+		t.Fatalf("err = %v, se esperaba ErrEmailNoVerificado", err)
+	}
+	if identidad.Email != "diego@ejemplo.com" {
+		t.Errorf("email = %q, el rastro lo necesita para saber a quien se rechazo", identidad.Email)
+	}
+
+	// Firma ajena: el token no prueba nada, asi que no hay direccion que anotar.
+	ajeno := firmar(t, claveAjena, reclamosCon(nil))
+	identidad, err = v.Verificar(context.Background(), ajeno)
+	if !errors.Is(err, ErrGoogleRechazado) {
+		t.Fatalf("err = %v, se esperaba ErrGoogleRechazado", err)
+	}
+	if identidad.Email != "" {
+		t.Errorf("email = %q, un token no verificado no puede aportar una direccion", identidad.Email)
+	}
+}
+
 // TestGoogleRechazaUnTokenVacio cubre el cuerpo vacio o con espacios, que no
 // llega a ser un token y no tiene por que gastar una consulta al JWKS.
 func TestGoogleRechazaUnTokenVacio(t *testing.T) {

@@ -117,6 +117,13 @@ func nuevoVerificadorGoogle(ctx context.Context, clientID, jwksURL string) *Veri
 // vencimiento —que es lo que hace que los reclamos signifiquen algo— y recien
 // despues se los mira. Leer `email` antes de verificar la firma seria leer lo
 // que el cliente quiso escribir.
+//
+// **La identidad devuelta solo vale si el error es nil**, con una excepcion
+// nombrada: ante ErrEmailNoVerificado tambien viene el Email. No es un descuido
+// — es para que el rastro pueda anotar A QUIEN se le rechazo el ingreso
+// (FR-022a). En ese caso el token es autentico y la direccion es real; lo que
+// falta es que Google la de por verificada. Cualquier otro error devuelve la
+// identidad vacia, porque no hay nada verificado que contar.
 func (v *VerificadorGoogle) Verificar(ctx context.Context, tokenCrudo string) (IdentidadGoogle, error) {
 	if strings.TrimSpace(tokenCrudo) == "" {
 		return IdentidadGoogle{}, fmt.Errorf("%w: llego vacio", ErrGoogleRechazado)
@@ -147,9 +154,11 @@ func (v *VerificadorGoogle) Verificar(ctx context.Context, tokenCrudo string) (I
 	}
 
 	// Ultimo y aparte: llegado aca el token es autentico, y lo que falla es la
-	// direccion, no el token. Por eso es otro error y otro resultado de rastro.
+	// direccion, no el token. Por eso es otro error y otro resultado de rastro,
+	// y por eso la direccion viaja de vuelta pese al error: es lo unico que hace
+	// util la fila del rastro.
 	if !reclamos.EmailVerified {
-		return IdentidadGoogle{}, ErrEmailNoVerificado
+		return IdentidadGoogle{Email: email}, ErrEmailNoVerificado
 	}
 
 	return IdentidadGoogle{Email: email, Nombre: strings.TrimSpace(reclamos.Nombre)}, nil

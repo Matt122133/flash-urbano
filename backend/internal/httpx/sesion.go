@@ -23,12 +23,18 @@ var claveUsuario = claveContexto{"usuario"}
 // como se guardan las sesiones. El paquete auth envuelve este error.
 var ErrSesionInvalida = errors.New("sesion invalida")
 
-// tokenDelHeader saca el token de `Authorization: Bearer <token>`.
+// TokenDeLaCredencial saca el token de `Authorization: Bearer <token>`.
 //
 // Devuelve vacio ante cualquier forma que no sea exactamente esa. El esquema se
 // compara sin distinguir mayusculas porque el RFC 7235 lo declara insensible, y
 // algun cliente manda "bearer".
-func tokenDelHeader(r *http.Request) string {
+//
+// Es exportada porque POST /auth/salir necesita el token en si —revoca por
+// token, no por usuario (FR-018)— y tiene que leerlo **igual** que el
+// middleware. Si cada uno tuviera su propio lector, una diferencia entre los dos
+// daria un "cerraste sesion" que en realidad no revoco nada: el peor modo de
+// falla posible para este endpoint, porque el cliente ve exito.
+func TokenDeLaCredencial(r *http.Request) string {
 	cabecera := r.Header.Get("Authorization")
 	if cabecera == "" {
 		return ""
@@ -65,7 +71,7 @@ func ConSesion[T any](
 	siguiente http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := tokenDelHeader(r)
+		token := TokenDeLaCredencial(r)
 		if token == "" {
 			Error(w, http.StatusUnauthorized, MsgNoAutorizado)
 			return
