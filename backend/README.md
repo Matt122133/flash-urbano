@@ -69,8 +69,34 @@ queda lista sin pasos manuales.
 Es la primera mitad del `verify:` del plan:
 
 ```bash
-go vet ./... && go test ./... && go build ./...
+go vet ./... && go test ./... -p 1 && go build ./...
 ```
+
+### Las pruebas contra Postgres
+
+**Sin `TEST_DATABASE_URL` se saltan solas**, y entonces "todo verde" no dice
+nada sobre la base. Para que corran de verdad hace falta un Postgres **con
+PostGIS**: el Postgres pelado no sirve, la migracion `0001` hace
+`CREATE EXTENSION postgis`.
+
+```bash
+docker run -d --name flash-pg-test \
+  -e POSTGRES_PASSWORD=test -e POSTGRES_DB=flash_test \
+  -p 55432:5432 postgis/postgis:17-3.5
+
+TEST_DATABASE_URL='postgres://postgres:test@localhost:55432/flash_test?sslmode=disable' \
+  go test ./... -p 1
+```
+
+Con eso corren las 33 pruebas y no se saltea ninguna. La base es descartable:
+`docker rm -f flash-pg-test` y listo. **Nunca apuntar `TEST_DATABASE_URL` a la
+base de Railway** — la prueba de migraciones borra todas las tablas.
+
+**El `-p 1` es obligatorio y no es preferencia.** Go corre los paquetes de
+prueba en paralelo; todos comparten esta base, y la prueba de migraciones la
+vacia entera para verificar que se migra desde cero (SC-011). Sin `-p 1` esa
+prueba le saca el esquema de abajo a las de `usuarios` y `rastro` mientras
+trabajan, y el resultado es una carrera que se lee como un defecto del codigo.
 
 ## Que NO va aca
 

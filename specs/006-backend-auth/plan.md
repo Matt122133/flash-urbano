@@ -36,7 +36,14 @@ covers:
   # propósito. FR-007b dice que el formulario de pedido no se toca en este
   # feature; dejarlo fuera de covers: hace que el sensor de pre-commit lo
   # imponga en vez de confiar en que alguien se acuerde.
-verify: (cd backend && go vet ./... && go test ./... && go build ./...) && (cd web && npm run lint && npm test && npm run build)
+# `-p 1` no es adorno: las pruebas contra Postgres comparten una sola base y la
+# de migraciones la vacia entera para verificar SC-011 (migrar desde vacio). Go
+# corre los paquetes en paralelo por defecto, asi que sin esto esa prueba le
+# saca el esquema de abajo a las de usuarios y rastro mientras trabajan, y el
+# verify: da rojo por una carrera y no por el cambio de quien lo corre. Se
+# descubrio el 2026-08-10, la primera vez que las pruebas de base corrieron de
+# verdad en vez de saltearse.
+verify: (cd backend && go vet ./... && go test ./... -p 1 && go build ./...) && (cd web && npm run lint && npm test && npm run build)
 analyzed: 2026-08-09
 ---
 

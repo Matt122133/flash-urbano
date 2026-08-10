@@ -132,8 +132,8 @@ duplica.
 
 ### Backend
 
-- [ ] T027 [P] [US2] Definir el usuario y su repositorio en `backend/internal/usuarios/usuario.go`: buscar o crear por mail **normalizado a minúsculas**, con `perfil_completo` (FR-006, FR-007a, FR-021b)
-- [ ] T028 [P] [US2] Probar en `backend/internal/usuarios/usuario_test.go` que la misma dirección por los dos caminos devuelve **un solo** usuario con el mismo perfil (SC-010a), que un ingreso interrumpido antes de nombre y teléfono se retoma al volver (FR-021b), y que **ningún alta terminada deja `perfil_completo` en `false`** por ninguno de los dos caminos (SC-013, leído como dice [data-model.md](data-model.md): una fila en `false` es un alta en curso, no un usuario creado)
+- [x] T027 [P] [US2] Definir el usuario y su repositorio en `backend/internal/usuarios/usuario.go`: buscar o crear por mail **normalizado a minúsculas**, con `perfil_completo` (FR-006, FR-007a, FR-021b)
+- [x] T028 [P] [US2] Probar en `backend/internal/usuarios/usuario_test.go` que la misma dirección por los dos caminos devuelve **un solo** usuario con el mismo perfil (SC-010a), que un ingreso interrumpido antes de nombre y teléfono se retoma al volver (FR-021b), y que **ningún alta terminada deja `perfil_completo` en `false`** por ninguno de los dos caminos (SC-013, leído como dice [data-model.md](data-model.md): una fila en `false` es un alta en curso, no un usuario creado)
 - [ ] T029 [US2] Implementar las sesiones en `backend/internal/auth/sesion.go`: token opaco de fuente criptográficamente segura, guardado **hasheado**, vencimiento configurable y `revocada_en` (research D1, FR-015, FR-017, FR-018)
 - [ ] T030 [P] [US2] Probar en `backend/internal/auth/sesion_test.go` que una sesión revocada deja de servir **de inmediato**, que una vencida no sirve, y que cerrar sesión en un dispositivo no cierra las otras (SC-007)
 - [ ] T031 [US2] Implementar el middleware de sesión en `backend/internal/httpx/sesion.go`: lee `Authorization: Bearer`, resuelve el usuario, y devuelve un error claro cuando la sesión venció mientras el cliente usaba el sitio
