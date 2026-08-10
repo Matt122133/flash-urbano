@@ -91,11 +91,11 @@ despliegue y cruce orígenes, **antes** de que haya auth que culpar.
 
 ### El sitio habla con el servicio
 
-- [ ] T019 Desplegar en Railway: servicio público, base provisionada, PostGIS habilitado, migraciones corriendo desde vacío, variables de entorno cargadas. Verificar `GET /salud` desde afuera (FR-026, FR-029 — Pages no cambia). **Manual, sin archivo**
+- [x] T019 Desplegar en Railway: servicio público, base provisionada, PostGIS habilitado, migraciones corriendo desde vacío, variables de entorno cargadas. Verificar `GET /salud` desde afuera (FR-026, FR-029 — Pages no cambia). **Manual, sin archivo** — hecho el 2026-08-09: `https://flash-urbano-production.up.railway.app/salud` devuelve `{"estado":"ok","base":"ok"}`. Cómo quedó armado y las trampas que costó: [`docs/processes/railway-despliegue.md`](../../docs/processes/railway-despliegue.md). `GOOGLE_CLIENT_ID`, `CORREO_API_KEY` y `CORREO_REMITENTE` están cargadas con valores de relleno deliberadamente inválidos, y las reemplazan las Fases 3 y 4
 - [x] T020 Escribir el cliente del API en `web/lib/api.ts`: base URL desde `NEXT_PUBLIC_API_URL` (FR-024), credencial en `Authorization: Bearer` (FR-016), y errores de red que no rompan la página
 - [x] T021 [P] Probar en `web/lib/api.test.ts` que el header se arma bien y que la base URL sale de la configuración, no del código
 - [x] T022 Agregar `NEXT_PUBLIC_API_URL` y `NEXT_PUBLIC_GOOGLE_CLIENT_ID` al paso de build en `.github/workflows/deploy-pages.yml`, al lado de `GITHUB_PAGES`. El Client ID es un identificador **público** por diseño —viaja en el bundle igual que la base URL— pero no va escrito en el código por el mismo motivo que FR-024: mudar de dominio o rotar el cliente OAuth no puede ser tocar una pantalla. Va como variable de repositorio de GitHub, no como secreto
-- [ ] T023 Probar el cruce de orígenes a mano: desde el sitio publicado, pedir `GET /salud` y ver que pasa CORS. **Antes de que exista login.** Es la guarda de proceso contra el riesgo que el ADR nombra como el más probable de quemar un día
+- [ ] T023 Probar el cruce de orígenes a mano: desde el sitio publicado, pedir `GET /salud` y ver que pasa CORS. **Antes de que exista login.** Es la guarda de proceso contra el riesgo que el ADR nombra como el más probable de quemar un día. *Parcial al 2026-08-09*: el lado del servidor ya está verificado con `curl` —origen de Pages devuelve 200 con `Access-Control-Allow-Origin`, un origen ajeno devuelve 403—, pero **curl no ejecuta la política de origen**. Falta el pedido desde un navegador en el sitio publicado, que es lo que la tarea pide
 
 **Checkpoint**: hay un servicio desplegado que no hace nada, y el sitio le habla desde otro origen.
 
