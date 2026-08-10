@@ -92,9 +92,25 @@ curl -s -H "Origin: https://evil.example" \
   https://flash-urbano-production.up.railway.app/salud
 ```
 
-Los dos pasan al 2026-08-09. **Eso no cierra T023**, que pide el mismo pedido
-**desde un navegador en el sitio publicado**: curl no ejecuta la política de
-origen, la ejecuta el navegador.
+Los dos pasan al 2026-08-09. **Pero curl no cierra T023 solo**: no ejecuta la
+política de origen, la ejecuta el navegador. La prueba que sí cuenta es la
+consola de Chrome **con el sitio publicado abierto**, que también pasó el
+2026-08-09:
+
+```js
+// en https://matt122133.github.io/flash-urbano/, F12 -> Console
+fetch('https://flash-urbano-production.up.railway.app/salud').then(r => r.json()).then(console.log)
+// {estado: 'ok', base: 'ok'}
+```
+
+Que resuelva es prueba del **origen**, no sólo de la red: el servicio devuelve
+403 a todo origen fuera de `CORS_ORIGENES`, y la lista tiene una sola entrada.
+
+Dos cosas que confunden al hacerlo. Si la consola está sobre una página
+`chrome://`, el error que aparece cita una CSP con `connect-src chrome://...`:
+**esa es de Chrome, no nuestra** — la pestaña está en el lugar equivocado. Y
+Chrome pide escribir `allow pasting` una vez por sesión antes de aceptar código
+pegado.
 
 ## Trampas
 
@@ -140,8 +156,10 @@ pre-commit rebota el commit. Con el CLI alcanza.
 
 ## Qué falta
 
-- **T023**: el cruce de orígenes desde el navegador, en el sitio publicado.
-  Necesita la variable de repositorio `NEXT_PUBLIC_API_URL` en GitHub apuntando
-  al dominio de arriba (T022 ya la lee en el workflow).
+- La variable de repositorio **`NEXT_PUBLIC_API_URL`** en GitHub, apuntando al
+  dominio de arriba. T022 ya la lee en el workflow, pero mientras no exista el
+  sitio publicado compila con la base URL vacía. **Es lo próximo que hace falta
+  de tu lado**, y no es lo mismo que T023: T023 probó el cruce de orígenes a
+  mano, esto es que el sitio sepa la dirección sin que se la dicten.
 - Las tres variables de relleno, en sus fases.
 - El dominio propio delante del API.
