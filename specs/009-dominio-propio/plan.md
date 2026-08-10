@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # Lo unico que cambia de comportamiento: el prefijo del build.
   - web/next.config.ts
@@ -15,7 +15,7 @@ covers:
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd web && npm run lint && npm test && npm run build
-analyzed:
+analyzed: 2026-08-10
 ---
 
 # Implementation Plan: El sitio vive en flashurbano.uy

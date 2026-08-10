@@ -6,23 +6,22 @@ import type { NextConfig } from "next";
 // (`npm run dev` / `npm run build`) el proyecto se comporta como siempre.
 const isPages = process.env.GITHUB_PAGES === "true";
 
-// El sitio se publica en https://<usuario>.github.io/<repo>/, o sea bajo un
-// subdirectorio. Sin basePath, todos los links y assets apuntarian a la raiz
-// del dominio y romperian.
-const repoBasePath = "/flash-urbano";
-
 const nextConfig: NextConfig = {
-  // Se inyecta en el bundle en tiempo de build. Lo necesita lib/asset.ts:
-  // next/image NO le agrega el basePath a los archivos de public/ cuando las
-  // imagenes van sin optimizar, asi que hay que prefijarlas a mano.
-  env: { NEXT_PUBLIC_BASE_PATH: isPages ? repoBasePath : "" },
+  // Vacio, y con una razon: desde el 2026-08-10 el sitio se sirve desde la RAIZ
+  // de https://flashurbano.uy, no bajo el subdirectorio /flash-urbano de
+  // github.io. Sin prefijo que agregar, no hay prefijo.
+  //
+  // La variable se conserva igual —y `lib/asset.ts` la sigue consumiendo—
+  // porque es lo que hace que una mudanza futura sea cambiar esta linea y no
+  // editar pantallas. Borrarla ahorraria cuatro caracteres y volveria a atar la
+  // ubicacion del sitio al codigo de cada componente.
+  env: { NEXT_PUBLIC_BASE_PATH: "" },
   ...(isPages
     ? {
         output: "export" as const,
-        basePath: repoBasePath,
-        assetPrefix: repoBasePath,
         // Genera <ruta>/index.html en vez de <ruta>.html: es lo que sirve
-        // cualquier hosting estatico sin reglas de reescritura.
+        // cualquier hosting estatico sin reglas de reescritura. No tiene nada
+        // que ver con el dominio y por eso se queda.
         trailingSlash: true,
         // /_next/image necesita servidor. En estatico las imagenes se sirven
         // tal cual, sin redimensionar.
