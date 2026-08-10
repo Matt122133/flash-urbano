@@ -28,6 +28,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/Matt122133/flash-urbano/backend/internal/db"
+	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
 )
 
 // ErrNoExiste lo devuelve quien busca por identificador y no encuentra.
@@ -226,4 +227,14 @@ func (r *Repositorio) CompletarAlta(ctx context.Context, id, nombre, telefono st
 		return nil, fmt.Errorf("completar alta: %w", err)
 	}
 	return u, nil
+}
+
+// DeContexto devuelve el usuario que dejo el middleware de sesion.
+//
+// Existe para que los handlers no tengan que escribir el parametro de tipo en
+// cada llamada, y sobre todo para que ese tipo se escriba **una sola vez**: si
+// cada handler lo repitiera, alcanzaria con que uno se equivoque para que la
+// busqueda falle en silencio y el handler crea que no hay nadie identificado.
+func DeContexto(ctx context.Context) (*Usuario, bool) {
+	return httpx.UsuarioDe[*Usuario](ctx)
 }
