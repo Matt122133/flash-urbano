@@ -1,7 +1,6 @@
 ---
 ticket: none
-# PAUSADO EN ESTA RAMA. Ver "Pausa" abajo antes de tocar este campo.
-status: draft
+status: active
 covers:
   # El servicio Go entero. No existe todavía: este feature lo crea.
   - backend/
@@ -52,24 +51,6 @@ analyzed: 2026-08-09
 
 **Feature dir**: `specs/006-backend-auth` | **Date**: 2026-08-08 | **Spec**: [spec.md](spec.md)
 
-## Pausa — 2026-08-10, sólo en la rama `dominio-propio`
-
-Este plan pasó a `draft` **en esta rama y nada más**, para dejar entrar a
-[`009-dominio-propio`](../009-dominio-propio/plan.md), que muda el sitio a
-`flashurbano.uy`. El harness permite exactamente un plan `active` por árbol de
-trabajo, y `009` tiene que salir desde `master` porque el sitio publicado sale de
-ahí.
-
-**`006` no está pausado de verdad: sigue `active` y en ejecución en la rama
-`backend-auth`**, que es donde vive su código. Esta copia de `master` es una
-foto vieja —no tiene `backend/`, ni `web/lib/sesion.ts`, ni el arreglo de `-p 1`
-en el `verify:`— así que `draft` describe mejor lo que pasa acá que `active`.
-
-**Al mergear `backend-auth` va a haber conflicto en este frontmatter.** Se
-resuelve quedándose con la versión de `backend-auth`, que trae el estado real, y
-borrando esta sección. No es un accidente a evitar: es el precio de que dos
-features corran en paralelo, y es preferible a que el sensor autorice una rama
-con la lista de archivos equivocada.
 
 ## Summary
 

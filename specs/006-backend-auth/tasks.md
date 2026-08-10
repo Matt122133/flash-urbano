@@ -153,7 +153,8 @@ duplica.
 - [ ] T042 [P] [US2] Implementar el paso de alta en `web/components/sesion/completar-alta.tsx`: pide nombre y teléfono, con el nombre precargado de Google y editable (FR-021, FR-021a)
 - [ ] T043 [US2] Escribir la pantalla de ingreso en `web/app/ingresar/page.tsx`, con el camino de Google y el hueco del camino por mail (US3)
 - [ ] T044 [US2] Mostrar quién está adentro en `web/components/nav-bar.tsx`: "Ingresar" sin sesión, nombre + salir con sesión. Mobile primero — el menú colapsado también
-- [ ] T045 [US2] Registrar la configuración de Google (origen autorizado del cliente OAuth) para el origen de Pages y para `flashurbano.uy`. **Manual, en la consola de Google, sin archivo**
+- [ ] T045 [US2] Registrar la configuración de Google (origen autorizado del cliente OAuth) para el origen de Pages y para `flashurbano.uy`. **Manual, en la consola de Google, sin archivo**. Desde el 2026-08-10 `https://flashurbano.uy` **es el origen real del sitio** (feature `009`), no una hipótesis: va primero, y el de Pages queda como secundario mientras la URL vieja siga redirigiendo
+- [ ] T045b [US2] Agregar `https://flashurbano.uy` a `CORS_ORIGENES` en Railway. **Manual, variable de entorno, sin archivo.** Es una tarea nueva que abrió `009`: hoy la variable tiene una sola entrada, el origen de Pages, y el sitio ya **no** se sirve desde ahí. Sin esto, T046 falla con un error de CORS que va a parecer un bug del login y es de configuración. Que sea variable y no código es exactamente lo que FR-023 y FR-025 compraron — se cobra acá por primera vez
 - [ ] T046 [US2] Probar el ingreso a mano en **Safari de iPhone** y **Chrome de Android**, no sólo en escritorio: entrar, completar nombre y teléfono, ver el nombre en la navegación, cerrar el navegador y volver identificado (SC-002, SC-003, SC-005)
 - [ ] T047 [US2] Probar a mano SC-007: copiar la credencial, cerrar sesión, reusarla contra `GET /yo`, que falle
 

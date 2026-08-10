@@ -1,6 +1,7 @@
 ---
 ticket: none
-status: active
+# DEMOTADO EN LA RAMA `backend-auth`. Ver "Nota de rama" abajo.
+status: draft
 covers:
   # Lo unico que cambia de comportamiento: el prefijo del build.
   - web/next.config.ts
@@ -21,6 +22,22 @@ analyzed: 2026-08-10
 # Implementation Plan: El sitio vive en flashurbano.uy
 
 **Feature dir**: `specs/009-dominio-propio` | **Date**: 2026-08-10 | **Spec**: [spec.md](spec.md)
+
+## Nota de rama — 2026-08-10
+
+Este plan está `draft` **sólo en la rama `backend-auth`**, que es la imagen
+especular de lo que se le hizo a `006` en la rama `dominio-propio`: el harness
+admite un plan `active` por árbol de trabajo, y en esta rama el que se ejecuta es
+`006`.
+
+**El código de `009` ya está hecho, mergeado y desplegado**: el sitio vive en
+`https://flashurbano.uy`. Lo que le falta es verificación manual —T011 y T012, en
+un teléfono— y ninguna de las dos necesita editar un archivo, así que no necesita
+estar `active` para cerrarse. Cuando esas dos se verifiquen, el plan pasa a
+`completed` desde `master`.
+
+**No poner esto en `completed` para evitar el baile**: sería declarar verificado
+lo que nadie miró.
 
 ## Summary
 
