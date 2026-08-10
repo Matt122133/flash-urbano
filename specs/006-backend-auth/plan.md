@@ -253,13 +253,13 @@ no cookie (FR-016), así que no hay `SameSite=None` que Safari pueda bloquear—
 pero la guarda de proceso es el paso segundo: probar el cruce de orígenes contra
 un endpoint trivial antes de que haya login que culpar.
 
-**El dominio no resuelve.** El alta en el registro `.uy` ya se ejecutó, pero al
-2026-08-09 la zona DNS no existe: el registro delega a los nameservers del
-registrador y ésos responden `REFUSED`. El panel del registrador **no tiene
-editor de zona**, así que la zona se muda a Cloudflare — ver
-[`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md).
-Bloquea la Historia 3 y SC-004, y **nada más**: por eso Google es P1 y el código
-por mail P2.
+**El dominio no resuelve.** ~~Bloquea la Historia 3 y SC-004~~ — **cerrado el
+2026-08-10.** La zona se mudó a Cloudflare, `a.nic.uy` delega ahí, el SOA resuelve
+y `_dmarc` está cargado. Lo que le queda a T059 es dar de alta el dominio en
+Resend y cargar los registros que indique, que ya no depende de nadie más. Ver
+[`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md), que
+además documenta la trampa de mudar el sitio al apex: el `basePath` de
+`web/next.config.ts` lo rompe, y ese archivo **no está en `covers:`**.
 
 **Primeros secretos reales en un repo público.** Hasta hoy no había nada que
 filtrar. Ahora hay URL de base de datos, credenciales de Google y clave del

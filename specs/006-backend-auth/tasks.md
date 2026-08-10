@@ -183,7 +183,7 @@ pendiente, se deja T059 abierto **y se dice al cerrar el plan**, no se da por he
 - [ ] T056 [US3] Probar en `backend/internal/auth/handlers_test.go` que `POST /auth/codigo` **responde exactamente lo mismo** exista o no el usuario, y también cuando el límite está excedido (FR-014), y que hacia afuera un código incorrecto y uno vencido son indistinguibles
 - [ ] T057 [P] [US3] Implementar los dos pasos del camino por mail en `web/components/sesion/ingreso-por-codigo.tsx`: pedir el código y escribirlo, con reintento y un mensaje útil cuando el mail no llega, sin confirmar si la dirección está registrada
 - [ ] T058 [US3] Sumar el camino por mail a `web/app/ingresar/page.tsx`, y el alta de nombre y teléfono también por esta vía (FR-021a: quien entra por código llega sin nombre)
-- [ ] T059 [US3] Configurar DKIM, SPF y DMARC sobre `flashurbano.uy` y probar la entrega a mano: el código llega **a la bandeja de entrada, no a spam**, en menos de un minuto, en al menos dos proveedores distintos (SC-004). **Manual, DNS, sin archivo — bloqueado hasta que el dominio esté dado de alta**
+- [ ] T059 [US3] Configurar DKIM, SPF y DMARC sobre `flashurbano.uy` y probar la entrega a mano: el código llega **a la bandeja de entrada, no a spam**, en menos de un minuto, en al menos dos proveedores distintos (SC-004). **Manual, DNS, sin archivo.** ~~Bloqueado hasta que el dominio esté dado de alta~~ — **desbloqueado el 2026-08-10**: la zona resuelve en Cloudflare y `_dmarc` ya está en `p=none`. Falta dar de alta el dominio en Resend y cargar DKIM, SPF y MX sobre `send.flashurbano.uy` con los valores que dé su panel
 
 **Checkpoint**: se entra por los dos caminos, y la misma dirección por ambos es un solo usuario.
 
