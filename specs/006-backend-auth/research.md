@@ -187,6 +187,41 @@ rebotes. Fue además lo que motivó comprar el dominio.
 
 ---
 
+## D9 — El token de Google se verifica con `go-oidc`, no con la biblioteca de Google
+
+**Decisión**: `github.com/coreos/go-oidc/v3/oidc` para verificar firma,
+destinatario y vencimiento del token de identidad. Añadida el 2026-08-10 al
+implementar T032; D3 decidió *qué* se verifica y dejó abierto *con qué*.
+
+**Por qué**: la opción obvia era `google.golang.org/api/idtoken`, la oficial de
+Google para exactamente esto. Se midió lo que arrastra:
+
+| Biblioteca | Módulos en el grafo |
+|---|---|
+| `google.golang.org/api/idtoken` | **67** — incluye gRPC, OpenTelemetry, Envoy y `cloud.google.com/go/translate` |
+| `github.com/coreos/go-oidc/v3` | **4** — `go-jose`, `x/oauth2`, `compute/metadata` |
+
+Sesenta y seis dependencias para comprobar la firma de un JWT contradice el
+Principio III de frente. Y hay un segundo motivo que no es de peso: `go-oidc`
+toma la **URL del JWKS como parámetro**, así que las pruebas sirven su propio
+juego de claves desde un servidor local y verifican la firma de verdad. Con
+`idtoken` la URL está fija y la única forma de probar sin red es interceptar el
+transporte HTTP.
+
+**Lo que hay que escribir a mano igual**: el chequeo del emisor. Google acepta
+`iss` en dos formas —`https://accounts.google.com` y `accounts.google.com`— y
+`go-oidc` compara contra un único string exacto. Por eso el verificador va con
+`SkipIssuerCheck` y el emisor se comprueba en `google.go` contra las dos. Es
+poco código y está probado; dejárselo a la biblioteca habría rechazado tokens
+legítimos de forma intermitente.
+
+**Descartado**: `idtoken`, por el peso. `go-jose` a secas (1 módulo), que
+obligaría a escribir a mano la descarga, el cacheo y la rotación de las claves
+públicas de Google — justo lo que el plan llama "lo que no se puede escribir a
+mano razonablemente".
+
+---
+
 ## Lo que este documento no decide
 
 - **El plazo exacto de la sesión y del rastro.** El spec los fijó en cuatro
