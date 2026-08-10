@@ -113,7 +113,7 @@ rompa.
 
 - [x] T024 [US1] Escribir la guarda en `web/lib/cotizar-abierto.test.ts`: el camino de cotizar (`lib/zonas.ts`, `lib/zona-lookup.ts`, `lib/direcciones.ts` y lo que importa el formulario) **no depende de `lib/api.ts` ni de `lib/sesion.ts`**, ni directa ni transitivamente, y el precio se resuelve sin red (FR-001, FR-002)
 - [ ] T025 [US1] Verificar a mano con el servicio apagado: cargar calle y esquina, ver punto y precio, sin errores en consola (SC-001, quickstart paso 1)
-- [ ] T026 [US1] Verificar a mano un punto fuera de toda zona: mismo comportamiento que hoy — sin precio y derivación a contacto directo
+- [x] T026 [US1] Verificar a mano un punto fuera de toda zona: mismo comportamiento que hoy — sin precio y derivación a contacto directo — verificado el 2026-08-09 con un punto en La Paz: sin precio, cartel *"Ese punto queda fuera de nuestra zona de cobertura"* y botón de contacto. Salió de acá una costura anotada en [`docs/tech-debt-tracker.md`](../../docs/tech-debt-tracker.md): apenas afuera del recorte del índice de calles la respuesta deja de ser ésta y pasa a ser *"No hay calles que coincidan."*, que no lleva a ningún lado
 
 **Checkpoint**: cotizar sobrevive al resto del feature, y hay una prueba que lo dice.
 
