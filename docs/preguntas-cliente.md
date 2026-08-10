@@ -38,6 +38,7 @@ cambian comportamiento, no una pantalla.
 | 9 | Estadísticas | Del dashboard: ¿qué números le sirven de verdad? ¿Paquetes por día, por zona, por cliente, facturado por mes? |
 | 10 | Cobro | Se sacó el campo de forma de pago del formulario. ¿Cómo cobra hoy en la práctica — al retirar, al entregar, por transferencia después? |
 | 11 | Volumen | ¿Cuántos paquetes mueve por día hoy, más o menos? Y en un día bueno. |
+| 14 | Hasta dónde llega la Zona 5 | ¿Hasta dónde por el este entrega en Ciudad de la Costa — Solymar, El Pinar, el arroyo Pando? El límite **oeste** de la Zona 5 sale de una calle que él nombró (Av. de las Américas / Ruta 101), pero **el borde este lo trazamos nosotros**: él no tenía la zona pintada y hoy va "hasta donde le tiren". El polígono decide a quién el sitio le cotiza $350 —la zona más cara— y a quién le dice que está fuera de cobertura, así que mientras no lo especifique el trazo es una suposición nuestra con consecuencia de precio. `specs/002` ya lo señala como el borde que más cuesta si está corrido. **No bloquea nada**: cuando conteste se ajusta el KML y se regeneran `lib/zonas.ts` y el índice de calles. |
 
 ## Respondidas
 
