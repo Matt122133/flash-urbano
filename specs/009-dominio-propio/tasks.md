@@ -37,10 +37,10 @@ propósito, no agrupados al final.
 
 ## Fase 3 — El código
 
-- [ ] T006 Sacar `basePath` y `assetPrefix` de `web/next.config.ts`, y dejar `NEXT_PUBLIC_BASE_PATH` en `""`. Se conservan `output: "export"`, `trailingSlash` e `images.unoptimized`, que no tienen nada que ver con el prefijo y sí con que el hosting sea estático (FR-002, FR-006)
-- [ ] T007 Escribir `web/public/CNAME` con una línea: `flashurbano.uy`. Next copia `public/` tal cual al export, así que viaja dentro del artefacto que se despliega
-- [ ] T008 Actualizar el comentario de `web/lib/asset.ts`: dice "en GitHub Pages el sitio no vive en la raiz del dominio", que pasa a ser falso. La función **no cambia** —ya cae en `""` sola— y por eso sigue existiendo: es la que hace cierto a FR-006
-- [ ] T009 Correr el `verify:` y mergear a `master` para que el workflow despliegue
+- [x] T006 Sacar `basePath` y `assetPrefix` de `web/next.config.ts`, y dejar `NEXT_PUBLIC_BASE_PATH` en `""`. Se conservan `output: "export"`, `trailingSlash` e `images.unoptimized`, que no tienen nada que ver con el prefijo y sí con que el hosting sea estático (FR-002, FR-006)
+- [x] T007 Escribir `web/public/CNAME` con una línea: `flashurbano.uy`. Next copia `public/` tal cual al export, así que viaja dentro del artefacto que se despliega — verificado: `out/CNAME` existe después del build
+- [x] T008 Actualizar el comentario de `web/lib/asset.ts`: dice "en GitHub Pages el sitio no vive en la raiz del dominio", que pasa a ser falso. La función **no cambia** —ya cae en `""` sola— y por eso sigue existiendo: es la que hace cierto a FR-006
+- [x] T009 Correr el `verify:` — verde: lint limpio, 54 pruebas, build estático. Y comprobado sobre el export real con `GITHUB_PAGES=true`: **cero apariciones de `/flash-urbano` en `out/`**, los assets salen como `/_next/…` y `/logo-flash-urbano.png`, y el índice de calles como `/calles-mvd.json`. Falta **mergear a `master`** para que el workflow despliegue
 
 **Checkpoint**: el sitio publicado sirve desde la raíz. La ventana se cerró.
 
@@ -53,7 +53,7 @@ propósito, no agrupados al final.
 - [ ] T012 Verificar SC-002: cotizar de punta a punta desde el dominio — calle, esquina, punto en el mapa y precio
 - [ ] T013 Verificar SC-003 y SC-004: `http://flashurbano.uy`, `www.flashurbano.uy` y `matt122133.github.io/flash-urbano/` terminan los tres en el sitio
 - [ ] T014 Actualizar [`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md): el sitio ya está mudado, los registros del apex quedan cargados, y la sección *"Mudar el sitio al dominio: no alcanza con el DNS"* pasa a ser historia
-- [ ] T015 Anotar en `specs/006-backend-auth/tasks.md` que **el origen nuevo tiene que entrar en `CORS_ORIGENES` de Railway y en el cliente OAuth de Google** antes de T046. No rompe nada hoy porque el sitio de `master` no habla con el servicio, pero rompe las pruebas en teléfono de `006` si nadie lo hace
+- [ ] T015 Anotar en `specs/006-backend-auth/tasks.md` que **el origen nuevo tiene que entrar en `CORS_ORIGENES` de Railway y en el cliente OAuth de Google** antes de T046. No rompe nada hoy porque el sitio de `master` no habla con el servicio, pero rompe las pruebas en teléfono de `006` si nadie lo hace. **Se hace en la rama `backend-auth`, no en ésta**: el `tasks.md` de `006` que hay acá es la foto vieja de `master`, y editarlo desde este lado sólo agrega conflicto al merge
 - [ ] T016 Commitear todo **antes** de poner el plan en `status: completed`: el sensor rebota el commit si el plan ya no está `active`
 
 ---
