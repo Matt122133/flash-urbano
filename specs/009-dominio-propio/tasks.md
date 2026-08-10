@@ -48,13 +48,24 @@ propósito, no agrupados al final.
 
 ## Fase 4 — Cierre y verificación
 
-- [ ] T010 Marcar *Enforce HTTPS* en GitHub, una vez que diga que el certificado está emitido
-- [ ] T011 Verificar SC-001 **en un teléfono**: `https://flashurbano.uy` carga la home, con el logo visible y **cero 404 en la consola**
-- [ ] T012 Verificar SC-002: cotizar de punta a punta desde el dominio — calle, esquina, punto en el mapa y precio
-- [ ] T013 Verificar SC-003 y SC-004: `http://flashurbano.uy`, `www.flashurbano.uy` y `matt122133.github.io/flash-urbano/` terminan los tres en el sitio
-- [ ] T014 Actualizar [`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md): el sitio ya está mudado, los registros del apex quedan cargados, y la sección *"Mudar el sitio al dominio: no alcanza con el DNS"* pasa a ser historia
+- [x] T010 Marcar *Enforce HTTPS* en GitHub, una vez que diga que el certificado está emitido. **Ya estaba marcado de antes**, del dominio de github.io, y no causó problema: al comprobarlo, `https://flashurbano.uy` respondía 200 con `ssl_verify_result: 0`, o sea certificado emitido y válido
+- [ ] T011 Verificar SC-001 **en un teléfono**: `https://flashurbano.uy` carga la home, con el logo visible y **cero 404 en la consola**. Lo verificado desde el servidor: las cuatro rutas (`/`, `/pedido/`, `/sobre-nosotros/`, `/contacto/`, `/resenas/`) dan 200, los siete chunks de la home dan 200, y `logo-flash-urbano.png`, `favicon.ico` y `calles-mvd.json` también. **Falta la consola de un navegador real**, que es lo único que puede ver un 404 disparado en tiempo de ejecución y no desde el HTML
+- [ ] T012 Verificar SC-002: cotizar de punta a punta desde el dominio — calle, esquina, punto en el mapa y precio. **Manual, sin sustituto**: que `calles-mvd.json` devuelva 200 dice que el archivo está, no que el cotizador funcione
+- [~] T013 Verificar SC-003 y SC-004. **Dos de tres**: `https://www.flashurbano.uy` da 301 a `https://flashurbano.uy/` ✅, y la URL vieja no quedó muerta —GitHub redirige sus assets al dominio— ✅. **Pendiente**: `http://flashurbano.uy` todavía responde 200 en vez de redirigir a HTTPS, pese a que *Enforce HTTPS* está marcado. Suele acomodarse solo; si en unas horas sigue igual, destildar y volver a tildar *Enforce HTTPS* ahora que el certificado existe
+- [x] T014 Actualizar [`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md). Se reescribió entero, no se parchó: la copia de `master` seguía diciendo que la zona no existía. Quedó con el estado real, los registros cargados, los que faltan, y las tres cosas que se aprendieron ejecutando —entre ellas que **el `CNAME` del artefacto no configura el dominio** cuando el origen de Pages es GitHub Actions
 - [ ] T015 Anotar en `specs/006-backend-auth/tasks.md` que **el origen nuevo tiene que entrar en `CORS_ORIGENES` de Railway y en el cliente OAuth de Google** antes de T046. No rompe nada hoy porque el sitio de `master` no habla con el servicio, pero rompe las pruebas en teléfono de `006` si nadie lo hace. **Se hace en la rama `backend-auth`, no en ésta**: el `tasks.md` de `006` que hay acá es la foto vieja de `master`, y editarlo desde este lado sólo agrega conflicto al merge
 - [ ] T016 Commitear todo **antes** de poner el plan en `status: completed`: el sensor rebota el commit si el plan ya no está `active`
+
+---
+
+## Estado al 2026-08-10
+
+**El sitio está vivo en `https://flashurbano.uy`** y el plan **no se cierra
+todavía**. Lo que falta es exactamente lo que ningún comando puede hacer: T011 y
+T012, en un teléfono, con la consola abierta. Marcarlas por analogía con los 200
+que devuelve el servidor sería declarar verificado algo que no se miró.
+
+Queda además el `http://` sin redirigir (T013), que es de GitHub y no del código.
 
 ---
 
