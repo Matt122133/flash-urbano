@@ -111,7 +111,7 @@ Esta historia no agrega funcionalidad: defiende la que existe. Va antes que US2
 a propósito — la guarda tiene que estar puesta antes de que haya sesión que la
 rompa.
 
-- [ ] T024 [US1] Escribir la guarda en `web/lib/cotizar-abierto.test.ts`: el camino de cotizar (`lib/zonas.ts`, `lib/zona-lookup.ts`, `lib/direcciones.ts` y lo que importa el formulario) **no depende de `lib/api.ts` ni de `lib/sesion.ts`**, ni directa ni transitivamente, y el precio se resuelve sin red (FR-001, FR-002)
+- [x] T024 [US1] Escribir la guarda en `web/lib/cotizar-abierto.test.ts`: el camino de cotizar (`lib/zonas.ts`, `lib/zona-lookup.ts`, `lib/direcciones.ts` y lo que importa el formulario) **no depende de `lib/api.ts` ni de `lib/sesion.ts`**, ni directa ni transitivamente, y el precio se resuelve sin red (FR-001, FR-002)
 - [ ] T025 [US1] Verificar a mano con el servicio apagado: cargar calle y esquina, ver punto y precio, sin errores en consola (SC-001, quickstart paso 1)
 - [ ] T026 [US1] Verificar a mano un punto fuera de toda zona: mismo comportamiento que hoy — sin precio y derivación a contacto directo
 
