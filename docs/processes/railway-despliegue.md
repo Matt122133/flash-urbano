@@ -30,9 +30,12 @@ detrás de `flashurbano.uy` — ver
 - **Root Directory**: **`backend`**. Sin eso el build corre sobre la raíz del
   repo, donde no hay `go.mod` ni `Dockerfile`.
 
-  **Este ajuste se puede perder solo, y el síntoma no lo delata.** Visto el
-  2026-08-10: el build dejó de fallar con `directory .../backend does not exist`
-  y pasó a fallar así, que no menciona `backend` por ningún lado:
+  **Un build puede fallar por este ajuste aunque el panel lo muestre bien
+  puesto.** Visto el 2026-08-10, y la primera lectura fue equivocada: se dio por
+  perdido el ajuste, y estaba configurado. Lo que falla es un **redespliegue de
+  un despliegue anterior a que se configurara** — reejecuta el `meta` congelado,
+  `rootDirectory` incluido (ver más abajo). El síntoma no menciona `backend` por
+  ningún lado:
 
   ```text
   ⚠ Script start.sh not found
@@ -45,13 +48,18 @@ detrás de `flashurbano.uy` — ver
     …
   ```
 
-  **La pista es el listado**: si enumera `web/`, `docs/` y `specs/`, Railway está
-  parado en la raíz del repo. Y que aparezca **Railpack** ya es la señal —con el
-  Root Directory bien puesto, Railway encuentra `backend/Dockerfile` y no invoca
-  al detector automático. Arreglo: *Settings → Source → Root Directory* → `backend`.
+  **La pista es el listado**: si enumera `web/`, `docs/` y `specs/`, ese build
+  está parado en la raíz del repo. Y que aparezca **Railpack** ya es la señal —con
+  el Root Directory bien puesto, Railway encuentra `backend/Dockerfile` y no
+  invoca al detector automático.
+
+  **Antes de tocar la configuración, mirar la fecha del build rojo y si hay uno
+  verde más nuevo.** Si el ajuste está puesto y el rojo es viejo, no hay nada que
+  arreglar: es un redespliegue de algo anterior. Cambiar la configuración a ciegas
+  es perseguir un error que ya no existe.
 
   Lo que **no** rompe: el despliegue que estaba andando sigue en pie. Railway no
-  reemplaza el último bueno por uno que fallo al construir.
+  reemplaza el último bueno por uno que falló al construir.
 - **Build**: el [`Dockerfile`](../../backend/Dockerfile) del propio directorio.
 - Las migraciones se aplican **al arrancar**, así que no hay paso manual: el
   log del primer despliegue dice `migracion aplicada: 0001_esquema_inicial.sql`.
