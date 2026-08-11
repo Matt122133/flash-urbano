@@ -229,6 +229,77 @@ func (r *Repositorio) CompletarAlta(ctx context.Context, id, nombre, telefono st
 	return u, nil
 }
 
+// Retiro es la direccion de retiro guardada, entera.
+//
+// **Los cuatro campos van juntos o no van** (FR-019a). Media direccion no
+// precarga nada util: una calle sin punto no cotiza, y un punto sin calle no se
+// puede mostrar escrito. Por eso el tipo es uno solo y no cuatro parametros
+// sueltos que alguien pueda pasar a medias.
+type Retiro struct {
+	Calle   string
+	Esquina string
+	Numero  string
+	Punto   Punto
+}
+
+// GuardarPerfil escribe nombre, telefono y —si viene— la direccion de retiro.
+//
+// Reemplaza a CompletarAlta como unico camino de escritura del perfil: tener
+// dos es como uno de los dos se olvida de poner perfil_completo en true.
+//
+// `retiro` nulo **conserva** la direccion guardada en vez de borrarla. Es lo
+// que permite que la pantalla de alta —que solo pide nombre y telefono— no le
+// pise la direccion a quien ya la tenia cargada.
+//
+// El punto se guarda **sin darlo por valido** (FR-019b): que caiga dentro de la
+// cuadra declarada se verifica al cobrar, y eso es 007. Este metodo solo se
+// compromete a no afirmar lo contrario.
+func (r *Repositorio) GuardarPerfil(
+	ctx context.Context, id, nombre, telefono string, retiro *Retiro,
+) (*Usuario, error) {
+	nombre = strings.TrimSpace(nombre)
+	telefono = strings.TrimSpace(telefono)
+	if nombre == "" || telefono == "" {
+		return nil, errors.New("nombre y telefono son obligatorios")
+	}
+
+	// Nulos cuando no hay direccion: el COALESCE de la consulta los lee como
+	// "no tocar".
+	var calle, esquina, numero *string
+	var lat, lng *float64
+	if retiro != nil {
+		calle, esquina, numero = &retiro.Calle, &retiro.Esquina, &retiro.Numero
+		lat, lng = &retiro.Punto.Lat, &retiro.Punto.Lng
+	}
+
+	// ST_MakePoint recibe (X, Y), o sea **longitud primero**. Invertirlo no da
+	// error: da un punto en otro lado del mundo, que es peor.
+	const sql = `
+		UPDATE usuarios
+		SET nombre          = $2,
+		    telefono        = $3,
+		    perfil_completo = true,
+		    retiro_calle    = COALESCE($4, retiro_calle),
+		    retiro_esquina  = COALESCE($5, retiro_esquina),
+		    retiro_numero   = COALESCE($6, retiro_numero),
+		    retiro_punto    = CASE
+		                        WHEN $7::float8 IS NULL THEN retiro_punto
+		                        ELSE ST_SetSRID(ST_MakePoint($8::float8, $7::float8), 4326)::geography
+		                      END,
+		    actualizado_en  = now()
+		WHERE id = $1
+		RETURNING ` + columnas
+
+	u, err := escanear(r.pool.QueryRow(ctx, sql, id, nombre, telefono, calle, esquina, numero, lat, lng))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNoExiste
+	}
+	if err != nil {
+		return nil, fmt.Errorf("guardar perfil: %w", err)
+	}
+	return u, nil
+}
+
 // DeContexto devuelve el usuario que dejo el middleware de sesion.
 //
 // Existe para que los handlers no tengan que escribir el parametro de tipo en

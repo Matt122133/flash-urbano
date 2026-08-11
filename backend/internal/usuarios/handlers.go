@@ -16,8 +16,9 @@ import (
 // del cliente. Aca solo se rechaza lo absurdo, que es lo que el formulario no
 // puede impedir porque el API se puede llamar sin el.
 const (
-	maxNombre   = 120
-	maxTelefono = 40
+	maxNombre         = 120
+	maxTelefono       = 40
+	maxCampoDireccion = 120
 )
 
 // Vista es como viaja un usuario al sitio.
@@ -37,6 +38,28 @@ type Vista struct {
 	Nombre         string `json:"nombre"`
 	Telefono       string `json:"telefono"`
 	PerfilCompleto bool   `json:"perfilCompleto"`
+
+	// Direccion de retiro guardada, o null si nunca se cargo.
+	//
+	// Va como objeto anidado y no como cuatro campos sueltos porque los cuatro
+	// van juntos (FR-019a): un `null` unico dice "no hay direccion" sin que el
+	// sitio tenga que mirar cuatro campos para deducirlo.
+	//
+	// **Se devuelve sin darla por valida** (FR-019b). Que el punto caiga dentro
+	// de la cuadra se verifica al cobrar, y eso es 007.
+	Retiro *VistaRetiro `json:"retiro"`
+}
+
+type VistaRetiro struct {
+	Calle   string      `json:"calle"`
+	Esquina string      `json:"esquina"`
+	Numero  string      `json:"numero"`
+	Punto   *VistaPunto `json:"punto"`
+}
+
+type VistaPunto struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
 }
 
 // VistaDe arma la representacion publica de un usuario.
@@ -47,13 +70,28 @@ type Vista struct {
 // Mandar `null` obligaria a cada pantalla a contemplar los dos casos para
 // mostrar lo mismo.
 func VistaDe(u *Usuario) Vista {
-	return Vista{
+	v := Vista{
 		ID:             u.ID,
 		Email:          u.Email,
 		Nombre:         deref(u.Nombre),
 		Telefono:       deref(u.Telefono),
 		PerfilCompleto: u.PerfilCompleto,
 	}
+
+	// La direccion se devuelve solo si esta ENTERA. Una fila con calle y sin
+	// punto —que la base admite— no sirve para precargar nada, y mandarla a
+	// medias haria que el sitio muestre un formulario a medio llenar que el
+	// cliente no sabe si tiene que completar o corregir.
+	if u.RetiroCalle != nil && u.RetiroEsquina != nil && u.RetiroNumero != nil && u.RetiroPunto != nil {
+		v.Retiro = &VistaRetiro{
+			Calle:   *u.RetiroCalle,
+			Esquina: *u.RetiroEsquina,
+			Numero:  *u.RetiroNumero,
+			Punto:   &VistaPunto{Lat: u.RetiroPunto.Lat, Lng: u.RetiroPunto.Lng},
+		}
+	}
+
+	return v
 }
 
 func deref(s *string) string {
@@ -100,8 +138,26 @@ func (h *Handlers) Yo(w http.ResponseWriter, r *http.Request) {
 // ignore en silencio. Quien es sale de la credencial y de ningun otro lado
 // (FR-020).
 type pedidoActualizarYo struct {
-	Nombre   string `json:"nombre"`
-	Telefono string `json:"telefono"`
+	Nombre   string        `json:"nombre"`
+	Telefono string        `json:"telefono"`
+	Retiro   *pedidoRetiro `json:"retiro"`
+}
+
+// pedidoRetiro es la direccion de retiro con la forma del formulario.
+//
+// Es un puntero en el pedido: **ausente conserva la guardada**, y es lo que
+// permite que la pantalla de alta —que solo manda nombre y telefono— no le pise
+// la direccion a quien ya la tenia.
+type pedidoRetiro struct {
+	Calle   string       `json:"calle"`
+	Esquina string       `json:"esquina"`
+	Numero  string       `json:"numero"`
+	Punto   *pedidoPunto `json:"punto"`
+}
+
+type pedidoPunto struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
 }
 
 // ActualizarYo guarda nombre y telefono.
@@ -138,10 +194,43 @@ func (h *Handlers) ActualizarYo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// La direccion, si viene, va entera o no va (FR-019a). Se rechaza a medias
+	// en vez de guardar lo que llego: media direccion en la base es peor que
+	// ninguna, porque el sitio la precarga y el cliente no sabe si tiene que
+	// completarla o corregirla.
+	var retiro *Retiro
+	if pedido.Retiro != nil {
+		p := pedido.Retiro
+		calle, esquina, numero := strings.TrimSpace(p.Calle), strings.TrimSpace(p.Esquina), strings.TrimSpace(p.Numero)
+		if calle == "" || esquina == "" || numero == "" || p.Punto == nil {
+			httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+			return
+		}
+		// Rango del mundo. No comprueba que el punto caiga en la cuadra —eso es
+		// 007 (FR-019b)— pero si que sea una coordenada y no basura: una
+		// latitud de 900 no la escribe nadie sin querer.
+		if p.Punto.Lat < -90 || p.Punto.Lat > 90 || p.Punto.Lng < -180 || p.Punto.Lng > 180 {
+			httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+			return
+		}
+		if utf8.RuneCountInString(calle) > maxCampoDireccion ||
+			utf8.RuneCountInString(esquina) > maxCampoDireccion ||
+			utf8.RuneCountInString(numero) > maxCampoDireccion {
+			httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+			return
+		}
+		retiro = &Retiro{
+			Calle:   calle,
+			Esquina: esquina,
+			Numero:  numero,
+			Punto:   Punto{Lat: p.Punto.Lat, Lng: p.Punto.Lng},
+		}
+	}
+
 	// El identificador sale del contexto, NUNCA del cuerpo (FR-020). Es la
 	// linea que hace imposible tocar el perfil de otro, y es lo que prueba
 	// SC-010 con una sesion ajena.
-	actualizado, err := h.repo.CompletarAlta(r.Context(), u.ID, nombre, telefono)
+	actualizado, err := h.repo.GuardarPerfil(r.Context(), u.ID, nombre, telefono, retiro)
 	if errors.Is(err, ErrNoExiste) {
 		// La credencial resolvio hace un instante y la fila ya no esta: solo
 		// pasa si el usuario se borro en el medio. Reingresar tampoco lo va a
