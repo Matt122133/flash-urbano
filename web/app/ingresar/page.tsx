@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { BotonGoogle } from "@/components/sesion/boton-google";
 import { CompletarAlta } from "@/components/sesion/completar-alta";
+import { IngresoPorCodigo } from "@/components/sesion/ingreso-por-codigo";
 import { useSesion } from "@/components/sesion/proveedor-sesion";
 
 const sectionClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6";
@@ -16,10 +17,15 @@ const sectionClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm
  * entrar), con sesion pero sin nombre ni telefono (completar el alta, FR-021a),
  * y adentro.
  *
- * **El camino por mail todavia no existe** — es la Historia 3 — y por eso no
- * aparece. Se decidio no mostrarlo deshabilitado: una opcion muerta hace perder
- * mas tiempo que no ofrecerla. El hueco esta en la estructura, no en la
- * pantalla: US3 agrega su componente debajo del separador.
+ * **El camino por mail ya existe** (US3), debajo del separador. Los dos caminos
+ * terminan en la misma sesion y en el mismo usuario: entrar con Google y entrar
+ * con un codigo enviado a esa misma direccion son la misma cuenta, no dos.
+ *
+ * Quien entra por codigo llega **sin nombre** (FR-021a) —el codigo solo prueba
+ * que la direccion es suya— asi que cae en `CompletarAlta` igual que quien entra
+ * con Google sin haber completado el alta. Esa rama ya existia y no hubo que
+ * tocarla: es la misma pantalla para los dos caminos, que es justamente lo que
+ * evita que uno de los dos se olvide de pedir el telefono.
  */
 export default function IngresarPage() {
   const router = useRouter();
@@ -85,6 +91,16 @@ function ElegirComoEntrar({
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       <BotonGoogle onIngreso={onIngreso} onError={onError} />
+
+      {/* El separador no es adorno: marca que abajo hay OTRA forma de entrar a
+          la misma cuenta, no un paso siguiente del de arriba. */}
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-slate-200" />
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">o</span>
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+
+      <IngresoPorCodigo onIngreso={onIngreso} />
 
       {/* Cotizar no pide nada, y quien llego acá de mas tiene que poder salir
           sin sentir que choco contra una puerta (FR-001, Principio II). */}
