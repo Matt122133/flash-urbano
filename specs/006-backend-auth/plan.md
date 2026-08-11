@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El servicio Go entero. No existe todavía: este feature lo crea.
   - backend/
