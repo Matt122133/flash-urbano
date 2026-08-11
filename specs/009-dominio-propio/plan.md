@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # Lo unico que cambia de comportamiento: el prefijo del build.
   - web/next.config.ts
