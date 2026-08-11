@@ -1,7 +1,6 @@
 ---
 ticket: none
-# PAUSADO EN ESTA RAMA. Ver "Pausa" abajo antes de tocar este campo.
-status: draft
+status: active
 covers:
   # El servicio Go entero. No existe todavía: este feature lo crea.
   - backend/
@@ -28,6 +27,18 @@ covers:
   # Componentes nuevos de sesión, y la navbar que muestra quién está adentro.
   - web/components/sesion/
   - web/components/nav-bar.tsx
+  # AGREGADO EL 2026-08-11, con motivo. La pantalla de perfil es la primera del
+  # repo que monta este campo **ya lleno**, y eso destapó un defecto que hasta
+  # hoy no podía ocurrir: el campo disparaba la búsqueda de su propio contenido
+  # al montarse y desplegaba la lista de sugerencias sola, como pidiendo cambiar
+  # una calle que la persona ya había elegido. El arreglo es de una línea y vive
+  # necesariamente acá — quien monta el campo no tiene forma de impedirlo desde
+  # afuera. Se verificó que **no toca la creación de pedido**: ahí los dos
+  # campos nacen vacíos (`INITIAL_STATE` en `pedido-form.tsx`) y el único camino
+  # que los remonta también resetea a vacío, así que el valor inicial sigue
+  # siendo el mismo `null` de antes. No se extiende a `bloque-direccion.tsx`:
+  # ese sigue afuera, y T063 sigue diciendo reutilizarlo sin modificarlo.
+  - web/components/campo-autocompletado.tsx
   # El estado de sesión compartido necesita un proveedor arriba de todo. Se
   # cubre por adelantado en vez de descubrirlo cuando el sensor frene el commit.
   - web/app/layout.tsx
@@ -37,7 +48,14 @@ covers:
   # propósito. FR-007b dice que el formulario de pedido no se toca en este
   # feature; dejarlo fuera de covers: hace que el sensor de pre-commit lo
   # imponga en vez de confiar en que alguien se acuerde.
-verify: (cd backend && go vet ./... && go test ./... && go build ./...) && (cd web && npm run lint && npm test && npm run build)
+# `-p 1` no es adorno: las pruebas contra Postgres comparten una sola base y la
+# de migraciones la vacia entera para verificar SC-011 (migrar desde vacio). Go
+# corre los paquetes en paralelo por defecto, asi que sin esto esa prueba le
+# saca el esquema de abajo a las de usuarios y rastro mientras trabajan, y el
+# verify: da rojo por una carrera y no por el cambio de quien lo corre. Se
+# descubrio el 2026-08-10, la primera vez que las pruebas de base corrieron de
+# verdad en vez de saltearse.
+verify: (cd backend && go vet ./... && go test ./... -p 1 && go build ./...) && (cd web && npm run lint && npm test && npm run build)
 analyzed: 2026-08-09
 ---
 
@@ -45,24 +63,6 @@ analyzed: 2026-08-09
 
 **Feature dir**: `specs/006-backend-auth` | **Date**: 2026-08-08 | **Spec**: [spec.md](spec.md)
 
-## Pausa — 2026-08-10, sólo en la rama `dominio-propio`
-
-Este plan pasó a `draft` **en esta rama y nada más**, para dejar entrar a
-[`009-dominio-propio`](../009-dominio-propio/plan.md), que muda el sitio a
-`flashurbano.uy`. El harness permite exactamente un plan `active` por árbol de
-trabajo, y `009` tiene que salir desde `master` porque el sitio publicado sale de
-ahí.
-
-**`006` no está pausado de verdad: sigue `active` y en ejecución en la rama
-`backend-auth`**, que es donde vive su código. Esta copia de `master` es una
-foto vieja —no tiene `backend/`, ni `web/lib/sesion.ts`, ni el arreglo de `-p 1`
-en el `verify:`— así que `draft` describe mejor lo que pasa acá que `active`.
-
-**Al mergear `backend-auth` va a haber conflicto en este frontmatter.** Se
-resuelve quedándose con la versión de `backend-auth`, que trae el estado real, y
-borrando esta sección. No es un accidente a evitar: es el precio de que dos
-features corran en paralelo, y es preferible a que el sensor autorice una rama
-con la lista de archivos equivocada.
 
 ## Summary
 
@@ -266,13 +266,13 @@ no cookie (FR-016), así que no hay `SameSite=None` que Safari pueda bloquear—
 pero la guarda de proceso es el paso segundo: probar el cruce de orígenes contra
 un endpoint trivial antes de que haya login que culpar.
 
-**El dominio no resuelve.** El alta en el registro `.uy` ya se ejecutó, pero al
-2026-08-09 la zona DNS no existe: el registro delega a los nameservers del
-registrador y ésos responden `REFUSED`. El panel del registrador **no tiene
-editor de zona**, así que la zona se muda a Cloudflare — ver
-[`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md).
-Bloquea la Historia 3 y SC-004, y **nada más**: por eso Google es P1 y el código
-por mail P2.
+**El dominio no resuelve.** ~~Bloquea la Historia 3 y SC-004~~ — **cerrado el
+2026-08-10.** La zona se mudó a Cloudflare, `a.nic.uy` delega ahí, el SOA resuelve
+y `_dmarc` está cargado. Lo que le queda a T059 es dar de alta el dominio en
+Resend y cargar los registros que indique, que ya no depende de nadie más. Ver
+[`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md), que
+además documenta la trampa de mudar el sitio al apex: el `basePath` de
+`web/next.config.ts` lo rompe, y ese archivo **no está en `covers:`**.
 
 **Primeros secretos reales en un repo público.** Hasta hoy no había nada que
 filtrar. Ahora hay URL de base de datos, credenciales de Google y clave del

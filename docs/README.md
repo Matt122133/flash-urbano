@@ -57,6 +57,12 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
 - [`processes/dominio-y-dns.md`](processes/dominio-y-dns.md) — estado de
   `flashurbano.uy`, la delegación coja que hay que arreglar, y qué registro DNS
   hace falta para el mail, para el sitio y para el API.
+- [`processes/google-oauth.md`](processes/google-oauth.md) — cómo está dado de
+  alta el cliente OAuth del *Ingresar con Google*, dónde vive el Client ID, las
+  cuatro trampas, y cómo verificar sin abrir un navegador.
+- [`processes/railway-despliegue.md`](processes/railway-despliegue.md) — cómo
+  está armado el backend en Railway, qué variables tiene y cuáles son relleno,
+  y las cuatro trampas del despliegue.
 
 ## Trackers
 
