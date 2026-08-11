@@ -22,6 +22,17 @@ const urlDeResend = "https://api.resend.com/emails"
 // quedo registrado igual, asi que un reintento no duplica nada que importe.
 const tiempoLimite = 10 * time.Second
 
+// nombreParaMostrar es como aparece el remitente en la bandeja de quien recibe.
+//
+// **Sin esto, el cliente de correo cae en mostrar el trozo anterior al arroba**
+// —"info"— que no le dice nada a nadie y ademas se lee como correo automatico
+// de cualquier parte. Se detecto mirando la bandeja real el 2026-08-11.
+//
+// Va en el codigo y no en la variable de entorno porque es la marca, no
+// configuracion del entorno: no cambia entre local y produccion. Aun asi, si
+// CORREO_REMITENTE ya viene con nombre, se respeta — ver remitenteConNombre.
+const nombreParaMostrar = "Flash Urbano"
+
 // Resend manda por la API de Resend (research D8).
 type Resend struct {
 	apiKey    string
@@ -41,7 +52,7 @@ type Resend struct {
 func NuevoResend(apiKey, remitente string) *Resend {
 	return &Resend{
 		apiKey:    apiKey,
-		remitente: remitente,
+		remitente: remitenteConNombre(remitente),
 		cliente:   &http.Client{Timeout: tiempoLimite},
 		url:       urlDeResend,
 	}
@@ -58,9 +69,14 @@ type pedidoResend struct {
 // EnviarCodigo implementa Enviador.
 func (r *Resend) EnviarCodigo(ctx context.Context, destino, codigo string) error {
 	cuerpo, err := json.Marshal(pedidoResend{
-		From:    r.remitente,
-		To:      []string{destino},
-		Subject: fmt.Sprintf("%s es tu código para entrar a Flash Urbano", codigo),
+		From: r.remitente,
+		To:   []string{destino},
+		// El codigo va **primero en el asunto**, y es deliberado: en un telefono
+		// se lee entero desde la notificacion, sin abrir el mail ni salir del
+		// sitio. Cuesta que quede visible en la pantalla bloqueada, y para un
+		// login de una app de envios esa conveniencia vale mas — el codigo dura
+		// diez minutos y sirve una sola vez.
+		Subject: fmt.Sprintf("%s es tu código de verificación", codigo),
 		Text:    textoDelCodigo(codigo),
 		HTML:    htmlDelCodigo(codigo),
 	})
@@ -130,4 +146,17 @@ func htmlDelCodigo(codigo string) string {
   <p style="margin:0 0 24px;font-size:14px;color:#475569">Si no pediste entrar, podés ignorar este mensaje: sin el código nadie puede usar tu dirección para acceder.</p>
   <p style="margin:0;font-size:12px;color:#94a3b8">Flash Urbano — Paquetería y logística<br><a href="https://flashurbano.uy" style="color:#94a3b8">flashurbano.uy</a></p>
 </div>`, codigo)
+}
+
+// remitenteConNombre le agrega el nombre para mostrar a una direccion pelada.
+//
+// Si el valor configurado **ya** trae nombre —`Algo <casilla@dominio>`— se
+// respeta tal cual: quien se tomo el trabajo de escribirlo en el entorno gana,
+// y sobrescribirlo seria pisar una decision deliberada.
+func remitenteConNombre(remitente string) string {
+	limpio := strings.TrimSpace(remitente)
+	if limpio == "" || strings.Contains(limpio, "<") {
+		return limpio
+	}
+	return nombreParaMostrar + " <" + limpio + ">"
 }
