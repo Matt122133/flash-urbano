@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -128,53 +127,5 @@ func TestElLimitePorOrigenFrena(t *testing.T) {
 	// Control positivo: desde otro origen se puede.
 	if err := limites.Permite(ctx, "elqueviene@example.com", "198.51.100.4"); err != nil {
 		t.Fatalf("otro origen no tendria que estar frenado, y dio: %v", err)
-	}
-}
-
-// TestUnXForwardedForInventadoNoSalteaElLimite es la prueba que justifica todo
-// el comentario de OrigenDelPedido.
-//
-// El cliente puede mandar el encabezado que quiera. Si se tomara la **primera**
-// entrada, cambiar esa cadena en cada pedido daria un origen distinto cada vez y
-// el limite por origen no existiria. Se toma la ultima —la que agrego el proxy
-// de confianza— y por eso las tres variantes de abajo tienen que resolver al
-// **mismo** origen.
-func TestUnXForwardedForInventadoNoSalteaElLimite(t *testing.T) {
-	const real = "203.0.113.9"
-
-	casos := []struct {
-		nombre     string
-		encabezado string
-	}{
-		{"solo el del proxy", real},
-		{"el cliente invento uno adelante", "1.2.3.4, " + real},
-		{"el cliente invento varios", "9.9.9.9, 8.8.8.8, " + real},
-		{"con espacios de mas", "  1.2.3.4 ,   " + real + "   "},
-	}
-
-	for _, c := range casos {
-		t.Run(c.nombre, func(t *testing.T) {
-			r := httptest.NewRequest("POST", "/auth/codigo", nil)
-			r.Header.Set("X-Forwarded-For", c.encabezado)
-			r.RemoteAddr = "10.0.0.1:54321" // el proxy, igual para todos
-
-			if got := OrigenDelPedido(r); got != real {
-				t.Fatalf("se esperaba el origen del proxy %q y salio %q: el limite por origen se saltea cambiando una cadena", real, got)
-			}
-		})
-	}
-}
-
-// TestSinEncabezadoCaeARemoteAddr cubre el caso local, donde no hay proxy.
-//
-// Es el control positivo del anterior: sin este, una implementacion que
-// devolviera siempre la ultima entrada de una lista vacia —o cadena vacia—
-// pasaria el test de arriba solo cuando el encabezado viene.
-func TestSinEncabezadoCaeARemoteAddr(t *testing.T) {
-	r := httptest.NewRequest("POST", "/auth/codigo", nil)
-	r.RemoteAddr = "192.0.2.33:41234"
-
-	if got := OrigenDelPedido(r); got != "192.0.2.33" {
-		t.Fatalf("sin X-Forwarded-For tendria que salir el host de RemoteAddr sin puerto, y salio %q", got)
 	}
 }

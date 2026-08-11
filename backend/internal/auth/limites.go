@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
 	"strings"
 	"time"
 
@@ -92,37 +90,4 @@ func (l *Limites) Permite(ctx context.Context, email, origen string) error {
 		return ErrLimiteExcedido
 	}
 	return nil
-}
-
-// OrigenDelPedido devuelve la direccion de quien hizo el pedido.
-//
-// **Sale de `X-Forwarded-For`, no de `RemoteAddr`** (research D6). Railway pone
-// un proxy adelante, asi que `RemoteAddr` es la direccion del proxy y es **la
-// misma para todo el mundo**: contar por ahi convierte el limite por origen en
-// uno global, y el primero que pida veinte codigos deja a todos afuera. Es un
-// modo de falla que **no se ve en local** —sin proxy, `RemoteAddr` es correcto—
-// y que aparece recien en produccion, contra clientes reales.
-//
-// Se toma la **ultima** entrada del encabezado, no la primera. El cliente puede
-// mandar su propio `X-Forwarded-For` y esas entradas inventadas quedan a la
-// izquierda; el proxy de confianza agrega la que vio, al final. Confiar en la
-// primera es dejar que cualquiera se saltee el limite cambiando una cadena de
-// texto — hay una prueba que lo vigila.
-func OrigenDelPedido(r *http.Request) string {
-	adelantado := r.Header.Get("X-Forwarded-For")
-	if adelantado != "" {
-		partes := strings.Split(adelantado, ",")
-		ultima := strings.TrimSpace(partes[len(partes)-1])
-		if ultima != "" {
-			return ultima
-		}
-	}
-
-	// Sin proxy adelante —en local, o si el encabezado no vino— vale
-	// RemoteAddr, que trae puerto y hay que sacarselo.
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return strings.TrimSpace(r.RemoteAddr)
-	}
-	return host
 }
