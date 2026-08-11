@@ -95,6 +95,11 @@ vector más probable.
 Guardar la credencial sólo en memoria, que obligaría a reingresar en cada
 recarga y contradice FR-017.
 
+> **Corregido el 2026-08-10 al implementar T040.** La frase "sumar una CSP
+> estricta cierra el vector más probable" **no se pudo cumplir**, y con ella se
+> debilita el argumento que hace aceptable el `localStorage`. Ver
+> [D10](#d10--la-csp-es-acotada-y-no-estricta-y-el-motivo-no-es-pereza).
+
 ---
 
 ## D5 — HTTP con la biblioteca estándar, sin framework
@@ -219,6 +224,48 @@ legítimos de forma intermitente.
 obligaría a escribir a mano la descarga, el cacheo y la rotación de las claves
 públicas de Google — justo lo que el plan llama "lo que no se puede escribir a
 mano razonablemente".
+
+---
+
+## D10 — La CSP es acotada y no estricta, y el motivo no es pereza
+
+**Decisión**: una CSP en `<meta>` con `'unsafe-inline'` en `script-src`, y un
+`connect-src` corto. Añadida el 2026-08-10 al implementar T040; **corrige a
+[D4](#d4--la-credencial-vive-en-el-almacenamiento-local-del-navegador-con-csp-estricta)**,
+que prometió una CSP estricta.
+
+**Por qué no se puede hacer estricta**. Dos impedimentos, y ninguno es opinable:
+
+1. **GitHub Pages no deja configurar encabezados HTTP.** La única vía es un
+   `<meta http-equiv>`, que además no soporta `frame-ancestors` ni `report-uri`.
+2. **La vía que documenta Next usa nonces, y los nonces exigen renderizado
+   dinámico** — un servidor que genere uno distinto por visita. Este sitio es un
+   export estático: no hay servidor. Y Next emite scripts inline propios: el
+   HTML publicado tiene **ocho**. Un `script-src 'self'` los bloquea, React no
+   hidrata y el sitio queda muerto.
+
+**Qué sigue protegiendo, entonces.** Conviene ser preciso en vez de decir "hay
+CSP" y quedarse tranquilo. Con `'unsafe-inline'`, la CSP **no impide que un XSS
+se ejecute**. Lo que impide es que se lleve algo: `connect-src` está limitado al
+propio origen, a Google y al servicio. Como la credencial vive en
+`localStorage`, un script inyectado **puede leerla y no puede mandarla a un
+servidor propio**. Cierra la exfiltración, no la ejecución.
+
+El resto de las directivas —`object-src 'none'`, `base-uri 'self'`,
+`form-action 'self'`— cuestan nada y cierran vectores reales.
+
+**El origen del servicio se deriva de `NEXT_PUBLIC_API_URL`**, la misma variable
+que consume `lib/api.ts` (FR-024). No se escribe a mano a propósito: una CSP con
+un origen distinto del que el cliente llama bloquea todas las llamadas, y el
+síntoma —"failed to fetch"— no menciona la CSP por ningún lado. Derivarlos de la
+misma fuente hace imposible que diverjan.
+
+**Descartado**: `script-src 'self'` a secas, que deja el sitio sin hidratar.
+Hashes SHA-256 de los scripts inline calculados por build y reescritos en el
+`<meta>` de cada HTML generado — es la única forma de tener una CSP de verdad
+estricta acá, y se descarta **por ahora** y no por siempre: requiere un
+post-proceso del export, cambia con cada build, y toca archivos fuera del
+`covers:` de `006`. Queda anotado en el tracker.
 
 ---
 
