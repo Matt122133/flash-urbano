@@ -68,9 +68,17 @@ export function NavBar() {
           {sesionResuelta &&
             (usuario ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-700" title={usuario.email}>
+                {/* El nombre es el acceso a la cuenta. No se agrega un item mas
+                    a la navegacion: es donde la persona ya mira para saber
+                    quien esta adentro, y una pantalla a la que no se llega es
+                    una pantalla que no existe. */}
+                <Link
+                  href="/perfil"
+                  className="rounded-md px-2 py-1 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                  title={`${usuario.email} — ver mi cuenta`}
+                >
                   {nombreCorto || usuario.email}
-                </span>
+                </Link>
                 <button
                   type="button"
                   onClick={() => void salir()}
@@ -152,6 +160,13 @@ export function NavBar() {
                       {nombreCorto || usuario.email}
                     </span>
                   </p>
+                  <Link
+                    href="/perfil"
+                    onClick={() => setOpen(false)}
+                    className="block rounded-md px-3 py-2.5 text-base font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    Mi cuenta
+                  </Link>
                   <button
                     type="button"
                     onClick={() => {

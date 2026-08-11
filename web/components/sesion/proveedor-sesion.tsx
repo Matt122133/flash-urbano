@@ -5,6 +5,24 @@ import { ErrorApi, pedir, type OpcionesPedido } from "@/lib/api";
 import { borrar, credencial as credencialGuardada, guardar, suscribirse, type Sesion } from "@/lib/sesion";
 
 /**
+ * La direccion de retiro guardada, tal como viaja en `usuarios.VistaRetiro`.
+ *
+ * Son cuatro campos y no seis: **`apto` y `cooperativa` NO se guardan** en el
+ * perfil (FR-019a los deja afuera). El formulario de pedido los sigue pidiendo
+ * en cada envio.
+ *
+ * El `punto` es el ya ajustado dentro de la cuadra, no el del cruce: precargar
+ * tiene que restituir el arrastre que la persona hizo, o le estariamos pidiendo
+ * que lo repita.
+ */
+export type RetiroGuardado = {
+  calle: string;
+  esquina: string;
+  numero: string;
+  punto: { lat: number; lng: number } | null;
+};
+
+/**
  * El usuario tal como lo devuelve el servicio.
  *
  * Se sincroniza a mano con `usuarios.Vista` del backend — el ADR lo decidio asi
@@ -17,6 +35,8 @@ export type Usuario = {
   nombre: string;
   telefono: string;
   perfilCompleto: boolean;
+  /** Null mientras no haya guardado ninguna. */
+  retiro: RetiroGuardado | null;
 };
 
 /** Lo que devuelven los dos caminos de ingreso. */
