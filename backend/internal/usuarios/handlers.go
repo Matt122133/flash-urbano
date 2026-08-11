@@ -48,6 +48,18 @@ type Vista struct {
 	// **Se devuelve sin darla por valida** (FR-019b). Que el punto caiga dentro
 	// de la cuadra se verifica al cobrar, y eso es 007.
 	Retiro *VistaRetiro `json:"retiro"`
+
+	// EsAdmin sale de la CONFIGURACION del entorno, no de una columna (FR-022).
+	// No hay forma de volverse administrador desde el sitio porque no hay dónde
+	// escribirlo: la base no lo guarda.
+	//
+	// Es un **puntero con omitempty**, y no un bool, por un motivo concreto: lo
+	// contesta `GET /yo` y **no** la respuesta del ingreso, porque `auth` no
+	// conoce la configuracion a proposito. Con un bool, el login serializaria
+	// `"esAdmin": false` para todo el mundo —incluido un administrador— y el
+	// sitio leeria un dato presente y equivocado. Ausente es la verdad: "esta
+	// respuesta no contesta eso".
+	EsAdmin *bool `json:"esAdmin,omitempty"`
 }
 
 type VistaRetiro struct {
@@ -116,10 +128,35 @@ func deref(s *string) string {
 // credencial, y por eso ninguno recibe un identificador de usuario.
 type Handlers struct {
 	repo *Repositorio
+	// esAdmin decide, a partir de la configuracion del entorno, si una
+	// direccion es administradora. Nunca sale de la base (FR-022).
+	esAdmin func(string) bool
 }
 
-func NuevosHandlers(repo *Repositorio) *Handlers {
-	return &Handlers{repo: repo}
+// NuevosHandlers recibe un **predicado**, no la configuracion entera.
+//
+// Asi este paquete no depende de `config`, y sobre todo: cambiar quien es
+// administrador es cambiar la funcion que se pasa, sin tocar la base ni este
+// codigo. Es lo que hace comprobable a FR-022 en una prueba.
+func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool) *Handlers {
+	if esAdmin == nil {
+		// Sin predicado, nadie es administrador. Es el default seguro: el modo
+		// de falla contrario —que todos lo sean— es el que no se perdona.
+		esAdmin = func(string) bool { return false }
+	}
+	return &Handlers{repo: repo, esAdmin: esAdmin}
+}
+
+// vista arma la representacion publica **contestando quien es administrador**.
+//
+// Existe para que los dos handlers de este paquete pasen por el mismo lugar: si
+// cada uno llamara a VistaDe por su cuenta, agregar un endpoint nuevo seria
+// olvidarse del campo sin que nada avise.
+func (h *Handlers) vista(u *Usuario) Vista {
+	v := VistaDe(u)
+	admin := h.esAdmin(u.Email)
+	v.EsAdmin = &admin
+	return v
 }
 
 // Yo responde quien es el que pregunta.
@@ -136,7 +173,7 @@ func (h *Handlers) Yo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, VistaDe(u))
+	httpx.JSON(w, http.StatusOK, h.vista(u))
 }
 
 // pedidoActualizarYo es el cuerpo de PUT /yo.
@@ -274,5 +311,5 @@ func (h *Handlers) ActualizarYo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, VistaDe(actualizado))
+	httpx.JSON(w, http.StatusOK, h.vista(actualizado))
 }

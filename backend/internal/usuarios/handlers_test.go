@@ -89,7 +89,7 @@ func TestCadaUnoVeLoSuyo(t *testing.T) {
 		t.Fatalf("creando a beto: %v", err)
 	}
 
-	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{
+	srv := monta(t, NuevosHandlers(repo, nil), map[string]*Usuario{
 		"token-de-ana":  ana,
 		"token-de-beto": beto,
 	})
@@ -130,7 +130,7 @@ func TestUnIdentificadorAjenoEnElCuerpoNoCambiaNada(t *testing.T) {
 		t.Fatalf("creando a beto: %v", err)
 	}
 
-	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"token-de-ana": ana})
+	srv := monta(t, NuevosHandlers(repo, nil), map[string]*Usuario{"token-de-ana": ana})
 
 	// Ana, identificada, manda el id de Beto en el cuerpo.
 	cuerpo := `{"id":"` + beto.ID + `","nombre":"Intrusa","telefono":"099000000"}`
@@ -168,7 +168,7 @@ func TestEscribirConLaPropiaSesionSoloTocaLoPropio(t *testing.T) {
 		t.Fatalf("creando a beto: %v", err)
 	}
 
-	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"token-de-ana": ana})
+	srv := monta(t, NuevosHandlers(repo, nil), map[string]*Usuario{"token-de-ana": ana})
 
 	cuerpo := `{"nombre":"Ana","telefono":"099111222",
 	            "retiro":{"calle":"Rivera","esquina":"Soca","numero":"1234",
@@ -206,7 +206,7 @@ func TestElAltaNoPisaLaDireccionGuardada(t *testing.T) {
 		t.Fatalf("creando: %v", err)
 	}
 
-	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"tok": u})
+	srv := monta(t, NuevosHandlers(repo, nil), map[string]*Usuario{"tok": u})
 
 	conDireccion := `{"nombre":"Ana","telefono":"099111222",
 	                  "retiro":{"calle":"Rivera","esquina":"Soca","numero":"1234",
@@ -245,7 +245,7 @@ func TestUnaDireccionAMediasSeRechaza(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creando: %v", err)
 	}
-	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"tok": u})
+	srv := monta(t, NuevosHandlers(repo, nil), map[string]*Usuario{"tok": u})
 
 	casos := map[string]string{
 		"sin punto":   `{"nombre":"A","telefono":"099","retiro":{"calle":"Rivera","esquina":"Soca","numero":"1"}}`,
@@ -287,7 +287,7 @@ func TestElAptoYLaCooperativaSeGuardanYVuelven(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creando: %v", err)
 	}
-	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"tok": u})
+	srv := monta(t, NuevosHandlers(repo, nil), map[string]*Usuario{"tok": u})
 
 	cuerpo := `{"nombre":"Ana","telefono":"099111222",
 	            "retiro":{"calle":"Rivera","esquina":"Soca","numero":"1234",
@@ -340,7 +340,7 @@ func TestSinAptoNoEsLoMismoQueNoDeclararlo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creando: %v", err)
 	}
-	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"tok": u})
+	srv := monta(t, NuevosHandlers(repo, nil), map[string]*Usuario{"tok": u})
 
 	// Direccion completa SIN nombrar apto ni cooperativa: quedan nulos.
 	sinNombrarlos := `{"nombre":"Ana","telefono":"099111222",
@@ -377,7 +377,7 @@ func TestElAltaTampocoPisaElApto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creando: %v", err)
 	}
-	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"tok": u})
+	srv := monta(t, NuevosHandlers(repo, nil), map[string]*Usuario{"tok": u})
 
 	con := `{"nombre":"Ana","telefono":"099111222",
 	         "retiro":{"calle":"Rivera","esquina":"Soca","numero":"1234",

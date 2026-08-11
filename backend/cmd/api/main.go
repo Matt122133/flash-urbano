@@ -114,7 +114,7 @@ func correr() error {
 		Handler: httpx.CORS(cfg.OrigenesPermitidos, rutas(pool, dependencias{
 			auth:     auth.NuevosHandlers(verificadorGoogle, repoUsuarios, sesiones, registro),
 			codigo:   auth.NuevosHandlersCodigo(codigos, limites, enviador, repoUsuarios, sesiones, registro),
-			usuarios: usuarios.NuevosHandlers(repoUsuarios),
+			usuarios: usuarios.NuevosHandlers(repoUsuarios, cfg.EsAdmin),
 			resolver: sesiones.ResolverUsuario(repoUsuarios),
 		})),
 
