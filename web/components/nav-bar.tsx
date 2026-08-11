@@ -132,14 +132,30 @@ export function NavBar() {
         <nav className="border-t border-slate-200 bg-white px-4 py-2 sm:hidden">
           {LINKS.map((link) => {
             const active = pathname === link.href;
+            // En el ancho de escritorio hay dos accesos a /pedido: el item de
+            // la navegacion y el boton naranja de la derecha. En el teléfono el
+            // boton naranja no existe —no entra en la barra— asi que el menu
+            // colapsado era el unico lugar donde la accion principal del sitio
+            // se veia igual que "Sobre nosotros". Se destaca acá para reponer
+            // ese contraste, que es justo donde mas hace falta: el sitio se abre
+            // desde un telefono (Principio IV).
+            //
+            // Se queda naranja tambien estando en /pedido, y por eso no lleva
+            // el estilo de activo: es una llamada a la accion, no un indicador
+            // de donde estas.
+            const destacado = link.href === "/pedido";
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className={`block rounded-md px-3 py-2.5 text-base font-medium ${
-                  active ? "bg-brand/10 text-brand" : "text-slate-700 hover:bg-slate-100"
-                }`}
+                className={
+                  destacado
+                    ? "my-1 block rounded-full bg-accent px-3 py-2.5 text-center text-base font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+                    : `block rounded-md px-3 py-2.5 text-base font-medium ${
+                        active ? "bg-brand/10 text-brand" : "text-slate-700 hover:bg-slate-100"
+                      }`
+                }
               >
                 {link.label}
               </Link>

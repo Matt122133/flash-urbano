@@ -57,11 +57,27 @@ cualquiera puede leer. Tratarlo de secreto sería mentirse.
 
 ## Las cuatro trampas
 
-**1 — La pantalla de consentimiento en modo *Testing* sólo deja entrar a los
-usuarios de prueba que se listen a mano.** Ni el cliente ni nadie más puede
-ingresar, y el rechazo viene de Google, antes de tocar el servicio. Hay que
-**publicarla en Production**. Con scopes básicos eso es inmediato: no dispara
-revisión de seguridad ni costo.
+**1 — El modo *Testing* NO bloquea este login, y la creencia de que sí lo hacía
+costó una verificación mal razonada.** Se comprobó el 2026-08-11 contra
+producción: la app está en ***Prueba*, con la lista de usuarios de prueba
+vacía**, y entraron tanto la cuenta dueña del proyecto como una segunda cuenta
+que no figura en ninguna lista.
+
+El motivo es que *Testing* gobierna la **autorización** —quién puede otorgarle
+scopes a la app— y este flujo **no pide ni un scope**. `internal/auth/google.go`
+verifica un **ID token** contra el JWKS de Google (`aud`, `iss`, vencimiento);
+no hay access token ni permiso otorgado. Es autenticación pura. Por eso el panel
+muestra `0 usuarios (0 de prueba, 0 de otro tipo)` y las métricas vacías **pese
+a que hubo ingresos reales**: no hay ninguna solicitud de OAuth que contar.
+
+**Conviene publicarla igual**, y no por lo que hace hoy sino por lo que evita
+mañana: con scopes básicos publicar es inmediato —no dispara revisión de
+seguridad ni costo— y deja el panel diciendo la verdad. **El día que se le pida
+a Google un scope de verdad, *Testing* sí empezaría a bloquear** a todo el que no
+esté en la lista, y el síntoma aparecería lejos de la causa.
+
+**La regla general, que es lo que hay que recordar**: si el flujo devuelve sólo
+un ID token, *Testing* no molesta; si pide scopes, sí.
 
 **2 — No se registran redirect URIs, y es deliberado** (research D3). El flujo
 es de *token de identidad* dentro de la página, sin redirección. Registrar una
@@ -88,10 +104,14 @@ curl -s -L -o /dev/null -w '%{url_effective}\n' \
 &redirect_uri=https%3A%2F%2Fflashurbano.uy%2F&response_type=code&scope=openid%20email"
 ```
 
-**Lo que NO se puede verificar así**: si la pantalla está publicada y si los
-orígenes JavaScript están bien escritos. El endpoint `gsi/status` devuelve lo
-mismo para un origen legítimo y para uno inventado, así que no sirve. Eso lo
-confirma únicamente un login real.
+**Lo que NO se puede verificar así**: si los orígenes JavaScript están bien
+escritos. El endpoint `gsi/status` devuelve lo mismo para un origen legítimo y
+para uno inventado, así que no sirve. Eso lo confirma únicamente un login real
+—hecho el 2026-08-11 desde `https://flashurbano.uy` en iPhone/Safari—.
+
+El estado de publicación se mira en **Google Auth Platform → Público**, que es
+donde viven *Estado de publicación*, *Tipo de usuario* y la lista de usuarios de
+prueba. No está en *Descripción general*, que sólo muestra métricas.
 
 ## Cuando cambia un origen del sitio
 
