@@ -55,14 +55,49 @@ Go 1.26+. Si `go version` no responde, la terminal es anterior a la instalacion
 del toolchain — abrir una nueva. Ver
 [`docs/processes/dev-setup.md`](../docs/processes/dev-setup.md).
 
+Primero, un Postgres **con PostGIS**. El Postgres pelado no sirve: la migracion
+`0001` hace `CREATE EXTENSION postgis`.
+
+```bash
+docker run -d --name flash-pg-dev \
+  -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=flash_dev \
+  -p 55433:5432 postgis/postgis:17-3.5
+```
+
+Puerto `55433` a proposito, distinto del `55432` de la base de pruebas: **esa se
+vacia entera** al correr los tests, y compartirla es perder los datos de
+desarrollo cada vez que se verifica.
+
+Despues, la configuracion y el arranque:
+
 ```bash
 cd backend
 cp .env.example .env    # y completar
+
+# El servicio NO lee .env por si mismo: la configuracion sale del entorno y
+# nada mas (FR-028). `set -a` exporta todo lo que se defina entre las dos
+# lineas, que es lo que convierte el archivo en variables de entorno.
+set -a; . ./.env; set +a
+
 go run ./cmd/api
 ```
 
+> **`go run ./cmd/api` a secas no arranca**, y el error —"faltan variables de
+> entorno obligatorias"— parece un defecto del servicio y es la configuracion
+> que nunca se cargo. No hay `godotenv` ni ningun lector de `.env` en el codigo,
+> y es deliberado: una dependencia mas para algo que el shell ya hace.
+
+Las opcionales pueden quedar vacias en el `.env`: una variable definida pero
+vacia se trata como ausente y toma su valor por defecto.
+
 Las migraciones se aplican **al arrancar** (research D7), asi que una base vacia
 queda lista sin pasos manuales.
+
+### Para probar el ingreso desde el sitio local
+
+`CORS_ORIGENES` tiene que incluir `http://localhost:3000` — con esquema y
+puerto, sin barra final. El de Railway **no lo tiene** y no deberia tenerlo: por
+eso el sitio local se prueba contra un backend local y no contra el desplegado.
 
 ## Verificar
 
