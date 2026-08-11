@@ -24,6 +24,19 @@ import { resolverZona } from "./zona-lookup";
 //
 // El plano estatico es el que importa: atrapa la dependencia el dia que se
 // escribe, no el dia que alguien acierta a probar con el servicio apagado.
+//
+// LIMITE CONOCIDO, agregado el 2026-08-10 con T040. `app/layout.tsx` monta el
+// proveedor de sesion arriba de TODO, incluido /pedido, y ese proveedor si
+// importa `lib/api.ts`. El layout NO figura entre las ENTRADAS de abajo, asi
+// que este archivo no lo mira — y es deliberado, porque mirarlo pondria la
+// prueba en rojo por un import que tiene que existir.
+//
+// Lo que sostiene FR-001 en ese camino es una propiedad de COMPORTAMIENTO y no
+// del grafo: sin credencial guardada, el proveedor no hace una sola llamada de
+// red. Vive en un `if` de `components/sesion/proveedor-sesion.tsx` y **no tiene
+// prueba automatica**: probarla necesita renderizar React, y el entorno de
+// vitest de este repo es `node` sin DOM. Hoy la cubre T025, que es manual.
+// Anotado en docs/tech-debt-tracker.md.
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = resolve(AQUI, "..");

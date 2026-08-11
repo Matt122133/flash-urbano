@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { asset } from "@/lib/asset";
+import { useSesion } from "@/components/sesion/proveedor-sesion";
 
 const LINKS = [
   { href: "/", label: "Inicio" },
@@ -17,6 +18,15 @@ const LINKS = [
 export function NavBar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { usuario, cargando, salir } = useSesion();
+
+  // Mientras se resuelve la credencial guardada no se muestra nada de sesion.
+  // Es medio segundo, pero mostrar "Ingresar" a alguien que ya esta adentro y
+  // cambiarlo despues se lee como un error del sitio, no como una carga.
+  const sesionResuelta = !cargando;
+
+  /** Solo el primer nombre: en el ancho de un telefono no entra mas. */
+  const nombreCorto = usuario?.nombre?.trim().split(/\s+/)[0] ?? "";
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
@@ -54,12 +64,37 @@ export function NavBar() {
           })}
         </nav>
 
-        <Link
-          href="/pedido"
-          className="hidden rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600 sm:block"
-        >
-          Enviar un paquete
-        </Link>
+        <div className="hidden items-center gap-3 sm:flex">
+          {sesionResuelta &&
+            (usuario ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-700" title={usuario.email}>
+                  {nombreCorto || usuario.email}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void salir()}
+                  className="rounded-md px-2 py-1 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                >
+                  Salir
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/ingresar"
+                className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              >
+                Ingresar
+              </Link>
+            ))}
+
+          <Link
+            href="/pedido"
+            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+          >
+            Enviar un paquete
+          </Link>
+        </div>
 
         <button
           type="button"
@@ -102,6 +137,43 @@ export function NavBar() {
               </Link>
             );
           })}
+
+          {/* La sesion tambien en el menu colapsado. Es donde la va a usar la
+              mayoria: el sitio se abre desde un telefono (Principio IV), y
+              dejarla solo en el ancho de escritorio la esconde justo de quien
+              la necesita. */}
+          {sesionResuelta && (
+            <div className="mt-2 border-t border-slate-200 pt-2">
+              {usuario ? (
+                <>
+                  <p className="px-3 py-2 text-sm text-slate-500">
+                    Entraste como{" "}
+                    <span className="font-medium text-slate-700">
+                      {nombreCorto || usuario.email}
+                    </span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      void salir();
+                    }}
+                    className="block w-full rounded-md px-3 py-2.5 text-left text-base font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    Salir
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/ingresar"
+                  onClick={() => setOpen(false)}
+                  className="block rounded-md px-3 py-2.5 text-base font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Ingresar
+                </Link>
+              )}
+            </div>
+          )}
         </nav>
       )}
     </header>
