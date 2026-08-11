@@ -192,6 +192,13 @@ pendiente, se deja T059 abierto **y se dice al cerrar el plan**, no se da por he
 
 ## Phase 6: User Story 4 — Mis datos quedan guardados (P3)
 
+> **Se adelantó a la Historia 3, el 2026-08-10.** La Historia 3 es P2 y ésta P3,
+> así que el orden se invirtió a propósito y conviene decir por qué: T059 depende
+> de dar de alta `flashurbano.uy` en Resend, que no está hecho, mientras que esta
+> historia no depende de nada. Y el dueño del repo la pidió explícitamente al ver
+> el ingreso funcionando: *"cuando te logueas estaría buenísimo poder ver tu
+> cuenta"*. La Historia 3 queda entera pendiente, sin ninguna tarea empezada.
+
 **Goal**: el cliente guarda nombre, teléfono y dirección de retiro una vez y los vuelve a ver.
 
 **Independent Test**: identificarse, guardar los tres datos, salir, volver a entrar y verlos.
