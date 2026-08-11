@@ -55,6 +55,13 @@ type VistaRetiro struct {
 	Esquina string      `json:"esquina"`
 	Numero  string      `json:"numero"`
 	Punto   *VistaPunto `json:"punto"`
+
+	// Apto y cooperativa se sumaron el 2026-08-11. Viajan como **nulables**, no
+	// como "" y false: el sitio tiene que poder distinguir "no tiene apto" de
+	// "nunca lo dijo", y mostrar el selector de cooperativa sin ninguna opcion
+	// marcada cuando la persona todavia no eligio.
+	Apto        *string `json:"apto"`
+	Cooperativa *bool   `json:"cooperativa"`
 }
 
 type VistaPunto struct {
@@ -84,10 +91,12 @@ func VistaDe(u *Usuario) Vista {
 	// cliente no sabe si tiene que completar o corregir.
 	if u.RetiroCalle != nil && u.RetiroEsquina != nil && u.RetiroNumero != nil && u.RetiroPunto != nil {
 		v.Retiro = &VistaRetiro{
-			Calle:   *u.RetiroCalle,
-			Esquina: *u.RetiroEsquina,
-			Numero:  *u.RetiroNumero,
-			Punto:   &VistaPunto{Lat: u.RetiroPunto.Lat, Lng: u.RetiroPunto.Lng},
+			Apto:        u.RetiroApto,
+			Cooperativa: u.RetiroCooperativa,
+			Calle:       *u.RetiroCalle,
+			Esquina:     *u.RetiroEsquina,
+			Numero:      *u.RetiroNumero,
+			Punto:       &VistaPunto{Lat: u.RetiroPunto.Lat, Lng: u.RetiroPunto.Lng},
 		}
 	}
 
@@ -153,6 +162,13 @@ type pedidoRetiro struct {
 	Esquina string       `json:"esquina"`
 	Numero  string       `json:"numero"`
 	Punto   *pedidoPunto `json:"punto"`
+
+	// **No entran en el "va entera o no va"**: hay domicilios sin apto, y no
+	// declarar si es cooperativa no invalida una direccion. Punteros para que
+	// mandar `null` y no mandar el campo signifiquen lo mismo —conservar— y
+	// mandar `""` signifique borrar el apto.
+	Apto        *string `json:"apto"`
+	Cooperativa *bool   `json:"cooperativa"`
 }
 
 type pedidoPunto struct {
@@ -219,11 +235,26 @@ func (h *Handlers) ActualizarYo(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
 			return
 		}
+		// El apto se recorta pero NO se exige: vacio es una respuesta valida
+		// —no todos los domicilios tienen apto— y se guarda como vacio, que es
+		// distinto de nulo.
+		var apto *string
+		if p.Apto != nil {
+			recortado := strings.TrimSpace(*p.Apto)
+			if utf8.RuneCountInString(recortado) > maxCampoDireccion {
+				httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+				return
+			}
+			apto = &recortado
+		}
+
 		retiro = &Retiro{
-			Calle:   calle,
-			Esquina: esquina,
-			Numero:  numero,
-			Punto:   Punto{Lat: p.Punto.Lat, Lng: p.Punto.Lng},
+			Calle:       calle,
+			Esquina:     esquina,
+			Numero:      numero,
+			Punto:       Punto{Lat: p.Punto.Lat, Lng: p.Punto.Lng},
+			Apto:        apto,
+			Cooperativa: p.Cooperativa,
 		}
 	}
 

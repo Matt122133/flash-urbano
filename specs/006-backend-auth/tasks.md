@@ -321,10 +321,27 @@ quedó funcionando de punta a punta.
 
 ---
 
+## Fase 10 — El perfil guarda la dirección entera (2026-08-11)
+
+> **Decisión del dueño del proyecto**, tomada al ver la fila `Medium` del
+> tracker: *"que entre, y dejémoslo guardado porque es parte de la info del
+> cliente"*. Se hace ahora y no en `007` porque `007` es quien precarga el
+> formulario, y llegar ahí con la dirección incompleta obligaría a un segundo
+> cambio de esquema encima del código que ya la estaría leyendo. Paga la fila
+> `Medium` del 2026-08-11 del tracker.
+
+- [x] T079 Escribir la migración `backend/migrations/0002_retiro_apto_cooperativa.sql`: dos columnas **nulables y sin default**. `retiro_cooperativa` en particular **no lleva `DEFAULT false`** — "no es cooperativa" y "nunca lo dijo" son cosas distintas, y colapsarlas haría que toda fila vieja afirmara algo que nadie declaró
+- [x] T080 Sumar `RetiroApto` y `RetiroCooperativa` al repositorio en `backend/internal/usuarios/usuario.go` (struct, `columnas`, `escanear`, tipo `Retiro`, `GuardarPerfil`). **No entran en el "van juntos o no van"**: hay domicilios sin apto, y no declarar si es cooperativa no invalida una dirección. En el `UPDATE` van **sin `COALESCE`** y guardados por el `CASE` de la calle: con `COALESCE`, quien borra su apto no podría borrarlo nunca, porque mandar vacío se leería como "no tocar"
+- [x] T081 Sumarlos a `VistaRetiro` y `pedidoRetiro` en `backend/internal/usuarios/handlers.go`, como **nulables** en el JSON. El apto se recorta y se valida el largo, pero **no se exige**: vacío es una respuesta válida
+- [x] T082 Probar en `backend/internal/usuarios/handlers_test.go`: que se guardan y **vuelven de una lectura que toca la base**, que `""` y nulo se distinguen, y que la pantalla de alta no los pisa. **Un defecto del arnés salió acá y conviene no volver a pisarlo**: la primera versión verificaba la persistencia con `GET /yo`, y en este arnés eso **no verifica nada** — el resolver falso devuelve el `*Usuario` capturado al montar el servidor, o sea una foto anterior al `PUT`. En producción el resolver relee de la base en cada request; acá no. Se corrigió releyendo del repositorio
+- [x] T083 Sumarlos a `RetiroGuardado` en `web/components/sesion/proveedor-sesion.tsx` y al envío y la rehidratación de `web/components/sesion/formulario-perfil.tsx`, y **sacar el aviso** de que no se guardaban, que dejó de ser cierto
+
+---
+
 ## Notes
 
 - **`web/AGENTS.md` manda sobre el Next de este repo**: antes de escribir cualquier tarea de `web/`, leer la guía correspondiente en `node_modules/next/dist/docs/`. La versión tiene cambios que rompen respecto de lo conocido
-- 78 tareas: 5 de setup, 18 de foundational, 3 de US1, 21 de US2, 12 de US3, 6 de US4, 3 de US5, 8 de cierre, 2 salidas de probar en el teléfono
+- 83 tareas: 5 de setup, 18 de foundational, 3 de US1, 21 de US2, 12 de US3, 6 de US4, 3 de US5, 8 de cierre, 2 salidas de probar en el teléfono
 - 12 son manuales sin archivo (T019, T023, T025, T026, T045, T046, T047, T059, T065, T068, T074, T075) — son las que verifican lo que ningún comando puede
 - Commitear por tarea o por grupo lógico, con la convención del repo
 </content>
