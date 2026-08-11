@@ -58,6 +58,12 @@ detrás de `flashurbano.uy` — ver
   arreglar: es un redespliegue de algo anterior. Cambiar la configuración a ciegas
   es perseguir un error que ya no existe.
 
+  **`REMOVED` en el historial NO es un fallo.** Es un despliegue superado por uno
+  más nuevo: Railway mantiene una sola réplica activa y retira las anteriores. Una
+  lista entera de `REMOVED` con un `ACTIVE` arriba es exactamente lo que tiene que
+  verse. Un build que falló de verdad dice *Failed* o *Crashed*. Confundir los dos
+  hace buscar un problema que no existe — pasó el 2026-08-10.
+
   Lo que **no** rompe: el despliegue que estaba andando sigue en pie. Railway no
   reemplaza el último bueno por uno que falló al construir.
 - **Build**: el [`Dockerfile`](../../backend/Dockerfile) del propio directorio.
