@@ -155,7 +155,7 @@ duplica.
 - [x] T044 [US2] Mostrar quién está adentro en `web/components/nav-bar.tsx`: "Ingresar" sin sesión, nombre + salir con sesión. Mobile primero — el menú colapsado también
 - [x] T045 [US2] Registrar la configuración de Google (origen autorizado del cliente OAuth) para el origen de Pages y para `flashurbano.uy`. **Manual, en la consola de Google, sin archivo**. Desde el 2026-08-10 `https://flashurbano.uy` **es el origen real del sitio** (feature `009`), no una hipótesis: va primero, y el de Pages queda como secundario mientras la URL vieja siga redirigiendo. **Hecho el 2026-08-10**: cliente OAuth creado con los tres orígenes, Client ID cargado en la variable de repositorio de GitHub y en Railway, y verificado contra Google que el cliente existe (responde `redirect_uri_mismatch` y no `invalid_client`). El ingreso real desde `localhost:3000` funcionó. **Lo que eso NO prueba**: que la pantalla de consentimiento esté publicada —el dueño del proyecto entra igual estando en modo *Testing*— ni que `https://flashurbano.uy` esté bien escrito como origen, que sólo se ejercita cuando el sitio del dominio haga login. Las dos se confirman en T046. El alta completa quedó documentada en [`docs/processes/google-oauth.md`](../../docs/processes/google-oauth.md)
 - [x] T045b [US2] Agregar `https://flashurbano.uy` a `CORS_ORIGENES` en Railway. **Manual, variable de entorno, sin archivo.** Es una tarea nueva que abrió `009`: hoy la variable tiene una sola entrada, el origen de Pages, y el sitio ya **no** se sirve desde ahí. Sin esto, T046 falla con un error de CORS que va a parecer un bug del login y es de configuración. Que sea variable y no código es exactamente lo que FR-023 y FR-025 compraron — se cobra acá por primera vez. **Hecho y verificado el 2026-08-10** contra el servicio desplegado: `https://flashurbano.uy` → 200 con el origen devuelto; el de Pages → 200 (se deja hasta cerrar `009`); `https://flashurbano.uy/` **con barra** → 403, que confirma que la comparación es exacta y que no se cargó una variante mal escrita; un origen inventado → 403; sin `Origin` → 200. El preflight de `POST /auth/google` devuelve 204 con `Authorization` entre los headers permitidos y `Vary: Origin`. **Esto cierra SC-008 y SC-009 contra producción**, no contra una prueba local
-- [ ] T046 [US2] Probar el ingreso a mano en **Safari de iPhone** y **Chrome de Android**, no sólo en escritorio: entrar, completar nombre y teléfono, ver el nombre en la navegación, cerrar el navegador y volver identificado (SC-002, SC-003, SC-005)
+- [~] T046 [US2] Probar el ingreso a mano en **Safari de iPhone** y **Chrome de Android**, no sólo en escritorio: entrar, completar nombre y teléfono, ver el nombre en la navegación, cerrar el navegador y volver identificado (SC-002, SC-003, SC-005). **iPhone/Safari verificado contra producción el 2026-08-11**: se entra, se guardan los datos, se ven al volver, y salir devuelve el selector de cuenta. Eso cierra el riesgo que el ADR marcó como el más probable de quemar un día —la credencial en header, para esquivar el bloqueo de cookies entre orígenes de Safari—. **Falta Chrome de Android**, y falta lo que ninguna prueba propia puede dar: se probó **con la cuenta del dueño del proyecto de Google**, que entra igual estando la pantalla de consentimiento en *Testing*. Hasta verificar que está *In production*, o entrar con otra cuenta, **no está probado que un cliente de Diego pueda entrar** — que es el modo de falla peor, porque parece que funciona
 - [ ] T047 [US2] Probar a mano SC-007: copiar la credencial, cerrar sesión, reusarla contra `GET /yo`, que falle
 
 **Checkpoint**: se entra con Google desde un teléfono. Es el primer corte mostrable, y cierra la Historia 2 entera.
@@ -308,10 +308,23 @@ quedó funcionando de punta a punta.
 
 ---
 
+## Fase 9 — Lo que salió de probar en el teléfono (2026-08-11)
+
+> Las tres tareas manuales del teléfono (T046, T047, T065) se cerraron el
+> 2026-08-11 contra producción, y **encontraron cosas que ningún comando podía
+> encontrar**. Estas dos son de las que salieron. Se agregan acá en vez de
+> tocar las tareas ya cerradas: lo que se verificó, se verificó, y lo que se
+> aprendió después es trabajo nuevo.
+
+- [x] T077 [US2] Centrar el botón de Google en `web/components/sesion/boton-google.tsx`. Se veía **pegado a la izquierda en el teléfono**, que es donde se usa. La causa: un `[&>div]:!w-full` estiraba el contenedor que dibuja GIS, pero el botón de adentro conserva su ancho propio, así que el contenedor ocupaba toda la tarjeta y el botón no. Se reemplazó por centrar el contenedor de GIS con flex, **sin forzar el ancho del hijo**: así no depende del DOM que Google dibuja adentro, que no controlamos y puede cambiar sin aviso. **No se pudo verificar renderizado desde la sesión** —lo dibuja un script externo, no sale del build— pero por construcción o lo arregla o es inocuo
+- [x] T078 Destacar **Crear pedido** en naranja dentro del menú colapsado, en `web/components/nav-bar.tsx`. En el ancho de escritorio hay dos accesos a `/pedido` —el item de navegación y el botón naranja— y **en el teléfono el naranja no existe**, así que la acción principal del sitio se veía igual que "Sobre nosotros". Repone ese contraste justo donde más hace falta (Principio IV). **Nota de alcance, dicha y no escondida**: esto **no es de auth**. Entró en `006` porque `nav-bar.tsx` ya estaba en el `covers:` —lo sumó T040 para mostrar quién está adentro— y porque salió de la misma sesión de pruebas. Si se quisiera prolijo, era un feature de una línea; se prefirió registrarlo acá antes que hacerlo sin registro
+
+---
+
 ## Notes
 
 - **`web/AGENTS.md` manda sobre el Next de este repo**: antes de escribir cualquier tarea de `web/`, leer la guía correspondiente en `node_modules/next/dist/docs/`. La versión tiene cambios que rompen respecto de lo conocido
-- 76 tareas: 5 de setup, 18 de foundational, 3 de US1, 21 de US2, 12 de US3, 6 de US4, 3 de US5, 8 de cierre
+- 78 tareas: 5 de setup, 18 de foundational, 3 de US1, 21 de US2, 12 de US3, 6 de US4, 3 de US5, 8 de cierre, 2 salidas de probar en el teléfono
 - 12 son manuales sin archivo (T019, T023, T025, T026, T045, T046, T047, T059, T065, T068, T074, T075) — son las que verifican lo que ningún comando puede
 - Commitear por tarea o por grupo lógico, con la convención del repo
 </content>

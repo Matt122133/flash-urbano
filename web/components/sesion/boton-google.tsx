@@ -220,9 +220,25 @@ export function BotonGoogle({
         </p>
       )}
 
-      {/* Alto reservado: sin esto la pantalla salta cuando GIS termina de
-          dibujar su botón, y el salto ocurre justo donde el dedo va a tocar. */}
-      <div ref={contenedor} className="min-h-[44px] w-full [&>div]:!w-full" aria-busy={!listo} />
+      {/*
+        Alto reservado: sin esto la pantalla salta cuando GIS termina de
+        dibujar su botón, y el salto ocurre justo donde el dedo va a tocar.
+
+        Centrado con flex, y **sin forzar el ancho del hijo**. Antes había un
+        `[&>div]:!w-full` que estiraba el contenedor que dibuja Google, pero el
+        botón de adentro conserva su ancho propio y se quedaba pegado a la
+        izquierda: el contenedor ocupaba toda la tarjeta y el botón no. Se veía
+        descolgado en el teléfono, que es donde se usa.
+
+        Centrar el contenedor de GIS en vez de estirarlo funciona **sin
+        depender de cómo sea el DOM que Google dibuja adentro**, que no
+        controlamos y puede cambiar sin aviso.
+      */}
+      <div
+        ref={contenedor}
+        className="flex min-h-[44px] w-full justify-center"
+        aria-busy={!listo}
+      />
     </>
   );
 }
