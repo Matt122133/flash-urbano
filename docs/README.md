@@ -1,7 +1,7 @@
 ---
 owner: flash-urbano
 status: stable
-last_reviewed: 2026-08-01
+last_reviewed: 2026-08-11
 update_trigger: on-doc-added
 ---
 
@@ -17,7 +17,12 @@ Top-level docs that live at the repo root, not under `docs/`.
 - [`/AGENTS.md`](../AGENTS.md) — agent entry point: operating principle, hard
   constraints, phase gates, session bootstrap. `CLAUDE.md` symlinks to it.
 - [`/ARCHITECTURE.md`](../ARCHITECTURE.md) — code map: layout, module pattern,
-  dependency direction, bootstrap, hotspots.
+  dependency direction, bootstrap, hotspots. **Two deployed surfaces** since
+  `006`: `web/` (static site) and `backend/` (Go service on Railway).
+- [`/backend/README.md`](../backend/README.md) — cómo correr el servicio en
+  local, las variables de entorno obligatorias (nombres, nunca valores), y cómo
+  levantar la base de pruebas con Docker para que las pruebas contra Postgres
+  **no se salteen solas**.
 - [`/SECURITY.md`](../SECURITY.md) — security posture: reporting, dependency
   scanning, secrets, auth, trust boundaries.
 

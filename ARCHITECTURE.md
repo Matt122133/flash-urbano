@@ -1,7 +1,7 @@
 ---
 owner: flash-urbano
 status: living
-last_reviewed: 2026-08-01
+last_reviewed: 2026-08-11
 update_trigger: on-module-change
 ---
 
@@ -16,17 +16,36 @@ For agent guidance and the workflow, see [`AGENTS.md`](AGENTS.md) and
 ## Overview
 
 Flash Urbano is a package pickup/delivery business run by a single operator
-(Diego). This repo currently holds one surface: a customer-facing web app
-(`web/`) where clients create pickup/delivery orders themselves instead of
-coordinating by WhatsApp. It talks to no external systems yet — no auth
-provider, no database, no payment gateway (see `specs/001-web-mvp/spec.md`
-§ Assumptions for what's deliberately deferred). A planned second surface,
-the Android admin app for Diego, is out of scope until its own spec/plan.
+(Diego). This repo holds **two deployed surfaces**:
+
+- **`web/`** — the customer-facing web app (Next.js, static export) at
+  `https://flashurbano.uy`, where clients price and create pickup/delivery
+  orders themselves instead of coordinating by WhatsApp.
+- **`backend/`** — a Go HTTP service on Railway, with Postgres + PostGIS. It
+  holds identity: who is asking, and what they saved.
+
+**They are separate origins, and that is the source of most of the risk here.**
+Every authenticated call crosses CORS; the session credential travels in an
+`Authorization` header and never in a cookie, deliberately, so the login does
+not depend on cross-origin cookie behaviour (notably Safari's). See
+[`docs/decisions/backend-persistence-stack.md`](docs/decisions/backend-persistence-stack.md).
+
+Since `006`, the repo **does** talk to external systems: Google Identity
+Services (sign-in), Resend (the access-code email), OpenStreetMap tiles, and
+its own database. A planned third surface, the Android admin app for Diego,
+is out of scope until its own spec/plan.
+
+**One boundary worth stating up front, because it constrains everything:**
+pricing a shipment must keep working with the service down. The quote is
+computed in the browser from data the site already ships, so `web/lib/api.ts`
+must never appear in the import graph of the order form — there is a test that
+guards it (`web/lib/cotizar-abierto.test.ts`).
 
 ## Top-level layout
 
 ```text
 web/                  # Customer web app (Next.js 16, App Router)
+backend/              # Go HTTP service: identity, sessions, profile
 specs/                # Spec-kit feature specs and plans (001-web-mvp, ...)
 docs/                 # Harness docs: decisions, processes, trackers
 scripts/harness/       # Plan-coverage sensor + gate/loop engine (Python)
@@ -48,6 +67,19 @@ web/components/            # Shared, reusable components (NavBar, Footer, forms)
 web/lib/                   # Non-UI modules: generated data and pure logic
 ```
 
+Inside `backend/`, the layout is the standard Go one: `cmd/api/` is the only
+executable and does the wiring; everything else lives under `internal/` and is
+grouped **by domain, not by layer** — `auth/` (both login paths and sessions),
+`usuarios/` (the profile), `correo/` (sending mail), `rastro/` (the audit
+trail), `db/`, `httpx/`, `config/`. Migrations are embedded in the binary
+(`migrations/`), so deploying and migrating are the same act.
+
+```text
+backend/cmd/api/main.go    # Wiring: config, pool, migrations, routes, janitor
+backend/internal/<dominio>/ # One package per domain, not per layer
+backend/migrations/*.sql   # Forward-only, embedded, applied at boot
+```
+
 Inside `web/lib/`, generated data and hand-written logic are kept in separate
 files. `zonas.ts` is emitted by `design-source/build-zonas.js` from the client's
 KML and is never edited by hand; `zona-lookup.ts` is the code that queries it.
@@ -65,10 +97,19 @@ in-bundle means the price never depends on a request succeeding.
 ## Dependency direction
 
 `app/*/page.tsx` imports from `components/`; `components/` never imports
-from `app/`. There is no backend/service layer yet — see Overview. When one
-is added (real persistence, auth), it should live under `web/app/api/` or a
-sibling `backend/` per `specs/<feature>/plan.md`'s own Structure Decision,
-not be retrofitted into `components/`.
+from `app/`.
+
+The service is a **sibling**, not a layer inside `web/`: the two deploy
+separately and the site is a static export, so it has no server of its own to
+host one. The only way `web/` reaches the service is `web/lib/api.ts`; nothing
+else should call `fetch` against it.
+
+Inside `backend/`, `cmd/api` imports `internal/*` and never the reverse, and
+`internal/*` packages do not import each other except where the domain
+genuinely depends on it (`auth` uses `usuarios` to find or create the person
+behind a credential). `internal/usuarios` deliberately does **not** import
+`config`: it receives a predicate for "is this address an administrator",
+which is what keeps that answer out of the database (FR-022).
 
 ## Entry point and bootstrap
 
@@ -109,6 +150,17 @@ default; components that need interactivity (forms, nav toggle) are marked
   `mapa-zonas-dinamico.tsx`) because Leaflet touches `window` on import.
 - `web/app/layout.tsx` + `web/components/nav-bar.tsx` — the site shell.
   Adding a new top-level section means updating the `LINKS` array here too.
+- `backend/internal/auth/` — the trust boundary of the whole repo. `google.go`
+  verifies an ID token against Google's JWKS; `codigo.go` issues and consumes
+  the six-digit email codes (slow hashing, five attempts, single use);
+  `sesion.go` mints and revokes the credential everything else relies on. A bug
+  here is not a wrong pixel — it is someone reading another person's data.
+- `backend/internal/usuarios/handlers.go` — the profile. Note that **who is an
+  administrator is computed from configuration, never read from a column**
+  (FR-022); there is a test asserting the table has no such column, because if
+  it existed there would be somewhere to write it.
+- `backend/migrations/` — forward-only and embedded. A migration that has
+  shipped is never edited; the next one corrects it.
 - `docs/decisions/`, `AGENTS.md`, `.specify/memory/constitution.md` — not
   code, but load-bearing for how any future change in this repo should be
   approached.
@@ -117,10 +169,15 @@ default; components that need interactivity (forms, nav toggle) are marked
 
 1. If it's a new top-level web section (like Reseñas), add
    `web/app/<route>/page.tsx` and register it in `NavBar`'s `LINKS`.
-2. If it introduces real backend/persistence for the first time, write an
+2. If it's a new backend capability, add a package under `backend/internal/`
+   named after the **domain**, wire it in `cmd/api/main.go`, and — if it needs
+   schema — add the next numbered migration rather than editing a shipped one.
+   Anything that runs on a timer hangs off the janitor in `internal/db`, or it
+   will silently never run.
+3. If it introduces a new external dependency or a new trust boundary, write an
    ADR first (`docs/decisions/<slug>.md`) — it's a genuine architectural
    fork per Principle III (simplicity/YAGNI) in the constitution, not a
    routine addition.
-3. Any new feature goes through the harness phases (Brief → Decide → Plan →
+4. Any new feature goes through the harness phases (Brief → Decide → Plan →
    Execute) per `AGENTS.md`; scaffold its `specs/<feature>/` directory before
    writing code.
