@@ -175,7 +175,13 @@ export function BotonGoogle({
         // Por defecto, y es el correcto: el botón no hace falta antes de que la
         // página sea interactiva, y `beforeInteractive` retrasaría el resto.
         strategy="afterInteractive"
-        onLoad={() => setListo(true)}
+        // `onReady` y NO `onLoad`, y la diferencia no es cosmética: `onLoad`
+        // dispara una sola vez, cuando el script se descarga. Quien entra a
+        // /ingresar, navega a otra pantalla y vuelve, no vuelve a descargarlo
+        // —ya está en la página— así que `onLoad` no dispara de nuevo y el
+        // botón nunca se dibuja. `onReady` corre **cada vez que el componente
+        // se monta**, incluido ese regreso.
+        onReady={() => setListo(true)}
         onError={() => setFallo("no-cargo")}
       />
 

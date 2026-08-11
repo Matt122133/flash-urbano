@@ -29,6 +29,8 @@ export const metadata: Metadata = {
  * bloquea todas las llamadas, y el sintoma —"failed to fetch"— no menciona la
  * CSP por ningun lado.
  */
+const enDesarrollo = process.env.NODE_ENV !== "production";
+
 const origenDelApi = (() => {
   const crudo = process.env.NEXT_PUBLIC_API_URL ?? "";
   if (!crudo) return "";
@@ -71,7 +73,13 @@ const csp = [
 
   // 'unsafe-inline' por el bootstrap de Next, explicado arriba. Google Identity
   // Services se sirve desde accounts.google.com.
-  `script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com`,
+  //
+  // `'unsafe-eval'` **solo en desarrollo**: React lo necesita en modo dev para
+  // reconstruir callstacks y otras ayudas de depuracion, y sin el la consola se
+  // llena de "eval() is not supported in this environment". En produccion React
+  // no usa eval nunca, asi que dejarlo puesto seria abrir un agujero a cambio
+  // de nada. `NODE_ENV` lo resuelve el build, no el navegador.
+  `script-src 'self' 'unsafe-inline'${enDesarrollo ? " 'unsafe-eval'" : ""} https://accounts.google.com https://apis.google.com`,
 
   // React renderiza estilos como atributo `style`, y GIS inyecta los suyos.
   `style-src 'self' 'unsafe-inline' https://accounts.google.com`,
@@ -82,7 +90,11 @@ const csp = [
 
   // **La directiva que hace el trabajo.** Si algun dia se cuela un XSS, esto es
   // lo que le impide mandar la credencial afuera. La lista es corta a proposito.
-  `connect-src 'self' https://accounts.google.com${origenDelApi ? ` ${origenDelApi}` : ""}`,
+  // En desarrollo se suma el websocket de recarga en caliente de Next. Sin el,
+  // la consola tira errores de conexion en cada guardado y parecen del sitio.
+  `connect-src 'self' https://accounts.google.com${origenDelApi ? ` ${origenDelApi}` : ""}${
+    enDesarrollo ? " ws://localhost:* http://localhost:*" : ""
+  }`,
 
   // GIS abre su selector de cuenta en un iframe propio.
   "frame-src https://accounts.google.com",
