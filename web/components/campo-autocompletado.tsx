@@ -84,7 +84,19 @@ export function CampoAutocompletado({
   // Lo ultimo que se eligio de la lista. Sirve para no volver a desplegar
   // sugerencias apenas se elige una: sin esto, elegir "Ejido" dispararia una
   // busqueda de "Ejido" y la lista se reabriria sola.
-  const [ultimoElegido, setUltimoElegido] = useState<string | null>(null);
+  //
+  // **Arranca en el valor con el que el campo nace**, no en null, y eso resuelve
+  // el mismo problema en el otro extremo: un campo que se monta ya lleno —el
+  // perfil, que precarga la direccion guardada— disparaba la busqueda de su
+  // propio contenido y desplegaba la lista sola apenas se abria la pantalla,
+  // como pidiendo que se cambiara algo que la persona ya habia elegido. Un
+  // valor con el que el campo nace **fue elegido**, solo que antes.
+  //
+  // Para los campos que nacen vacios —los dos del formulario de pedido— esto no
+  // cambia nada: `"" || null` es null, que es como estaba. Y tipear lo vuelve a
+  // null igual (ver onChange), asi que las sugerencias no se pierden en ningun
+  // caso.
+  const [ultimoElegido, setUltimoElegido] = useState<string | null>(valor || null);
 
   // El debounce vive aca y no en quien usa el campo: es una propiedad del
   // control, no de la pantalla que lo monta.

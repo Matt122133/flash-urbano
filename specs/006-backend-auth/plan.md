@@ -27,6 +27,18 @@ covers:
   # Componentes nuevos de sesión, y la navbar que muestra quién está adentro.
   - web/components/sesion/
   - web/components/nav-bar.tsx
+  # AGREGADO EL 2026-08-11, con motivo. La pantalla de perfil es la primera del
+  # repo que monta este campo **ya lleno**, y eso destapó un defecto que hasta
+  # hoy no podía ocurrir: el campo disparaba la búsqueda de su propio contenido
+  # al montarse y desplegaba la lista de sugerencias sola, como pidiendo cambiar
+  # una calle que la persona ya había elegido. El arreglo es de una línea y vive
+  # necesariamente acá — quien monta el campo no tiene forma de impedirlo desde
+  # afuera. Se verificó que **no toca la creación de pedido**: ahí los dos
+  # campos nacen vacíos (`INITIAL_STATE` en `pedido-form.tsx`) y el único camino
+  # que los remonta también resetea a vacío, así que el valor inicial sigue
+  # siendo el mismo `null` de antes. No se extiende a `bloque-direccion.tsx`:
+  # ese sigue afuera, y T063 sigue diciendo reutilizarlo sin modificarlo.
+  - web/components/campo-autocompletado.tsx
   # El estado de sesión compartido necesita un proveedor arriba de todo. Se
   # cubre por adelantado en vez de descubrirlo cuando el sensor frene el commit.
   - web/app/layout.tsx
