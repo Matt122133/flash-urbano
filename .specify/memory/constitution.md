@@ -24,7 +24,7 @@ highest-priority surface in the web app.
 This is a single-operator courier business, not a multi-tenant platform.
 No premature scaling, multi-region infra, microservices, or speculative
 abstractions. Start with the simplest stack that satisfies the client brief
-(guest + Google-login order creation, an admin view, basic route support)
+(identified order creation, an admin view, basic route support)
 and only add complexity when a real, stated requirement demands it.
 
 ### IV. Mobile-first, low-friction UI
@@ -60,9 +60,21 @@ alternative that was rejected.
 
 ## Scope boundaries
 
+**No package is created without an identified customer.** Pricing stays open to
+anyone — a visitor can quote a shipment without an account, and that must keep
+working with the service down — but **confirming an order requires being logged
+in**. This is the client's own rule, and it is what the whole identity feature
+exists to serve: an order that nobody can be held to is an order Diego cannot
+work with.
+
+The two halves are deliberately separate: **the quote is public, the order is
+not.** Putting a door in front of the price would contradict Principle II and
+cost the business the visitor who was only asking how much.
+
 Two surfaces, built in this order:
 
-1. **Customer web app** — guest or Google-login order creation; pickup address
+1. **Customer web app** — **identified order creation** (see the rule below);
+   pickup address
    (written plus a point marked on the map) and delivery address; the zone
    price shown from that point; package type/description, quantity; the pickup
    window; the name and phone number of whoever receives the package; Sobre
@@ -106,9 +118,34 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 2.2.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-06
+**Version**: 3.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-11
 
 ### Amendment history
+
+- **3.0.0** (2026-08-11) — **No package is created without an identified
+  customer.** The scope boundaries said "guest **or** Google-login order
+  creation"; the client removed guest ordering when he answered who may place an
+  order, and this document had been contradicting that answer since. Pricing
+  stays open to anyone: the quote is public, the order is not.
+
+  **MAJOR, and the first one — because a rule was reversed, not narrowed.**
+  Every previous amendment moved scope while leaving the principles intact.
+  This one retires a capability the document explicitly granted, and code
+  written against the old text —a form that accepts an order from an anonymous
+  visitor— becomes non-compliant rather than merely incomplete. Calling it MINOR
+  would hide exactly the kind of change this version number exists to announce.
+
+  Principle II (self-service is the core value) is **not** reversed: quoting
+  without an account is still required, and `006` protects it with an automated
+  guard. What changes is the last step, not the visit.
+
+  **What this obliges:** `007` must put the door in front of order confirmation,
+  and the copy of `/pedido` —which today reads *"Podés cargarlo como invitado,
+  sin necesidad de crear una cuenta"*— becomes false and must change with it.
+  `006` deliberately did not touch the form (FR-007b): the door and the order
+  that actually gets saved have to ship together, or registering buys the
+  customer nothing. No ADR: this is the client adjusting his own brief, and the
+  reasoning lives here.
 
 - **2.2.0** (2026-08-06) — The recipient's **name** returns to the order form,
   before the phone number. 2.1.0 removed it together with the ID document, on

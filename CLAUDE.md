@@ -1,15 +1,22 @@
 ---
 owner: flash-urbano
 status: stable
-last_reviewed: 2026-08-01
+last_reviewed: 2026-08-11
 update_trigger: on-harness-change
 ---
 
 # Agent Instructions
 
 The entry point into this repository for any coding agent. `AGENTS.md` is the
-cross-agent standard; `CLAUDE.md` symlinks to it. This repo runs the harness as
-a governance layer over spec-kit; see
+cross-agent standard.
+
+**`CLAUDE.md` is a byte-identical copy, not a symlink** — the link degraded to a
+copy on Windows, and git tracks both as regular files (mode `100644`, same
+blob). What that means in practice: **editing one and not the other makes them
+drift in silence**, and the one an agent actually loads at session start is
+`CLAUDE.md`. Anything written here must be copied there in the same commit.
+
+This repo runs the harness as a governance layer over spec-kit; see
 [ADR speckit-harness-integration](docs/decisions/speckit-harness-integration.md).
 
 ## Project constitution
@@ -18,12 +25,31 @@ The project constitution at `.specify/memory/constitution.md` is the
 highest-authority document in this repository. Every spec, plan, task, and code
 change MUST comply with its principles. If anything in this guide conflicts with
 the constitution, **the constitution prevails**. When collaboration or
-architecture rules change, keep `AGENTS.md` and its `CLAUDE.md` symlink in sync
+architecture rules change, keep `AGENTS.md` and its `CLAUDE.md` copy in sync
 with the constitution (and `.github/copilot-instructions.md` if present).
 
 The harness is the *process* layer beneath the constitution: it adds the
 `covers:`/`verify:` controls and the human draft→active plan gate that spec-kit
 lacks. It does not author, override, or delete the constitution.
+
+## Two surfaces, one repo
+
+Since `006` this repo deploys **two artefacts**, and most of the risk lives in
+the seam between them:
+
+- **`web/`** — Next.js, exported static, served at `https://flashurbano.uy`.
+- **`backend/`** — Go service on Railway, with Postgres + PostGIS.
+
+Consequences an agent has to hold in working context:
+
+- A feature that touches both needs **both** halves of the `verify:` green. The
+  Go tests that hit Postgres **skip themselves silently** without
+  `TEST_DATABASE_URL`, so "all green" says nothing about the database unless you
+  checked the skip count. See `backend/README.md`.
+- `web/AGENTS.md` governs the Next version in this repo: read the guide under
+  `node_modules/next/dist/docs/` before writing web code.
+- **Pricing must keep working with the service down.** `web/lib/api.ts` must
+  never enter the import graph of the order form; a test guards it.
 
 ## Operating principle
 
