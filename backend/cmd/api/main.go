@@ -22,6 +22,7 @@ import (
 
 	"github.com/Matt122133/flash-urbano/backend/internal/auth"
 	"github.com/Matt122133/flash-urbano/backend/internal/config"
+	"github.com/Matt122133/flash-urbano/backend/internal/correo"
 	"github.com/Matt122133/flash-urbano/backend/internal/db"
 	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
 	"github.com/Matt122133/flash-urbano/backend/internal/rastro"
@@ -73,6 +74,13 @@ func correr() error {
 	// no el de un pedido: con el de un pedido, el cache moriria al responderlo.
 	verificadorGoogle := auth.NuevoVerificadorGoogle(ctx, cfg.GoogleClientID)
 
+	codigos := auth.NuevosCodigos(pool)
+	limites := auth.NuevosLimites(pool)
+
+	// El enviador real. Es lo unico de la Historia 3 que habla con afuera, y por
+	// eso es lo unico que las pruebas reemplazan por el doble de correo.Falso.
+	enviador := correo.NuevoResend(cfg.CorreoAPIKey, cfg.CorreoRemitente)
+
 	// Las purgas necesitan quien las dispare. Una funcion de limpieza que no
 	// llama nadie deja crecer la tabla para siempre, y es un fallo que no
 	// avisa.
@@ -91,12 +99,21 @@ func correr() error {
 				return sesiones.PurgarVencidas(ctx, 24*time.Hour)
 			},
 		},
+		db.Tarea{
+			Nombre: "purga de codigos de acceso vencidos",
+			Correr: func(ctx context.Context) (int64, error) {
+				// Mismo margen y mismo motivo que las sesiones: un codigo recien
+				// vencido todavia explica el error que el cliente esta mirando.
+				return codigos.PurgarVencidos(ctx, 24*time.Hour)
+			},
+		},
 	)
 
 	srv := &http.Server{
 		Addr: ":" + cfg.Puerto,
 		Handler: httpx.CORS(cfg.OrigenesPermitidos, rutas(pool, dependencias{
 			auth:     auth.NuevosHandlers(verificadorGoogle, repoUsuarios, sesiones, registro),
+			codigo:   auth.NuevosHandlersCodigo(codigos, limites, enviador, repoUsuarios, sesiones, registro),
 			usuarios: usuarios.NuevosHandlers(repoUsuarios),
 			resolver: sesiones.ResolverUsuario(repoUsuarios),
 		})),
@@ -141,6 +158,7 @@ func correr() error {
 // diga nada.
 type dependencias struct {
 	auth     *auth.Handlers
+	codigo   *auth.HandlersCodigo
 	usuarios *usuarios.Handlers
 
 	// resolver convierte una credencial en un usuario. Lo consume el middleware.
@@ -169,6 +187,8 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 	// para poder entrar.
 	mux.HandleFunc("GET /salud", salud(pool))
 	mux.HandleFunc("POST /auth/google", dep.auth.Google)
+	mux.HandleFunc("POST /auth/codigo", dep.codigo.Pedir)
+	mux.HandleFunc("POST /auth/codigo/verificar", dep.codigo.Verificar)
 
 	// Con credencial.
 	mux.Handle("POST /auth/salir", conSesion(dep.auth.Salir))
