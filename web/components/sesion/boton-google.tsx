@@ -56,6 +56,16 @@ declare global {
   }
 }
 
+/**
+ * Estado de GIS, que es global a la pagina y no del componente.
+ *
+ * Viven en el modulo porque tienen que sobrevivir a que la pantalla se
+ * desmonte y se vuelva a montar —navegar a otra ruta y volver— que es
+ * justamente cuando `onReady` dispara de nuevo.
+ */
+let gisInicializado = false;
+let manejarToken: ((respuesta: { credential?: string }) => void) | null = null;
+
 export function BotonGoogle({
   onIngreso,
   onError,
@@ -136,16 +146,35 @@ export function BotonGoogle({
     };
 
     function dibujar(google: GoogleIdentity, destino: HTMLElement) {
-      google.accounts.id.initialize({
-        client_id: CLIENT_ID,
-        callback: (r) => void recibirToken(r),
-        // Nada de ingreso automático: que alguien quede identificado sin haberlo
-        // pedido es exactamente el tipo de sorpresa que no queremos en un sitio
-        // donde identificarse es opcional para mirar precios.
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
+      // El handler vigente se publica SIEMPRE, aunque no se vuelva a
+      // inicializar: el callback que GIS tiene guardado delega en esta variable,
+      // asi que el ingreso lo procesa el componente que esta montado ahora y no
+      // el de la primera visita.
+      manejarToken = recibirToken;
 
+      // `initialize` UNA sola vez por carga de pagina. `onReady` corre en cada
+      // montaje —que es lo que arregla el boton al volver a /ingresar— pero GIS
+      // guarda una unica configuracion global y avisa por consola si se lo
+      // llama de nuevo: "only the last initialized instance will be used".
+      //
+      // La bandera es de modulo y no del componente a proposito: tiene que
+      // sobrevivir a que la pantalla se desmonte y se vuelva a montar, que es
+      // exactamente el caso. En una recarga completa el modulo se evalua de
+      // nuevo y la bandera vuelve a false, igual que el estado de GIS.
+      if (!gisInicializado) {
+        google.accounts.id.initialize({
+          client_id: CLIENT_ID,
+          callback: (r) => void manejarToken?.(r),
+          // Nada de ingreso automático: que alguien quede identificado sin haberlo
+          // pedido es exactamente el tipo de sorpresa que no queremos en un sitio
+          // donde identificarse es opcional para mirar precios.
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+        gisInicializado = true;
+      }
+
+      // Esto si va en cada montaje: el contenedor es un nodo nuevo cada vez.
       google.accounts.id.renderButton(destino, {
         type: "standard",
         theme: "outline",
