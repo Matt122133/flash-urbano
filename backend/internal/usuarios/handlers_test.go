@@ -273,3 +273,125 @@ func TestUnaDireccionAMediasSeRechaza(t *testing.T) {
 		t.Errorf("la direccion completa dio %d, tenia que entrar", estado)
 	}
 }
+
+// TestElAptoYLaCooperativaSeGuardanYVuelven cubre la decision del 2026-08-11:
+// la direccion de retiro se guarda entera, no cuatro de sus seis campos.
+//
+// Hasta la migracion 0002, quien vivia en un apartamento tenia que reescribir su
+// apto en cada envio — justo lo que el perfil existe para evitar.
+func TestElAptoYLaCooperativaSeGuardanYVuelven(t *testing.T) {
+	repo, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+
+	u, err := repo.BuscarOCrear(ctx, "apto@example.com")
+	if err != nil {
+		t.Fatalf("creando: %v", err)
+	}
+	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"tok": u})
+
+	cuerpo := `{"nombre":"Ana","telefono":"099111222",
+	            "retiro":{"calle":"Rivera","esquina":"Soca","numero":"1234",
+	                      "punto":{"lat":-34.9011,"lng":-56.1645},
+	                      "apto":"302","cooperativa":true}}`
+	estado, vista := pedirComo(t, srv, "PUT", "/yo", "tok", cuerpo)
+	if estado != http.StatusOK {
+		t.Fatalf("guardando: estado %d", estado)
+	}
+	if vista.Retiro == nil {
+		t.Fatal("no volvio la direccion")
+	}
+	if vista.Retiro.Apto == nil || *vista.Retiro.Apto != "302" {
+		t.Errorf("apto = %v, se esperaba \"302\"", vista.Retiro.Apto)
+	}
+	if vista.Retiro.Cooperativa == nil || !*vista.Retiro.Cooperativa {
+		t.Errorf("cooperativa = %v, se esperaba true", vista.Retiro.Cooperativa)
+	}
+
+	// Y vuelven en una lectura **que toca la base**, no solo en el eco de la
+	// escritura: sin esto, un handler que devolviera lo que recibio sin
+	// guardarlo pasaria con nota perfecta.
+	//
+	// Se relee del repositorio y NO con `GET /yo`, y la diferencia no es de
+	// estilo: el resolver de `monta()` devuelve el `*Usuario` capturado al
+	// montar el servidor, o sea una foto **anterior** al PUT. En produccion el
+	// resolver relee de la base en cada request; aca no. Una prueba de
+	// persistencia via `GET /yo` en este arnes no verifica nada.
+	releido, err := repo.BuscarOCrear(ctx, "apto@example.com")
+	if err != nil {
+		t.Fatalf("releyendo: %v", err)
+	}
+	if releido.RetiroApto == nil || *releido.RetiroApto != "302" {
+		t.Fatalf("el apto no llego a la base: %v", releido.RetiroApto)
+	}
+	if releido.RetiroCooperativa == nil || !*releido.RetiroCooperativa {
+		t.Fatalf("la cooperativa no llego a la base: %v", releido.RetiroCooperativa)
+	}
+}
+
+// TestSinAptoNoEsLoMismoQueNoDeclararlo: "" y nulo tienen que distinguirse.
+//
+// Colapsarlos haria que el selector de cooperativa apareciera con una opcion
+// marcada que la persona nunca eligio, y que un apto borrado reapareciera.
+func TestSinAptoNoEsLoMismoQueNoDeclararlo(t *testing.T) {
+	repo, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+
+	u, err := repo.BuscarOCrear(ctx, "vacio@example.com")
+	if err != nil {
+		t.Fatalf("creando: %v", err)
+	}
+	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"tok": u})
+
+	// Direccion completa SIN nombrar apto ni cooperativa: quedan nulos.
+	sinNombrarlos := `{"nombre":"Ana","telefono":"099111222",
+	                   "retiro":{"calle":"Rivera","esquina":"Soca","numero":"1234",
+	                             "punto":{"lat":-34.9011,"lng":-56.1645}}}`
+	_, vista := pedirComo(t, srv, "PUT", "/yo", "tok", sinNombrarlos)
+	if vista.Retiro.Apto != nil {
+		t.Errorf("apto = %q, se esperaba nulo: nadie lo declaro", *vista.Retiro.Apto)
+	}
+	if vista.Retiro.Cooperativa != nil {
+		t.Errorf("cooperativa = %v, se esperaba nulo: nadie lo declaro", *vista.Retiro.Cooperativa)
+	}
+
+	// Ahora declarado vacio: es una respuesta, no una ausencia.
+	declaradoVacio := `{"nombre":"Ana","telefono":"099111222",
+	                    "retiro":{"calle":"Rivera","esquina":"Soca","numero":"1234",
+	                              "punto":{"lat":-34.9011,"lng":-56.1645},
+	                              "apto":"","cooperativa":false}}`
+	_, vista = pedirComo(t, srv, "PUT", "/yo", "tok", declaradoVacio)
+	if vista.Retiro.Apto == nil || *vista.Retiro.Apto != "" {
+		t.Errorf("apto = %v, se esperaba \"\" declarado", vista.Retiro.Apto)
+	}
+	if vista.Retiro.Cooperativa == nil || *vista.Retiro.Cooperativa {
+		t.Errorf("cooperativa = %v, se esperaba false declarado", vista.Retiro.Cooperativa)
+	}
+}
+
+// TestElAltaTampocoPisaElApto: el mismo cuidado que con el resto de la direccion.
+func TestElAltaTampocoPisaElApto(t *testing.T) {
+	repo, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+
+	u, err := repo.BuscarOCrear(ctx, "conserva@example.com")
+	if err != nil {
+		t.Fatalf("creando: %v", err)
+	}
+	srv := monta(t, NuevosHandlers(repo), map[string]*Usuario{"tok": u})
+
+	con := `{"nombre":"Ana","telefono":"099111222",
+	         "retiro":{"calle":"Rivera","esquina":"Soca","numero":"1234",
+	                   "punto":{"lat":-34.9011,"lng":-56.1645},"apto":"302","cooperativa":true}}`
+	if estado, _ := pedirComo(t, srv, "PUT", "/yo", "tok", con); estado != http.StatusOK {
+		t.Fatalf("guardando: estado %d", estado)
+	}
+
+	// Solo nombre y telefono, como la pantalla de alta.
+	_, vista := pedirComo(t, srv, "PUT", "/yo", "tok", `{"nombre":"Ana Maria","telefono":"099333444"}`)
+	if vista.Retiro == nil || vista.Retiro.Apto == nil || *vista.Retiro.Apto != "302" {
+		t.Fatalf("el alta se llevo el apto: %+v", vista.Retiro)
+	}
+	if vista.Retiro.Cooperativa == nil || !*vista.Retiro.Cooperativa {
+		t.Fatalf("el alta se llevo la cooperativa: %+v", vista.Retiro)
+	}
+}

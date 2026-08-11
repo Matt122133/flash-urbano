@@ -7,9 +7,11 @@ import { borrar, credencial as credencialGuardada, guardar, suscribirse, type Se
 /**
  * La direccion de retiro guardada, tal como viaja en `usuarios.VistaRetiro`.
  *
- * Son cuatro campos y no seis: **`apto` y `cooperativa` NO se guardan** en el
- * perfil (FR-019a los deja afuera). El formulario de pedido los sigue pidiendo
- * en cada envio.
+ * Seis campos desde el 2026-08-11. `apto` y `cooperativa` se sumaron por
+ * decision del dueño del proyecto —"es parte de la info del cliente"— y entran
+ * como **nulables**: `null` significa "nunca lo declaro", que no es lo mismo
+ * que un apto vacio o que declarar que no es cooperativa. Colapsarlos dejaria
+ * el selector marcado con una opcion que nadie eligio.
  *
  * El `punto` es el ya ajustado dentro de la cuadra, no el del cruce: precargar
  * tiene que restituir el arrastre que la persona hizo, o le estariamos pidiendo
@@ -20,6 +22,8 @@ export type RetiroGuardado = {
   esquina: string;
   numero: string;
   punto: { lat: number; lng: number } | null;
+  apto: string | null;
+  cooperativa: boolean | null;
 };
 
 /**

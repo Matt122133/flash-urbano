@@ -98,6 +98,11 @@ async function rehidratar(
       esquina: retiro.esquina,
       numero: retiro.numero,
       punto: retiro.punto ?? null,
+      // Nulo se muestra como el estado vacio del bloque: campo en blanco y
+      // ninguna opcion de cooperativa marcada. Es la diferencia entre "no lo
+      // dijo" y "dijo que no".
+      apto: retiro.apto ?? "",
+      cooperativa: retiro.cooperativa ?? false,
     },
     esquina: null,
     cualEsLaCalle: "A",
@@ -282,6 +287,8 @@ export function FormularioPerfil() {
                   esquina: retiro.direccion.esquina.trim(),
                   numero: retiro.direccion.numero.trim(),
                   punto: { lat: punto.lat, lng: punto.lng },
+                  apto: retiro.direccion.apto.trim(),
+                  cooperativa: retiro.direccion.cooperativa,
                 },
               }
             : {}),
@@ -450,13 +457,6 @@ export function FormularioPerfil() {
               <p className={errorClass}>{errores.ubicacionRetiro}</p>
             )}
 
-            {/* Se dice, en vez de dejar que lo descubran al volver: el apto y la
-                cooperativa se piden en cada pedido y no se guardan acá
-                (FR-019a). */}
-            <p className="mt-3 text-xs text-slate-500">
-              El apto y si es una cooperativa se piden al hacer cada pedido, no
-              se guardan en tu cuenta.
-            </p>
           </>
         )}
       </section>
