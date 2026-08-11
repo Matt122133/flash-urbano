@@ -24,6 +24,7 @@ La decisión comercial —precio, tope, registrador, titular— está en la fila
 | Servidores de nombre | `ali` / `martin.ns.cloudflare.com` |
 | Zona DNS | **Existe y resuelve** |
 | **El sitio** | **Vivo en `https://flashurbano.uy`**, con certificado válido |
+| `http://` → `https://` | **Redirige** (301), verificado con `curl` el 2026-08-11 |
 | `www` | Redirige al apex |
 | `_dmarc` | Cargado, en `p=none` |
 | Mail (DKIM/SPF/MX) | **Falta.** Espera el alta del dominio en Resend |
@@ -87,8 +88,20 @@ El orden que se siguió, que **no** es el que parece obvio:
 3. *Settings → Pages → Custom domain* → `flashurbano.uy` → Save.
 4. *Enforce HTTPS* cuando el certificado esté emitido.
 
-### Tres cosas que se aprendieron haciéndolo
+### Cuatro cosas que se aprendieron haciéndolo
 
+- **El tilde de *Enforce HTTPS* miente.** GitHub lo destilda solo al cambiar el
+  dominio —lo hace mientras el certificado no está emitido— y la casilla puede
+  quedar mostrando un estado que no es el real. Acá quedó dos días figurando
+  marcada mientras `http://flashurbano.uy` servía **200 en claro**. En un
+  navegador no se nota, porque Chrome sube a https por su cuenta; la única forma
+  de comprobarlo es medirlo:
+
+  ```bash
+  curl -s -o /dev/null -w "%{url_effective} -> %{http_code}\n" -L http://flashurbano.uy
+  ```
+
+  Si la URL efectiva no arranca en `https://`, hay que volver a tildarlo a mano.
 - **El archivo `CNAME` dentro del artefacto NO configura el dominio** cuando el
   origen de Pages es "GitHub Actions". Eso funciona sólo en los despliegues por
   rama. Hay que cargarlo a mano en Settings. `web/public/CNAME` se dejó igual,

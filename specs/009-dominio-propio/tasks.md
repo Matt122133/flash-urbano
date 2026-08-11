@@ -28,8 +28,8 @@ propósito, no agrupados al final.
 
 ## Fase 2 — El dominio en GitHub (manual)
 
-- [ ] T004 *Settings → Pages → Custom domain* → `flashurbano.uy` → *Save*. Esperar a que el chequeo de DNS pase (FR-001)
-- [ ] T005 **No marcar *Enforce HTTPS* todavía.** Va en T010, cuando el certificado esté emitido: marcarlo antes deja el sitio inaccesible hasta que termine
+- [x] T004 *Settings → Pages → Custom domain* → `flashurbano.uy` → *Save*. Esperar a que el chequeo de DNS pase (FR-001). **Hecho**: el sitio responde en el dominio, que es la prueba de que el chequeo pasó
+- [x] T005 **No marcar *Enforce HTTPS* todavía.** Va en T010, cuando el certificado esté emitido: marcarlo antes deja el sitio inaccesible hasta que termine. **Se respetó**: no hubo ventana de sitio inaccesible. Es una guarda, no un paso — se cierra por haberla cumplido
 
 **Checkpoint**: el sitio responde en el dominio, con los assets rotos. Es la ventana declarada en el spec.
 
@@ -48,13 +48,22 @@ propósito, no agrupados al final.
 
 ## Fase 4 — Cierre y verificación
 
-- [ ] T010 Marcar *Enforce HTTPS* en GitHub, una vez que diga que el certificado está emitido. **Ya estaba marcado de antes**, del dominio de github.io, y no causó problema: al comprobarlo, `https://flashurbano.uy` respondía 200 con `ssl_verify_result: 0`, o sea certificado emitido y válido
+- [x] T010 Marcar *Enforce HTTPS* en GitHub, una vez que diga que el certificado está emitido. **Ya estaba marcado de antes**, del dominio de github.io, y no causó problema: al comprobarlo, `https://flashurbano.uy` respondía 200 con `ssl_verify_result: 0`, o sea certificado emitido y válido. **Pero el efecto no estaba**: hasta el 2026-08-11 `http://` seguía sirviendo en claro (ver T013). Se volvió a tildar a mano ese día y **recién ahí redirigió**. La lección para el runbook: el tilde de *Enforce HTTPS* se cae solo al cambiar el dominio, y la única forma de saber si está haciendo algo es medir el `http://`, no mirar la casilla
 - [x] T011 Verificar SC-001 **en un teléfono**: `https://flashurbano.uy` carga la home, con el logo visible y **cero 404 en la consola**. Lo verificado desde el servidor: las cuatro rutas (`/`, `/pedido/`, `/sobre-nosotros/`, `/contacto/`, `/resenas/`) dan 200, los siete chunks de la home dan 200, y `logo-flash-urbano.png`, `favicon.ico` y `calles-mvd.json` también. **Falta la consola de un navegador real**, que es lo único que puede ver un 404 disparado en tiempo de ejecución y no desde el HTML. **Verificado el 2026-08-11**: el sitio se ve bien, sin nada roto
 - [x] T012 Verificar SC-002: cotizar de punta a punta desde el dominio — calle, esquina, punto en el mapa y precio. **Manual, sin sustituto**: que `calles-mvd.json` devuelva 200 dice que el archivo está, no que el cotizador funcione. **Verificado el 2026-08-11**: se cotizó de punta a punta y se creó un pedido desde el dominio. Eso además cierra la re-verificación que pedía T040 de `006`: **la CSP nueva no rompió el mapa**, que era el único riesgo de esa tarea sobre la cotización
-- [~] T013 Verificar SC-003 y SC-004. **Dos de tres**: `https://www.flashurbano.uy` da 301 a `https://flashurbano.uy/` ✅, y la URL vieja no quedó muerta —GitHub redirige sus assets al dominio— ✅. **Pendiente**: `http://flashurbano.uy` todavía responde 200 en vez de redirigir a HTTPS, pese a que *Enforce HTTPS* está marcado. **Sigue igual al 2026-08-11**, y ya no es cuestión de esperar. Medido con `curl`: `http://flashurbano.uy/` y `http://www.flashurbano.uy/` terminan en `http://flashurbano.uy/`, en claro. En un navegador no se nota porque Chrome hace el upgrade solo — por eso la verificación a ojo lo dio por bueno. La causa probable es que **GitHub destildó *Enforce HTTPS* al agregar el dominio**, como hace mientras el certificado no está emitido, y quedó así. Ahora el certificado existe: hay que volver a tildarlo. Lo que sí está verificado: los cuatro puntos de entrada llegan al sitio, y `https://www` sube al apex correctamente (SC-004 ✅)
+- [x] T013 Verificar SC-003 y SC-004. **Cerrado el 2026-08-11**, medido con `curl` sobre los tres puntos de entrada:
+
+  ```
+  http://flashurbano.uy                      → 301 → https://flashurbano.uy/
+  http://www.flashurbano.uy                  → 301 → https://flashurbano.uy/
+  https://matt122133.github.io/flash-urbano/ → 301 → https://flashurbano.uy/
+  https://flashurbano.uy/                    → 200
+  ```
+
+  Lo que costó llegar acá, que es lo que vale registrar: durante dos días `http://flashurbano.uy` respondía **200 en claro** en vez de redirigir, pese a que *Enforce HTTPS* figuraba marcado. **En un navegador no se nota** porque Chrome hace el upgrade solo — la verificación a ojo lo había dado por bueno, y sólo `curl` lo vio. La causa fue que **GitHub destilda *Enforce HTTPS* al agregar el dominio** y la casilla quedó mostrando un estado que no era el real; re-tildarla a mano lo arregló. SC-003 ✅ y SC-004 ✅
 - [x] T014 Actualizar [`docs/processes/dominio-y-dns.md`](../../docs/processes/dominio-y-dns.md). Se reescribió entero, no se parchó: la copia de `master` seguía diciendo que la zona no existía. Quedó con el estado real, los registros cargados, los que faltan, y las tres cosas que se aprendieron ejecutando —entre ellas que **el `CNAME` del artefacto no configura el dominio** cuando el origen de Pages es GitHub Actions
 - [x] T015 Anotar en `specs/006-backend-auth/tasks.md` que **el origen nuevo tiene que entrar en `CORS_ORIGENES` de Railway y en el cliente OAuth de Google** antes de T046. No rompe nada hoy porque el sitio de `master` no habla con el servicio, pero rompe las pruebas en teléfono de `006` si nadie lo hace. **Hecho el 2026-08-10 en la rama `backend-auth`**, no en ésta: el `tasks.md` de `006` que hay acá es la foto vieja de `master`, y editarlo desde este lado sólo agrega conflicto al merge
-- [ ] T016 Commitear todo **antes** de poner el plan en `status: completed`: el sensor rebota el commit si el plan ya no está `active`
+- [x] T016 Commitear todo **antes** de poner el plan en `status: completed`: el sensor rebota el commit si el plan ya no está `active`
 
 ---
 
@@ -66,6 +75,16 @@ T012, en un teléfono, con la consola abierta. Marcarlas por analogía con los 2
 que devuelve el servidor sería declarar verificado algo que no se miró.
 
 Queda además el `http://` sin redirigir (T013), que es de GitHub y no del código.
+
+## Cierre al 2026-08-11
+
+**Las dieciséis tareas cerradas.** T011 y T012 se verificaron a ojo en un
+navegador real el 2026-08-11 —el sitio se ve bien y se cotizó de punta a punta
+desde el dominio— y T010/T013 se cerraron midiendo con `curl`, que es lo único
+que ve el `http://` sin el upgrade que Chrome hace solo.
+
+Lo único que este plan deja para otro: el sitio publicado sigue saliendo de
+`master` y todavía **no habla con el backend** — eso es `006`, no acá.
 
 ---
 
