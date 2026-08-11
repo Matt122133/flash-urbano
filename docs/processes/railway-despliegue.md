@@ -28,8 +28,30 @@ detrás de `flashurbano.uy` — ver
   `master` no tiene el backend todavía, y la rama no se mergea hasta cerrar la
   Fase 4 del plan.
 - **Root Directory**: **`backend`**. Sin eso el build corre sobre la raíz del
-  repo, donde no hay `go.mod` ni `Dockerfile`, y falla con
-  `directory .../backend does not exist`.
+  repo, donde no hay `go.mod` ni `Dockerfile`.
+
+  **Este ajuste se puede perder solo, y el síntoma no lo delata.** Visto el
+  2026-08-10: el build dejó de fallar con `directory .../backend does not exist`
+  y pasó a fallar así, que no menciona `backend` por ningún lado:
+
+  ```text
+  ⚠ Script start.sh not found
+  ✖ Railpack could not determine how to build the app.
+    The app contents that Railpack analyzed contains:
+    ./
+    ├── backend/
+    ├── web/
+    ├── docs/
+    …
+  ```
+
+  **La pista es el listado**: si enumera `web/`, `docs/` y `specs/`, Railway está
+  parado en la raíz del repo. Y que aparezca **Railpack** ya es la señal —con el
+  Root Directory bien puesto, Railway encuentra `backend/Dockerfile` y no invoca
+  al detector automático. Arreglo: *Settings → Source → Root Directory* → `backend`.
+
+  Lo que **no** rompe: el despliegue que estaba andando sigue en pie. Railway no
+  reemplaza el último bueno por uno que fallo al construir.
 - **Build**: el [`Dockerfile`](../../backend/Dockerfile) del propio directorio.
 - Las migraciones se aplican **al arrancar**, así que no hay paso manual: el
   log del primer despliegue dice `migracion aplicada: 0001_esquema_inicial.sql`.
