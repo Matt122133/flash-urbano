@@ -122,12 +122,12 @@ diálogo **sobre la misma pantalla**, y el envío se reanuda solo.
 sola vez**, identificarse, y aterrizar en la confirmación sin haber vuelto a
 escribir nada.
 
-- [ ] T025 [US3] Factorizar la composición de ingreso a `web/components/sesion/panel-ingreso.tsx`, recibiendo qué hacer al terminar (research D2). Es `BotonGoogle` + `IngresoPorCodigo` + `CompletarAlta`, hoy embebidos en la pantalla
-- [ ] T026 [US3] Modificar `web/app/ingresar/page.tsx` para montar el panel factorizado con `router.push("/")` como final. La pantalla **sigue existiendo** para quien entra desde la navegación (FR-010a): el diálogo se suma al camino, no lo reemplaza
-- [ ] T027 [US3] Escribir `web/components/pedido/dialogo-ingreso.tsx`: monta `panel-ingreso.tsx` en un diálogo, con foco atrapado y cierre por Escape. **No escribe el borrador en `localStorage` ni en `sessionStorage`** (FR-006a) — no hace falta, porque no se navega
-- [ ] T028 [US3] Modificar `crear-pedido.tsx` para abrir el diálogo cuando no hay sesión al confirmar, y también cuando el servicio contesta `401` (FR-009: una sesión vencida se comporta igual que no tener sesión)
-- [ ] T029 [US3] Implementar en `crear-pedido.tsx` la **reanudación** (FR-007a): al cerrarse el diálogo con sesión iniciada, el envío continúa **con la misma clave de idempotencia**, se ve que está enviando, y termina en la confirmación. Sin segundo toque y **sin silencio**
-- [ ] T030 [US3] Implementar en `crear-pedido.tsx` que desistir del ingreso deje lo cargado intacto y **no cree ningún pedido** (FR-008)
+- [x] T025 [US3] Factorizar la composición de ingreso a `web/components/sesion/panel-ingreso.tsx`, recibiendo qué hacer al terminar (research D2). Es `BotonGoogle` + `IngresoPorCodigo` + `CompletarAlta`, hoy embebidos en la pantalla
+- [x] T026 [US3] Modificar `web/app/ingresar/page.tsx` para montar el panel factorizado con `router.push("/")` como final. La pantalla **sigue existiendo** para quien entra desde la navegación (FR-010a): el diálogo se suma al camino, no lo reemplaza
+- [x] T027 [US3] Escribir `web/components/pedido/dialogo-ingreso.tsx`: monta `panel-ingreso.tsx` en un diálogo, con foco atrapado y cierre por Escape. **No escribe el borrador en `localStorage` ni en `sessionStorage`** (FR-006a) — no hace falta, porque no se navega
+- [x] T028 [US3] Modificar `crear-pedido.tsx` para abrir el diálogo cuando no hay sesión al confirmar, y también cuando el servicio contesta `401` (FR-009: una sesión vencida se comporta igual que no tener sesión)
+- [x] T029 [US3] Implementar en `crear-pedido.tsx` la **reanudación** (FR-007a): al cerrarse el diálogo con sesión iniciada, el envío continúa **con la misma clave de idempotencia**, se ve que está enviando, y termina en la confirmación. Sin segundo toque y **sin silencio**
+- [x] T030 [US3] Implementar en `crear-pedido.tsx` que desistir del ingreso deje lo cargado intacto y **no cree ningún pedido** (FR-008)
 - [ ] T031 [US3] [MANUAL] Verificar M2 en un **teléfono**: formulario entero, un solo toque en confirmar, ingreso con Google, código `FU-####`. Comprobar que la URL **no cambió**, que no se reescribió ni un campo, y que el pin quedó donde se lo había arrastrado
 - [ ] T032 [US3] [MANUAL] Verificar M3: `Object.keys(localStorage)` y `Object.keys(sessionStorage)` **no contienen el borrador**, en particular el nombre y el teléfono de quien recibe. Es la razón por la que se eligió el diálogo — un tercero que no consintió nada no puede quedar escrito en el disco de un teléfono compartido
 - [ ] T033 [US3] [MANUAL] Verificar M4: desistir del diálogo deja lo cargado y **`GET /admin/pedidos` no muestra ningún pedido nuevo**. Que la pantalla no diga nada no prueba que no se creó

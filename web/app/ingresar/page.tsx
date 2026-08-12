@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
-import { BotonGoogle } from "@/components/sesion/boton-google";
-import { CompletarAlta } from "@/components/sesion/completar-alta";
-import { IngresoPorCodigo } from "@/components/sesion/ingreso-por-codigo";
+import { useCallback } from "react";
+
+import { PanelIngreso } from "@/components/sesion/panel-ingreso";
 import { useSesion } from "@/components/sesion/proveedor-sesion";
 
 const sectionClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6";
@@ -13,123 +12,43 @@ const sectionClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm
 /**
  * Pantalla de ingreso.
  *
- * Tres estados, y el del medio es el que se olvida: sin sesion (elegir como
- * entrar), con sesion pero sin nombre ni telefono (completar el alta, FR-021a),
- * y adentro.
+ * **Sigue existiendo despues de `007`** (FR-010a), y no es redundante: es el
+ * camino de quien se identifica desde la navegacion, sin estar pidiendo nada. El
+ * dialogo que `007` monta sobre `/pedido` se SUMA a este camino, no lo
+ * reemplaza.
  *
- * **El camino por mail ya existe** (US3), debajo del separador. Los dos caminos
- * terminan en la misma sesion y en el mismo usuario: entrar con Google y entrar
- * con un codigo enviado a esa misma direccion son la misma cuenta, no dos.
+ * La composicion del ingreso —los tres estados, los dos caminos, el alta a
+ * medias— vive en `PanelIngreso` desde `007`. Esta pantalla solo decide donde se
+ * muestra y que pasa al terminar: volver al inicio.
  *
- * Quien entra por codigo llega **sin nombre** (FR-021a) —el codigo solo prueba
- * que la direccion es suya— asi que cae en `CompletarAlta` igual que quien entra
- * con Google sin haber completado el alta. Esa rama ya existia y no hubo que
- * tocarla: es la misma pantalla para los dos caminos, que es justamente lo que
- * evita que uno de los dos se olvide de pedir el telefono.
+ * Tener una sola composicion es lo que evita que diverjan. Dos copias del mismo
+ * login terminan distintas, y el arreglo que recibe una no llega a la otra.
  */
 export default function IngresarPage() {
   const router = useRouter();
-  const { usuario, cargando, avisoDeSesion, descartarAviso } = useSesion();
-  const [error, setError] = useState<string | null>(null);
+  const { usuario, cargando } = useSesion();
 
   const volverAlInicio = useCallback(() => router.push("/"), [router]);
+
+  const yaEstaAdentro = !cargando && usuario?.perfilCompleto;
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-10 sm:px-6">
       <div className={sectionClass}>
-        {/* Mientras se resuelve la credencial guardada no se muestra ni el
-            boton ni el saludo: mostrar "Ingresar" a alguien que ya esta adentro
-            y cambiarlo medio segundo despues se lee como un error. */}
-        {cargando ? (
-          <p className="py-6 text-center text-sm text-slate-500">Un momento…</p>
-        ) : !usuario ? (
-          <ElegirComoEntrar
-            error={error}
-            aviso={avisoDeSesion}
-            onError={setError}
-            onIngreso={() => {
-              setError(null);
-              descartarAviso();
-            }}
-          />
-        ) : !usuario.perfilCompleto ? (
-          <CompletarAlta onListo={volverAlInicio} />
-        ) : (
-          <YaEstas nombre={usuario.nombre} />
-        )}
+        <PanelIngreso onListo={volverAlInicio} />
       </div>
-    </div>
-  );
-}
 
-function ElegirComoEntrar({
-  error,
-  aviso,
-  onError,
-  onIngreso,
-}: {
-  error: string | null;
-  aviso: string | null;
-  onError: (mensaje: string) => void;
-  onIngreso: () => void;
-}) {
-  return (
-    <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Ingresar</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Para que no tengas que escribir tus datos cada vez que pedís un envío.
+      {/* Para quien ya estaba adentro, el atajo al unico lugar al que va a
+          querer ir. Vive en la pantalla y no en el panel porque es navegacion, y
+          el panel se usa tambien adentro de un dialogo donde navegar seria
+          perder el formulario cargado. */}
+      {yaEstaAdentro && (
+        <p className="mt-4 text-center text-sm text-slate-500">
+          <Link href="/pedido" className="font-medium text-brand hover:underline">
+            Enviar un paquete
+          </Link>
         </p>
-      </div>
-
-      {/* El aviso de sesion vencida va acá y no en un cartel global: es el lugar
-          donde el mensaje sirve, porque abajo esta el boton que lo resuelve. */}
-      {aviso && (
-        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">{aviso}</p>
       )}
-
-      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-
-      <BotonGoogle onIngreso={onIngreso} onError={onError} />
-
-      {/* El separador no es adorno: marca que abajo hay OTRA forma de entrar a
-          la misma cuenta, no un paso siguiente del de arriba. */}
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-slate-200" />
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">o</span>
-        <span className="h-px flex-1 bg-slate-200" />
-      </div>
-
-      <IngresoPorCodigo onIngreso={onIngreso} />
-
-      {/* Cotizar no pide nada, y quien llego acá de mas tiene que poder salir
-          sin sentir que choco contra una puerta (FR-001, Principio II). */}
-      <p className="border-t border-slate-100 pt-4 text-center text-sm text-slate-500">
-        Podés{" "}
-        <Link href="/pedido" className="font-medium text-brand hover:underline">
-          ver cuánto sale un envío
-        </Link>{" "}
-        sin ingresar.
-      </p>
-    </div>
-  );
-}
-
-function YaEstas({ nombre }: { nombre: string }) {
-  return (
-    <div className="flex flex-col items-start gap-4">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">
-          Hola{nombre ? `, ${nombre}` : ""}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">Ya estás dentro de tu cuenta.</p>
-      </div>
-      <Link
-        href="/pedido"
-        className="rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
-      >
-        Enviar un paquete
-      </Link>
     </div>
   );
 }
