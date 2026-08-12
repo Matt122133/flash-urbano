@@ -16,7 +16,7 @@
 // La guarda tiene un control positivo que afirma que ESTE archivo si alcanza
 // `lib/api.ts`. Sin el, borrar el envio entero dejaria la prueba en verde.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DialogoIngreso } from "@/components/pedido/dialogo-ingreso";
 import {
@@ -24,6 +24,8 @@ import {
   type FormState,
   type ResultadoConfirmacion,
 } from "@/components/pedido-form";
+import { useSesion } from "@/components/sesion/proveedor-sesion";
+import { rehidratarRetiro } from "@/components/sesion/rehidratar-retiro";
 import { ErrorApi, crearPedido } from "@/lib/api";
 import { armarCuerpoPedido, type DatosDelPedido } from "@/lib/pedido";
 import { credencial } from "@/lib/sesion";
@@ -161,9 +163,32 @@ export function CrearPedido() {
     [pedirIngreso],
   );
 
+  const { inicial, listaLaPrecarga, avisoDelPunto } = usePrecarga();
+
+  // El formulario se monta recien cuando la precarga se resolvio.
+  //
+  // No es prolijidad: `PedidoForm` toma `inicial` UNA vez, al montarse. Montarlo
+  // antes y llenarlo despues exigiria rehidratarlo desde afuera —lo que hoy no
+  // sabe hacer— o pisar lo que la persona ya escribio, que es justo lo que
+  // FR-007 prohibe.
+  if (!listaLaPrecarga) {
+    return (
+      <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        Un momento…
+      </p>
+    );
+  }
+
   return (
     <>
-      <PedidoForm onConfirmar={onConfirmar} />
+      {avisoDelPunto && (
+        // FR-022. No se cobra en silencio sobre un punto que ya no corresponde:
+        // se recoloco en el cruce y se pide que lo revise.
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {avisoDelPunto}
+        </p>
+      )}
+      <PedidoForm onConfirmar={onConfirmar} inicial={inicial} />
       <DialogoIngreso
         abierto={dialogoAbierto}
         onListo={() => cerrarDialogo(true)}
@@ -171,4 +196,106 @@ export function CrearPedido() {
       />
     </>
   );
+}
+
+/**
+ * Lo que el perfil ya sabe, listo para precargar el formulario (FR-023).
+ *
+ * Es el valor que `006` prometio y todavia no entregaba: la respuesta concreta a
+ * "¿para que me registro?".
+ *
+ * **Solo corre al montar.** Si la persona se identifica DESPUES —desde el
+ * dialogo, a mitad de formulario— la precarga no vuelve a correr, y es
+ * deliberado: FR-007 prohibe que identificarse le reescriba una direccion que
+ * acaba de tipear. El valor de la precarga es ahorrar tipeo, no imponerlo.
+ */
+function usePrecarga() {
+  const { usuario, cargando } = useSesion();
+
+  /**
+   * Solo la rama ASINCRONA necesita estado.
+   *
+   * Los otros tres casos —todavia cargando, sin sesion, con sesion y sin
+   * direccion guardada— se derivan abajo sin guardar nada. Meterlos en estado
+   * obligaria a escribirlo sincronicamente dentro del efecto, que ademas de ser
+   * un render de mas es lo que `react-hooks/set-state-in-effect` marca.
+   */
+  const [resuelto, setResuelto] = useState<{
+    inicial: Partial<FormState>;
+    aviso: string | null;
+  } | null>(null);
+
+  // Corre una sola vez. Si la persona se identifica DESPUES —desde el dialogo, a
+  // mitad de formulario— la precarga no vuelve a correr, y es deliberado:
+  // FR-007 prohibe que identificarse le reescriba una direccion recien tipeada.
+  const yaCorrio = useRef(false);
+  const retiro = usuario?.retiro ?? null;
+  const nombre = usuario?.nombre ?? "";
+  const telefono = usuario?.telefono ?? "";
+
+  useEffect(() => {
+    if (cargando || !retiro || yaCorrio.current) return;
+    yaCorrio.current = true;
+
+    const base: Partial<FormState> = { name: nombre, phone: telefono };
+    let vigente = true;
+
+    rehidratarRetiro(retiro)
+      .then((r) => {
+        if (!vigente) return;
+
+        // FR-022, y es la razon por la que `rehidratarRetiro` devuelve
+        // `puntoEnLaCuadra`. El perfil puede MOSTRAR un punto viejo; el pedido
+        // COBRA sobre el, asi que no puede usarlo sin revalidar.
+        //
+        // El caso no es hipotetico: el indice de calles se regenera, y un punto
+        // guardado en agosto puede quedar en otra cuadra —o en otra zona, o sea
+        // a otro precio— en octubre, sin que nadie toque nada.
+        if (r.ubicable && r.estado.esquina && !r.puntoEnLaCuadra) {
+          setResuelto({
+            inicial: {
+              ...base,
+              retiro: {
+                ...r.estado,
+                direccion: { ...r.estado.direccion, punto: r.estado.esquina.punto },
+              },
+            },
+            aviso:
+              "Revisá el punto de retiro en el mapa: lo recolocamos en el cruce porque el que tenías guardado ya no cae en esa cuadra.",
+          });
+          return;
+        }
+        setResuelto({ inicial: { ...base, retiro: r.estado }, aviso: null });
+      })
+      .catch(() => {
+        // Que no se pueda reconstruir la direccion no puede dejar sin pedir a
+        // quien igual la puede escribir a mano.
+        if (vigente) setResuelto({ inicial: base, aviso: null });
+      });
+
+    return () => {
+      vigente = false;
+    };
+  }, [cargando, retiro, nombre, telefono]);
+
+  if (cargando) return { listaLaPrecarga: false } as const;
+
+  // Sin sesion: el formulario arranca vacio, como siempre. Cotizar no pide nada.
+  if (!usuario) return { listaLaPrecarga: true, avisoDelPunto: null } as const;
+
+  const base: Partial<FormState> = { name: nombre, phone: telefono };
+
+  // FR-025: un perfil sin direccion deja el formulario utilizable y vacio en esa
+  // parte, sin errores.
+  if (!retiro) {
+    return { inicial: base, listaLaPrecarga: true, avisoDelPunto: null } as const;
+  }
+
+  if (!resuelto) return { listaLaPrecarga: false } as const;
+
+  return {
+    inicial: resuelto.inicial,
+    listaLaPrecarga: true,
+    avisoDelPunto: resuelto.aviso,
+  } as const;
 }

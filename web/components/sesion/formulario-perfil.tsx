@@ -9,22 +9,13 @@ import {
 } from "@/components/bloque-direccion";
 import { MapaZonasDinamico } from "@/components/mapa-zonas-dinamico";
 import type { EstadoMosaicos, Punto } from "@/components/mapa-zonas";
-import {
-  buscarEsquina,
-  cargarIndice,
-  contiene,
-  normalizar,
-  regionPermitida,
-  type Calle,
-  type Esquina,
-  type Indice,
-} from "@/lib/direcciones";
+import { regionPermitida } from "@/lib/direcciones";
 import {
   useLlamadaAutenticada,
   useSesion,
-  type RetiroGuardado,
   type Usuario,
 } from "./proveedor-sesion";
+import { rehidratarRetiro } from "./rehidratar-retiro";
 
 // Mismas clases que el formulario de pedido, repetidas por el mismo motivo que
 // en `completar-alta.tsx`: `pedido-form.tsx` esta fuera del `covers:` de este
@@ -46,119 +37,6 @@ type Rehidratacion =
    * o desaparecer entre que se guardo y hoy.
    */
   | { estado: "no-ubicable" };
-
-/**
- * **Todas** las calles que se muestran con ese nombre, no la primera.
- *
- * `callePorNombre` de `lib/direcciones.ts` devuelve la primera coincidencia, y
- * eso alcanza para las pruebas pero **no para reconstruir una direccion
- * guardada**: el indice de Montevideo tiene 50 grupos de nombres homonimos —100
- * calles— que se normalizan al mismo texto, casi siempre porque el dato de
- * origen escribio la misma calle con y sin tilde.
- *
- * El caso que lo destapo: `Vicente Yañez Pinzón` (id 255, una sola esquina) y
- * `Vicente Yáñez Pinzón` (id 3331, veinticuatro) son dos entradas distintas del
- * indice. Quedarse con la primera hacia que el cruce guardado **no existiera**
- * al volver, y la pantalla decia "no pudimos ubicarla" sobre una direccion
- * perfectamente valida.
- *
- * No se arregla en `callePorNombre` porque `lib/direcciones.ts` esta fuera del
- * `covers:` de este feature, y porque aca hay algo que esa funcion no tiene: el
- * punto guardado, que es lo que permite elegir bien entre los homonimos.
- */
-function callesPorNombre(indice: Indice, nombre: string): Calle[] {
-  const q = normalizar(nombre);
-  return indice.calles.filter((c) => c.busqueda === q);
-}
-
-/**
- * Reconstruye el estado del bloque de direccion a partir de lo guardado.
- *
- * Es lo que hace cierto a FR-019a: no alcanza con volver a escribir los tres
- * textos en los campos. Sin la `Esquina` resuelta no hay cuadra, sin cuadra no
- * hay region, y sin region el mapa no deja arrastrar ni dibuja el limite — o
- * sea que el punto ajustado se veria pero no se podria corregir.
- *
- * Cuando el par calle/esquina da varios cruces, **el punto guardado desempata**:
- * se elige el candidato en cuya cuadra cae. Preguntarle de nuevo a la persona
- * cual era el suyo, cuando el dato para saberlo ya esta guardado, seria hacerle
- * repetir una decision que ya tomo.
- */
-async function rehidratar(
-  retiro: RetiroGuardado,
-): Promise<{ estado: EstadoDireccion; ubicable: boolean }> {
-  // Los tres textos y el punto se muestran pase lo que pase. Que el indice no
-  // resuelva la direccion degrada la pantalla —no se puede ajustar el punto—
-  // pero no la deja vacia: ver la direccion guardada sin poder moverla es mejor
-  // que no verla.
-  const base: EstadoDireccion = {
-    direccion: {
-      ...ESTADO_DIRECCION_VACIO.direccion,
-      calle: retiro.calle,
-      esquina: retiro.esquina,
-      numero: retiro.numero,
-      punto: retiro.punto ?? null,
-      // Nulo se muestra como el estado vacio del bloque: campo en blanco y
-      // ninguna opcion de cooperativa marcada. Es la diferencia entre "no lo
-      // dijo" y "dijo que no".
-      apto: retiro.apto ?? "",
-      cooperativa: retiro.cooperativa ?? false,
-    },
-    esquina: null,
-    cualEsLaCalle: "A",
-    candidatos: [],
-  };
-
-  // No lanza: un indice caido y una calle que ya no existe llevan al mismo
-  // lugar, y quien llama no tiene nada distinto que hacer con cada caso.
-  let indice;
-  try {
-    indice = await cargarIndice();
-  } catch {
-    return { estado: base, ubicable: false };
-  }
-
-  // Todas las combinaciones de homonimos, no una sola: con dos nombres que
-  // tengan dos entradas cada uno hay cuatro pares posibles, y **solo uno cruza
-  // de verdad**.
-  const calles = callesPorNombre(indice, retiro.calle);
-  const cruzadas = callesPorNombre(indice, retiro.esquina);
-  if (calles.length === 0 || cruzadas.length === 0) {
-    return { estado: base, ubicable: false };
-  }
-
-  const candidatos: { esquina: Esquina; cual: "A" | "B" }[] = [];
-  for (const calle of calles) {
-    for (const cruzada of cruzadas) {
-      for (const e of buscarEsquina(indice, calle, cruzada)) {
-        candidatos.push({ esquina: e, cual: e.calleA.id === calle.id ? "A" : "B" });
-      }
-    }
-  }
-  if (candidatos.length === 0) return { estado: base, ubicable: false };
-
-  // El que contiene al punto guardado. Desempata tanto entre homonimos como
-  // entre cruces repetidos del mismo par de nombres, que es el mismo problema
-  // visto dos veces. Si ninguno lo contiene —el indice se regenero y las
-  // cuadras se movieron— se cae al primero, que al menos deja la pantalla
-  // usable con el limite dibujado.
-  const punto = retiro.punto;
-  const elegido =
-    (punto &&
-      candidatos.find((c) => contiene(regionPermitida(c.esquina, c.cual), punto))) ||
-    candidatos[0];
-
-  return {
-    estado: {
-      ...base,
-      esquina: elegido.esquina,
-      cualEsLaCalle: elegido.cual,
-      // El punto guardado manda sobre el del cruce: es el ajustado.
-      direccion: { ...base.direccion, punto: punto ?? elegido.esquina.punto },
-    },
-    ubicable: true,
-  };
-}
 
 /**
  * Ver y editar el perfil: nombre, telefono y direccion de retiro.
@@ -201,7 +79,7 @@ export function FormularioPerfil() {
     // de un efecto. Aca aplica al caso "no hay direccion guardada", que se
     // resuelve sin esperar a nadie.
     Promise.resolve()
-      .then(() => (guardadoRetiro ? rehidratar(guardadoRetiro) : null))
+      .then(() => (guardadoRetiro ? rehidratarRetiro(guardadoRetiro) : null))
       .then((resultado) => {
         if (!vigente) return;
         if (!resultado) {
