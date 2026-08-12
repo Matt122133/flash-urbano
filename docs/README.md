@@ -68,6 +68,10 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
 - [`processes/railway-despliegue.md`](processes/railway-despliegue.md) — cómo
   está armado el backend en Railway, qué variables tiene y cuáles son relleno,
   y las cuatro trampas del despliegue.
+- [`/web/design-source/README.md`](../web/design-source/README.md) — los
+  generadores de assets y por qué cada uno decide lo que decide: zonas, índice
+  de calles, logo transparente y el **icono del sitio** (`008`), incluido por
+  qué los tamaños chicos usan un recorte distinto.
 
 ## Trackers
 
