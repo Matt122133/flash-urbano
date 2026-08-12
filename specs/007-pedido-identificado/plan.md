@@ -25,6 +25,24 @@ covers:
   # paso: `AGENTS.md` prohibe la limpieza oportunista fuera de los pasos del
   # plan.
   - backend/internal/db/migrate_test.go
+  # AGREGADOS EL 2026-08-12, y por el MISMO motivo de fondo que el de arriba.
+  # Los dos hacen `DELETE FROM usuarios` para limpiar entre pruebas. Con el
+  # `ON DELETE RESTRICT` que introduce 0003, ese DELETE **falla** si quedo algun
+  # pedido — y `auth` corre ANTES que `pedidos` en el orden alfabetico de
+  # `go test ./...`, asi que el sintoma es un rojo en un paquete que no tiene
+  # nada que ver, con un error de clave foranea que no menciona a los pedidos.
+  #
+  # Se descubrio de casualidad: el humo manual contra el servicio dejo un pedido
+  # en la base de prueba y la suite siguiente se puso roja en `auth`.
+  #
+  # El arreglo es una linea en cada uno: borrar pedidos primero.
+  - backend/internal/auth/sesion_test.go
+  - backend/internal/usuarios/usuario_test.go
+  # Y este, que un `grep "DELETE FROM usuarios"` NO encuentra: arma la consulta
+  # concatenando (`"DELETE FROM " + tabla`) sobre una lista de nombres. Buscar
+  # el literal daba dos resultados y habia tres. Se enumeraron los cinco helpers
+  # de setup del paquete `auth` uno por uno hasta tener el cuadro completo.
+  - backend/internal/auth/handlers_codigo_test.go
   # Tres rutas nuevas y tres dependencias mas. main.go ya lo anticipa: la
   # estructura `dependencias` existe porque "la lista va a seguir creciendo
   # con 007".

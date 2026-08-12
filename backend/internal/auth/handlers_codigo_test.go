@@ -44,7 +44,13 @@ func arnesDePrueba(t *testing.T) *arnesCodigo {
 	if err := db.Migrar(ctx, pool); err != nil {
 		t.Fatalf("migrando: %v", err)
 	}
-	for _, tabla := range []string{"codigos_acceso", "rastro_ingresos", "usuarios"} {
+	// `pedidos` PRIMERO, y el orden de esta lista es load-bearing: desde la
+	// migracion 0003 los pedidos referencian a usuarios con ON DELETE RESTRICT,
+	// asi que borrar usuarios con pedidos vivos falla — y este paquete corre
+	// antes que `pedidos` en el orden alfabetico de `go test ./...`, de modo que
+	// el sintoma seria un rojo en `auth` con un error de clave foranea que no
+	// menciona nada de auth.
+	for _, tabla := range []string{"pedidos", "codigos_acceso", "rastro_ingresos", "usuarios"} {
 		if _, err := pool.Exec(ctx, "DELETE FROM "+tabla); err != nil {
 			t.Fatalf("limpiando %s: %v", tabla, err)
 		}

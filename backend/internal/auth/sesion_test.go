@@ -36,6 +36,14 @@ func sesionesDePrueba(t *testing.T, duracion time.Duration) (*Sesiones, *db.Pool
 		t.Fatalf("migrando: %v", err)
 	}
 	// El borrado de usuarios arrastra sus sesiones por la cascada.
+	// Los pedidos primero: desde la migracion 0003 tienen una clave foranea
+	// hacia usuarios con ON DELETE RESTRICT, asi que borrar usuarios con
+	// pedidos vivos FALLA. Este paquete corre antes que `pedidos` en el orden
+	// alfabetico de `go test ./...`, de modo que sin esto un pedido que quedo
+	// dando vueltas pone en rojo a un paquete que no tiene nada que ver.
+	if _, err := pool.Exec(ctx, `DELETE FROM pedidos`); err != nil {
+		t.Fatalf("limpiando pedidos: %v", err)
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM usuarios`); err != nil {
 		t.Fatalf("limpiando usuarios: %v", err)
 	}

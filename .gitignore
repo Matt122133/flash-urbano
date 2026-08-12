@@ -3,3 +3,30 @@ __pycache__/
 *.py[cod]
 .claude/settings.local.json
 specs/**/.loop-state.json
+
+# Secretos. En la RAIZ y no solo en backend/, y ese es todo el punto (FR-033 de
+# 007): hasta hoy `.env` estaba ignorado unicamente por `backend/.gitignore`, un
+# archivo que nacio en la rama de `006`. Desde cualquier otra rama, un
+# `git add -A` dejaba el `.env` —con la contrasena de la base, el Client ID de
+# Google y el mail administrador— a un commit de un repositorio PUBLICO.
+#
+# Paso de verdad el 2026-08-11 trabajando en `dominio-propio`, y lo freno el
+# sensor de cobertura POR CASUALIDAD: lo detuvo porque `backend/` no estaba en
+# el `covers:` de ese plan, no porque supiera que era un secreto.
+#
+# La negacion NO es opcional: `.env*` a secas tambien taparia
+# `backend/.env.example`, que queremos versionado porque es la documentacion de
+# que variables hacen falta.
+#
+# Esto NO reemplaza a `backend/.gitignore`. Dos redes que se superponen es lo
+# correcto aca; sacar una para "no duplicar" es cambiar una proteccion segura
+# por una elegante.
+#
+# Y lo que esto NO arregla, dicho para que nadie lo de por cerrado: sigue siendo
+# proteccion por NOMBRE de archivo. Un secreto pegado dentro de un .go o un .md
+# pasa igual. El arreglo robusto —un hook que rechace contenido que parezca una
+# credencial, independiente de `covers:`— sigue anotado en el tracker.
+.env
+.env.*
+!.env.example
+!*.env.example

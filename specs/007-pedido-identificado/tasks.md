@@ -46,8 +46,8 @@ imponer**, y está bien que lo haga:
 **Purpose**: la higiene que no depende de nada y cierra una fila `High` del
 tracker.
 
-- [ ] T001 Agregar al `.gitignore` de la raíz las líneas `.env`, `.env.*`, `!.env.example` y `!*.env.example` (research D11). La negación **no es opcional**: `.env*` a secas taparía `backend/.env.example`, que queremos versionado porque documenta qué variables hacen falta
-- [ ] T002 Verificar SC-014 con el procedimiento de [quickstart M9](quickstart.md#m9--el-gitignore-sc-014): rama nueva desde `master`, `backend/.env` con contenido, `git add -A`, y comprobar que **no** queda preparado para commit. `backend/.gitignore` se deja como está — dos redes que se superponen es lo correcto
+- [x] T001 Agregar al `.gitignore` de la raíz las líneas `.env`, `.env.*`, `!.env.example` y `!*.env.example` (research D11). La negación **no es opcional**: `.env*` a secas taparía `backend/.env.example`, que queremos versionado porque documenta qué variables hacen falta
+- [x] T002 Verificar SC-014 con el procedimiento de [quickstart M9](quickstart.md#m9--el-gitignore-sc-014): rama nueva desde `master`, `backend/.env` con contenido, `git add -A`, y comprobar que **no** queda preparado para commit. `backend/.gitignore` se deja como está — dos redes que se superponen es lo correcto
 
 **Checkpoint**: SC-014 verde.
 
@@ -69,15 +69,15 @@ PostGIS y **contar los `SKIP`** según [quickstart](quickstart.md#antes-de-empez
 - [x] T005 [P] Probar el repositorio en `backend/internal/pedidos/pedido_test.go`: crear y releer un pedido (incluido que el punto sobreviva el viaje a PostGIS), y que `PorUsuario` de un usuario **no** devuelva los de otro
 - [x] T005a [P] Probar en `pedido_test.go` que el pedido **copia y no referencia** (FR-013): crear un pedido, después mutar el usuario —cambiarle teléfono y dirección de retiro—, releer el pedido y comprobar que **no cambió nada**. Son diez líneas y hoy esa mitad de SC-007 sólo se verifica a mano; es justo el defecto que aparecería recién el día que un cliente se muda
 - [x] T005b [P] Probar en `pedido_test.go` **SC-008**: crear más de 10.000 pedidos y comprobar que todos los códigos son únicos y con formato válido **al cruzar `FU-9999`**. El `UNIQUE` de la columna ya garantiza la unicidad; lo que esta prueba cubre es lo otro — que el formato no se rompa al pasar de cuatro dígitos. [research D4](research.md) **afirma** que `lpad` no trunca y que el pedido 10.000 sale `FU-10000`; que esté razonado no es que esté probado
-- [ ] T006 Implementar los handlers en `backend/internal/pedidos/handlers.go`: `Crear`, `Mios` y `Todos`, según [contracts/pedidos.md](contracts/pedidos.md). El `usuario_id` sale de `httpx.UsuarioDe`, **nunca del cuerpo**. `Idempotency-Key` obligatoria: sin ella, `400`. Clave repetida ⇒ **`200` con el pedido existente**, no `409` y no uno nuevo
-- [ ] T007 Implementar en `handlers.go` la validación de fecha de retiro vencida comparando contra la hora actual en **`America/Montevideo`**, explícitamente. En Railway el proceso corre en UTC: sin esto, entre las 21:00 y la medianoche el servicio cree que ya es mañana y rechaza retiros válidos de hoy. **No** se valida la hora dentro del día de hoy
-- [ ] T008 [P] Probar en `backend/internal/pedidos/handlers_test.go` la idempotencia: misma clave dos veces ⇒ un pedido y la segunda devuelve `200` con el mismo
-- [ ] T009 [P] Probar en `handlers_test.go` el **control positivo de SC-005a**: dos pedidos idénticos con claves distintas ⇒ **quedan los dos**. Sin este caso, "deja un solo pedido" lo satisface una implementación que descarta pedidos buenos, y el resultado sería un paquete que nadie pasa a buscar
-- [ ] T010 [P] Probar en `handlers_test.go` que `POST /pedidos` sin `Idempotency-Key` da `400`, y sin credencial da `401` (FR-010, SC-004)
-- [ ] T011 [P] Probar en `handlers_test.go` la fecha vencida (`400`) **y el caso de las 22:00 hora de Montevideo** (se acepta). Sin el segundo, el bug de zona horaria sólo aparece de noche y en producción
-- [ ] T012 [P] Probar en `handlers_test.go` que `GET /admin/pedidos` da `403` a un identificado no administrador, y `200` a la dirección configurada. Reusa `config.EsAdmin`, que `006` ya probó
-- [ ] T013 Enganchar en `backend/cmd/api/main.go` el repositorio nuevo en la estructura `dependencias` y las tres rutas dentro de `rutas()`, las tres con `conSesion`. **Ninguna abierta**: no hay pedido anónimo (FR-005). Que se vea leyendo esa función y nada más, como ya hace `006`
-- [ ] T014 Verificar SC-011: la base se levanta **desde vacía** aplicando las migraciones del repo, incluida `0003`, sin pasos manuales
+- [x] T006 Implementar los handlers en `backend/internal/pedidos/handlers.go`: `Crear`, `Mios` y `Todos`, según [contracts/pedidos.md](contracts/pedidos.md). El `usuario_id` sale de `httpx.UsuarioDe`, **nunca del cuerpo**. `Idempotency-Key` obligatoria: sin ella, `400`. Clave repetida ⇒ **`200` con el pedido existente**, no `409` y no uno nuevo
+- [x] T007 Implementar en `handlers.go` la validación de fecha de retiro vencida comparando contra la hora actual en **`America/Montevideo`**, explícitamente. En Railway el proceso corre en UTC: sin esto, entre las 21:00 y la medianoche el servicio cree que ya es mañana y rechaza retiros válidos de hoy. **No** se valida la hora dentro del día de hoy
+- [x] T008 [P] Probar en `backend/internal/pedidos/handlers_test.go` la idempotencia: misma clave dos veces ⇒ un pedido y la segunda devuelve `200` con el mismo
+- [x] T009 [P] Probar en `handlers_test.go` el **control positivo de SC-005a**: dos pedidos idénticos con claves distintas ⇒ **quedan los dos**. Sin este caso, "deja un solo pedido" lo satisface una implementación que descarta pedidos buenos, y el resultado sería un paquete que nadie pasa a buscar
+- [x] T010 [P] Probar en `handlers_test.go` que `POST /pedidos` sin `Idempotency-Key` da `400`, y sin credencial da `401` (FR-010, SC-004)
+- [x] T011 [P] Probar en `handlers_test.go` la fecha vencida (`400`) **y el caso de las 22:00 hora de Montevideo** (se acepta). Sin el segundo, el bug de zona horaria sólo aparece de noche y en producción
+- [x] T012 [P] Probar en `handlers_test.go` que `GET /admin/pedidos` da `403` a un identificado no administrador, y `200` a la dirección configurada. Reusa `config.EsAdmin`, que `006` ya probó
+- [x] T013 Enganchar en `backend/cmd/api/main.go` el repositorio nuevo en la estructura `dependencias` y las tres rutas dentro de `rutas()`, las tres con `conSesion`. **Ninguna abierta**: no hay pedido anónimo (FR-005). Que se vea leyendo esa función y nada más, como ya hace `006`
+- [x] T014 Verificar SC-011: la base se levanta **desde vacía** aplicando las migraciones del repo, incluida `0003`, sin pasos manuales
 
 **Checkpoint**: `cd backend && go vet ./... && go test ./... -p 1 && go build ./...`
 verde **con cero `SKIP`**, y un `curl` con credencial válida crea un pedido y

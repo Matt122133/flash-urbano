@@ -5,9 +5,16 @@
 // levantar a medias — es preferible que Railway muestre un servicio caido a que
 // muestre uno sano que falla contra el primer cliente real.
 //
-// Lo que este servicio NO hace: guardar pedidos (eso es 007) y calcular
-// precios (eso vive en el navegador y no puede depender de que esto responda,
-// FR-001 y FR-002).
+// Desde 007 SI guarda pedidos. Lo que sigue sin hacer, y no por olvido:
+//
+//   - **Calcular precios.** Eso vive en el navegador y no puede depender de que
+//     esto responda (FR-001 y FR-002). El servicio guarda el punto y el precio
+//     declarado, sin resolver la zona — decision del 2026-08-12 con su riesgo
+//     residual escrito en FR-020a y FR-021a.
+//   - **Mover un pedido de estado.** El esquema acepta los tres desde hoy, pero
+//     no hay endpoint que escriba mas que 'creacion': eso lo hace la app
+//     Android, y construir el camino sin quien lo use deja codigo sin ejercitar.
+//   - **Avisarle a Diego.** La notificacion de pedido nuevo vive en la app.
 package main
 
 import (
@@ -25,6 +32,7 @@ import (
 	"github.com/Matt122133/flash-urbano/backend/internal/correo"
 	"github.com/Matt122133/flash-urbano/backend/internal/db"
 	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
+	"github.com/Matt122133/flash-urbano/backend/internal/pedidos"
 	"github.com/Matt122133/flash-urbano/backend/internal/rastro"
 	"github.com/Matt122133/flash-urbano/backend/internal/usuarios"
 )
@@ -64,6 +72,7 @@ func correr() error {
 
 	registro := rastro.Nuevo(pool)
 	repoUsuarios := usuarios.Nuevo(pool)
+	repoPedidos := pedidos.NuevoRepositorio(pool)
 	sesiones := auth.NuevasSesiones(pool, cfg.SesionDuracion)
 
 	// El verificador se construye una sola vez y se comparte: adentro cachea las
@@ -115,6 +124,7 @@ func correr() error {
 			auth:     auth.NuevosHandlers(verificadorGoogle, repoUsuarios, sesiones, registro),
 			codigo:   auth.NuevosHandlersCodigo(codigos, limites, enviador, repoUsuarios, sesiones, registro),
 			usuarios: usuarios.NuevosHandlers(repoUsuarios, cfg.EsAdmin),
+			pedidos:  pedidos.NuevosHandlers(repoPedidos, cfg.EsAdmin),
 			resolver: sesiones.ResolverUsuario(repoUsuarios),
 		})),
 
@@ -160,6 +170,7 @@ type dependencias struct {
 	auth     *auth.Handlers
 	codigo   *auth.HandlersCodigo
 	usuarios *usuarios.Handlers
+	pedidos  *pedidos.Handlers
 
 	// resolver convierte una credencial en un usuario. Lo consume el middleware.
 	resolver func(context.Context, string) (*usuarios.Usuario, error)
@@ -194,6 +205,18 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 	mux.Handle("POST /auth/salir", conSesion(dep.auth.Salir))
 	mux.Handle("GET /yo", conSesion(dep.usuarios.Yo))
 	mux.Handle("PUT /yo", conSesion(dep.usuarios.ActualizarYo))
+
+	// Pedidos. Las tres con credencial, y ninguna abierta: **no hay pedido
+	// anonimo** (FR-005 de `007`, y la constitucion v3.0.0 — "No package is
+	// created without an identified customer"). Que se vea leyendo esta funcion
+	// es el punto de tenerlas todas juntas aca.
+	//
+	// Quien puede ver TODOS los pedidos lo decide el handler contra la
+	// configuracion del entorno, no esta ruta: `conSesion` dice "hay que estar
+	// identificado", no "hay que ser administrador".
+	mux.Handle("POST /pedidos", conSesion(dep.pedidos.Crear))
+	mux.Handle("GET /pedidos", conSesion(dep.pedidos.Mios))
+	mux.Handle("GET /admin/pedidos", conSesion(dep.pedidos.Todos))
 
 	return mux
 }
