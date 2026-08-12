@@ -184,3 +184,39 @@ usa. Es exactamente cómo conviven `build-zonas.js` y `lib/zonas.ts`.
 ## Complexity Tracking
 
 Sin violaciones que justificar.
+
+## Cierre — 2026-08-12
+
+`verify:` verde, incluido el export real. Los tres iconos llegan a `out/` y el
+`<head>` publicado trae los tres `<link>`. Lint limpio, 99 pruebas.
+
+**Lo que cambió respecto del plan, y por qué.** El punto de decisión de D1 se
+activó: el primer render a 16 px no pasaba —las líneas naranjas de velocidad se
+comían el tercio izquierdo en puro ruido— así que los tamaños ≤ 24 px usan una
+segunda región de recorte desde `x=449`, sin líneas. Además el `icon.svg` pesaba
+**204 kB**, que lo descarga todo el que entra al sitio; con el raster embebido
+limitado a 200 px y paleta de 64 colores quedó en **5,8 kB**, indistinguible al
+ojo del `apple-icon.png` renderizado al lado.
+
+**Lo que quedó SIN verificar.** Se escribe acá y no se tilda, porque un criterio
+sin comprobar que nadie nombra es un criterio que se da por bueno:
+
+- **SC-003** — el ícono en la pantalla de inicio de un teléfono. T008 diferida.
+  El `apple-icon.png` sale del mismo compuesto que sí se verificó renderizado,
+  así que el riesgo es bajo, pero **bajo no es cero y no es lo mismo que
+  comprobado**.
+- **El sitio publicado** — T015 es posterior al merge por construcción: verifica
+  el despliegue, y el despliegue ocurre al mergear. No puede condicionar este
+  cierre, y por eso el plan se cierra con ese chequeo pendiente y con dueño.
+- **SC-001, con una precisión.** Verificado por el dueño del proyecto contra el
+  dev server: se ve bien en tema claro y oscuro. **No quedó constancia de las
+  dos mitades de navegador por separado** — el caso que la decisión D2 existía
+  para cubrir, el tema claro, sí está confirmado.
+
+Estas dos verificaciones pendientes **no van al tracker a propósito**, y la
+razón es de merge y no de criterio: la rama de `007` ya suma cuatro filas arriba
+de la misma tabla, y agregar otra desde acá garantiza un conflicto al mergear la
+segunda. Siendo las dos de riesgo bajo y estando escritas en un artefacto
+versionado que `docs/README.md` enlaza, se prefirió no cambiar ruido en el
+tracker por un conflicto seguro. Decisión tomada con el dueño del proyecto el
+2026-08-12.

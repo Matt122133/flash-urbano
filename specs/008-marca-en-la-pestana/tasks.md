@@ -29,8 +29,8 @@ archivos lleguen al export. **El resto es manual y está marcado.**
 - [x] T004 [US1] Emitir `web/app/favicon.ico` con 16, 32 y 48, **reemplazando el de Vercel**. Que el archivo viejo desaparezca es parte del entregable
 - [x] T005 [US1] Emitir `web/app/icon.svg`: el rectángulo azul redondeado con el recorte embebido como PNG en un `<image>`. **No vectorizar el raster** — automáticamente da curvas sucias, y a mano es dibujar un camión nuevo, que es lo que D1 descarta
 - [x] T006 [US1] [MANUAL] **Mirar el `.ico` a 16×16, al tamaño real, sin ampliar.** La pregunta es "¿se distingue que es un camión?", no "¿se ve algo?". **Si es una mancha**, volver a T002 y simplificar la silueta — engrosar el contorno, sacar detalle interno. **No** dar SC-002 por cumplido porque el archivo existe
-- [ ] T007 [US1] [MANUAL] Verificar **SC-001** con [V2](quickstart.md#v2--las-cuatro-combinaciones-sc-001): Chrome y Firefox, tema claro y tema oscuro, **las cuatro**, en ventana privada. El tema claro es el que decide: es donde un camión sin fondo desaparecería
-- [ ] T008 [US1] [MANUAL] Verificar **SC-003** con [V3](quickstart.md#v3--el-telefono-sc-003): agregar el sitio a la pantalla de inicio de un teléfono y ver la marca
+- [x] T007 [US1] [MANUAL] Verificar **SC-001** con [V2](quickstart.md#v2--las-cuatro-combinaciones-sc-001): Chrome y Firefox, tema claro y tema oscuro, **las cuatro**, en ventana privada. El tema claro es el que decide: es donde un camión sin fondo desaparecería. **Verificado por el dueño del proyecto el 2026-08-12 contra el dev server: se ve bien en tema claro y en tema oscuro.** Precisión para que el registro no diga de más: confirmó los dos temas; **no dejó constancia de haber probado los dos navegadores por separado**. El caso que la decisión D2 existía para cubrir —el tema claro— sí está confirmado
+- [ ] T008 [US1] [MANUAL] **DIFERIDA al 2026-08-12, no hecha.** Verificar **SC-003** con [V3](quickstart.md#v3--el-telefono-sc-003): agregar el sitio a la pantalla de inicio de un teléfono y ver la marca. Se difiere porque no decide nada que no esté ya decidido: el `apple-icon.png` se genera del mismo compuesto que el resto y se verificó renderizado. Si iOS lo mostrara mal, sería por algo del lado de iOS y no del archivo. **SC-003 queda sin verificar**, dicho así y no tildado
 
 ---
 
@@ -42,7 +42,7 @@ archivos lleguen al export. **El resto es manual y está marcado.**
 - [x] T012 Correr el `verify:` del plan y dejarlo verde. Eso **es** la verificación de **SC-005**: el `GITHUB_PAGES=true npm run build` seguido del `ls out` comprueba que los iconos llegan al export, que es lo que se publica. `npm run build` a secas no lo prueba
 - [x] T013 Agregar la entrada del feature a `docs/README.md`
 - [ ] T014 Poner `specs/008-marca-en-la-pestana/plan.md` en `status: completed`. **Commitear antes**: el sensor rebota el commit si el plan ya está en `completed`
-- [ ] T015 [MANUAL] Después del despliegue, verificar [V5](quickstart.md#v5--en-producción) en `https://flashurbano.uy` y en `/favicon.ico` directo, en ventana privada
+- [ ] T015 [MANUAL] **POSTERIOR AL MERGE por construcción.** Verificar [V5](quickstart.md#v5--en-producción) en el sitio publicado y pidiendo el icono directo por su URL, en ventana privada. Esta tarea **no puede** condicionar el cierre del plan: verifica el sitio desplegado, y el despliegue ocurre al mergear. Exigirla antes de `completed` haría que el plan no se cerrara nunca. Queda como chequeo post-despliegue con dueño
 
 ---
 
