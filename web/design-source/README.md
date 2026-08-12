@@ -120,3 +120,61 @@ node design-source/make-logo-transparent.js \
 Borra el fondo azul con un flood fill desde los bordes, así respeta los
 detalles internos que son del mismo azul (los centros de las ruedas), y recorta
 al contenido.
+
+## Icono del sitio (la pestaña del navegador)
+
+El camión del logo, blanco, sobre un cuadrado redondeado en el azul de marca
+**`#032F9A`** — que no se eligió a ojo: es el azul exacto más frecuente del
+propio logo.
+
+```bash
+cd web
+node design-source/build-favicon.js
+```
+
+Emite tres archivos en `app/`, que Next resuelve **por convención de archivo**;
+no hay que tocar `layout.tsx`:
+
+| Archivo | Para qué |
+|---|---|
+| `app/favicon.ico` | 16, 32 y 48. Pestañas, y el `/favicon.ico` que el navegador pide por su cuenta |
+| `app/icon.svg` | Pestañas modernas |
+| `app/apple-icon.png` | 180×180, pantalla de inicio de iOS |
+
+### Las tres decisiones, y por qué
+
+**Sólo el camión, no el logo entero.** A 16×16 —el tamaño real de una pestaña—
+el texto es una mancha gris. El camión es lo que se reconoce.
+
+**Sobre azul, no sobre transparente.** Un camión blanco sobre nada desaparece en
+las pestañas de tema claro, que son el default de Windows y de Chrome. Y como el
+logo fue dibujado sobre ese azul, las contraformas del camión —ventana, huecos
+de rueda, que quedaron transparentes al destondearlo— vuelven a asomar en azul
+justo donde asomaban en el original.
+
+**Los tamaños chicos usan un recorte distinto.** Hasta 24 px se recorta desde
+`x=449`, o sea **sin las líneas naranjas de velocidad**. No es estética: se
+renderizó a 16 px con las líneas y se miró al tamaño real — se comen el tercio
+izquierdo en puro ruido y dejan al camión sin píxeles suficientes para leerse.
+De 32 px para arriba sí entran, porque ahí ya se leen como movimiento.
+
+### Dos cosas que conviene no perder
+
+**El script recorta ajustado al contenido dentro de una región de búsqueda**, en
+vez de usar coordenadas fijas. Si algún día se reprocesa el logo y el camión se
+corre unos píxeles, el icono sigue saliendo bien; y si se corre mucho, el script
+**falla ruidosamente** en vez de emitir un icono cortado que nadie va a mirar de
+cerca.
+
+**El SVG lleva el camión embebido como PNG, no vectorizado.** Vectorizar un
+raster automáticamente da curvas sucias, y hacerlo a mano es dibujar un camión
+nuevo — que es justo lo que este script existe para no hacer. El raster embebido
+se limita a 200 px y va con paleta de 64 colores: sin eso el `icon.svg` pesa
+**204 kB**, y lo descarga todo el que entra al sitio. Con eso, 5,8 kB.
+
+### Verificar
+
+Mirar el `.ico` **a 16×16, al tamaño real, sin ampliar**. La pregunta no es "¿se
+ve algo?" sino "¿se distingue que es un camión?". Y probarlo en pestaña clara y
+oscura, **en ventana privada**: el favicon se cachea con muchas ganas y es fácil
+comprobar con satisfacción el icono anterior.
