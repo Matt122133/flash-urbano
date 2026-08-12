@@ -117,23 +117,59 @@ nadie retira.
 
 ## D4 — El código `FU-0142`
 
-**Decisión: una secuencia de Postgres, formateada en el `DEFAULT` de la
-columna.**
+**Decisión: una secuencia de Postgres, formateada por una función.**
 
 ```sql
 CREATE SEQUENCE pedidos_codigo_seq;
-codigo text NOT NULL UNIQUE
-  DEFAULT ('FU-' || lpad(nextval('pedidos_codigo_seq')::text, 4, '0'))
+
+CREATE OR REPLACE FUNCTION pedidos_codigo_nuevo() RETURNS text
+LANGUAGE sql VOLATILE AS $$
+    SELECT 'FU-' || CASE WHEN v < 10000
+                         THEN lpad(v::text, 4, '0')
+                         ELSE v::text
+                    END
+    FROM (SELECT nextval('pedidos_codigo_seq') AS v) AS s;
+$$;
+
+codigo text NOT NULL UNIQUE DEFAULT pedidos_codigo_nuevo()
 ```
 
 - **La base lo genera, no el servicio.** Dos instancias del servicio no pueden
   emitir el mismo código, y no hace falta reintentar ante colisión.
-- **Qué pasa después de `FU-9999`**: `lpad` **no trunca** — el pedido 10.000
-  sale `FU-10000` y sigue siendo único y legible. No hay desbordamiento
-  silencioso, que es el defecto que este tipo de formato suele esconder.
 - **La secuencia deja huecos** si una transacción falla después de tomar el
   número. Es correcto: el código sirve para nombrar un pedido, no para contar
   cuántos hubo.
+
+### CORRECCIÓN del 2026-08-12 — esta decisión decía algo falso
+
+La primera versión de este apartado afirmaba: *"`lpad` **no trunca** — el pedido
+10.000 sale `FU-10000` y sigue siendo único y legible. No hay desbordamiento
+silencioso, que es el defecto que este tipo de formato suele esconder."*
+
+**Es exactamente al revés.** La documentación de PostgreSQL dice que `lpad`
+*"if the string is already longer than length then it is truncated (on the
+right)"*. Medido en Postgres 17:
+
+| valor | `lpad(v,4,'0')` | `to_char(v,'FM0000')` | el `CASE` |
+|---|---|---|---|
+| 9999 | `9999` | `9999` | `9999` |
+| 10000 | **`1000`** | **`####`** | `10000` |
+| 10001 | **`1000`** | **`####`** | `10001` |
+
+O sea que el pedido 10.000 y el 10.001 salían **con el mismo código**, y el
+`UNIQUE` de la columna convertía eso en un `INSERT` que revienta — el día que el
+negocio esté en su mejor momento y con un error que no menciona el código.
+
+**Lo encontró la prueba que cruza `FU-9999` a propósito**, que existe porque
+`/speckit-analyze` marcó (G2) que SC-008 no tenía tarea. Es el caso de libro de
+por qué una afirmación razonada no es una afirmación comprobada: el párrafo
+original sonaba informado y era falso.
+
+Se descartó `to_char(v, 'FM0000')` por la misma medición: cambia un código
+repetido por uno inválido, que no es mejor. Y hace falta una **función** y no
+una expresión inline porque hay que mirar el valor dos veces para decidir si se
+rellena, `nextval` no se puede llamar dos veces sin avanzar la secuencia, y un
+`DEFAULT` no admite subconsultas.
 
 **Descartado: códigos aleatorios.** Obligan a manejar colisión, y son peores
 para dictar por teléfono.

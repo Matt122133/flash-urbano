@@ -1,12 +1,30 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # ---------------------------------------------------------------- backend
   # El paquete nuevo: repositorio, handlers y sus pruebas.
   - backend/internal/pedidos/
   # La migracion 0003. El prefijo cubre el .sql nuevo; embed.go no se toca.
   - backend/migrations/
+  # AGREGADO EL 2026-08-12, con motivo. `vaciar()` en este archivo tiene la
+  # lista de tablas ESCRITA A MANO desde `0001` —rastro_ingresos,
+  # codigos_acceso, sesiones, usuarios, migraciones_aplicadas— y no incluye
+  # `pedidos`. El CASCADE del DROP se lleva la FK de `pedidos` hacia `usuarios`
+  # pero NO la tabla, asi que `pedidos` y su secuencia sobreviven entre pruebas
+  # y la migracion choca contra si misma con
+  # `relation "pedidos_codigo_seq" already exists`.
+  #
+  # No es opcional y no se puede diferir: sin esto TODO el paquete `db` queda
+  # en rojo y el `verify:` no puede estar verde nunca. Se descubrio corriendo
+  # las pruebas contra Postgres de verdad, no leyendo.
+  #
+  # El cambio se acota a sumar `pedidos` a esa lista. Que la lista sea
+  # estatica —y por lo tanto se pudra con cada migracion que agregue una
+  # tabla— es un defecto de clase, y va al tracker en vez de arreglarse de
+  # paso: `AGENTS.md` prohibe la limpieza oportunista fuera de los pasos del
+  # plan.
+  - backend/internal/db/migrate_test.go
   # Tres rutas nuevas y tres dependencias mas. main.go ya lo anticipa: la
   # estructura `dependencias` existe porque "la lista va a seguir creciendo
   # con 007".
@@ -61,7 +79,15 @@ covers:
 # SALTAN SOLAS. Ver quickstart.md — hay que contar los SKIP, no confiar en el
 # verde.
 verify: (cd backend && go vet ./... && go test ./... -p 1 && go build ./...) && (cd web && npm run lint && npm test && npm run build)
-analyzed:
+# 2026-08-12. `/speckit-analyze` corrio de verdad como hook `after_tasks` y
+# reporto 9 hallazgos, 0 criticos: 2 HIGH de cobertura (G1 y G2), 1 HIGH de
+# tension con el Principio V (D1, declarada en Complexity Tracking), 3 MEDIUM y
+# 3 LOW. **G1, G2, U1 y U2 se corrigieron antes de esta promocion**: FR-020 se
+# partio en FR-020/FR-020a porque prometia algo que ningun componente hacia
+# cumplir, SC-008 paso a exigir cruzar FU-9999 y gano las tareas T005b, FR-019
+# se reformulo como propiedad verificable, y T005a cubre FR-013. El dueno del
+# proyecto leyo el reporte y aprobo la promocion explicitamente.
+analyzed: 2026-08-12
 ---
 
 # Implementation Plan: El pedido se crea identificado y se guarda

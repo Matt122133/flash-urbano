@@ -42,7 +42,7 @@ archivos lleguen al export. **El resto es manual y está marcado.**
 - [x] T012 Correr el `verify:` del plan y dejarlo verde. Eso **es** la verificación de **SC-005**: el `GITHUB_PAGES=true npm run build` seguido del `ls out` comprueba que los iconos llegan al export, que es lo que se publica. `npm run build` a secas no lo prueba
 - [x] T013 Agregar la entrada del feature a `docs/README.md`
 - [x] T014 Poner `specs/008-marca-en-la-pestana/plan.md` en `status: completed`. **Commitear antes**: el sensor rebota el commit si el plan ya está en `completed`
-- [ ] T015 [MANUAL] **POSTERIOR AL MERGE por construcción.** Verificar [V5](quickstart.md#v5--en-producción) en el sitio publicado y pidiendo el icono directo por su URL, en ventana privada. Esta tarea **no puede** condicionar el cierre del plan: verifica el sitio desplegado, y el despliegue ocurre al mergear. Exigirla antes de `completed` haría que el plan no se cerrara nunca. Queda como chequeo post-despliegue con dueño
+- [x] T015 [MANUAL] **Verificado en produccion por el dueno del proyecto el 2026-08-12, despues de mergear.** POSTERIOR AL MERGE por construcción. Verificar [V5](quickstart.md#v5--en-producción) en el sitio publicado y pidiendo el icono directo por su URL, en ventana privada. Esta tarea **no puede** condicionar el cierre del plan: verifica el sitio desplegado, y el despliegue ocurre al mergear. Exigirla antes de `completed` haría que el plan no se cerrara nunca. Queda como chequeo post-despliegue con dueño
 
 ---
 
