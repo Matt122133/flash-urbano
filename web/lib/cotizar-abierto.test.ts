@@ -173,6 +173,27 @@ describe("el camino de cotizar no depende del servicio (FR-001, FR-002)", () => 
     expect(grafo.padre.get(modulo), `${modulo} no fue alcanzado`).toBeTruthy();
   });
 
+  // EL CONTROL POSITIVO DE `007`, y sin el esta guarda se puede satisfacer
+  // borrando el feature.
+  //
+  // Desde `007` el formulario confirma un pedido contra el servicio. Lo hace SIN
+  // importar `lib/api.ts`: recibe `onConfirmar` como prop, y quien la cumple es
+  // `components/pedido/crear-pedido.tsx` (research D1). Esa inversion es lo que
+  // deja los casos de abajo en verde sin tocarles una linea a las ENTRADAS.
+  //
+  // El riesgo nuevo es que la guarda quede verde por el motivo equivocado: si
+  // alguien borra el envio, o si la composicion deja de hablar con el servicio,
+  // el grafo del formulario sigue limpio y nadie se entera. Este caso afirma que
+  // el envio EXISTE en algun lado.
+  it("la composicion que envia el pedido si alcanza lib/api.ts", () => {
+    const composicion = recorrer(["components/pedido/crear-pedido.tsx"]);
+    expect(
+      composicion.pretendidos.has(canonico("lib/api.ts")),
+      "crear-pedido.tsx ya no importa el cliente del API: o se movio el envio, " +
+        "o se borro. Si se movio, esta prueba tiene que apuntar al archivo nuevo.",
+    ).toBe(true);
+  });
+
   it("el detector encuentra lo prohibido cuando esta", () => {
     // La otra mitad de la guarda contra el falso verde. Arriba se comprueba que
     // el recorrido llega a donde tiene que llegar; aca, que reconoce un import

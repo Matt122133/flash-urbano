@@ -63,6 +63,12 @@ export type OpcionesPedido = {
   /** Credencial de sesion. Sin ella el pedido va anonimo. */
   credencial?: string | null;
   senal?: AbortSignal;
+  /**
+   * Cabeceras extra. Hoy solo la de idempotencia, y por eso no se generaliza
+   * mas: una firma que acepte cualquier cabecera invita a mandar la credencial
+   * por ahi y saltearse la unica puerta que la pone.
+   */
+  cabeceras?: Record<string, string>;
 };
 
 /**
@@ -87,6 +93,13 @@ export async function pedir<T>(ruta: string, opciones: OpcionesPedido = {}): Pro
   }
   if (opciones.credencial) {
     cabeceras["Authorization"] = `Bearer ${opciones.credencial}`;
+  }
+  // Despues de Authorization a proposito: si alguien pasara "Authorization" en
+  // `cabeceras`, lo pisaria. Se decide al reves —lo explicito de arriba gana—
+  // porque la credencial la pone quien sabe cual es, no quien llama.
+  for (const [k, v] of Object.entries(opciones.cabeceras ?? {})) {
+    if (k.toLowerCase() === "authorization") continue;
+    cabeceras[k] = v;
   }
 
   // Sin plazo, un servicio que acepta la conexion y no responde deja la pantalla
@@ -140,4 +153,61 @@ async function leerJson(respuesta: Response): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Pedidos (007)
+// ---------------------------------------------------------------------------
+
+/** Cabecera que identifica un INTENTO de envio. Ver contracts/pedidos.md. */
+export const CABECERA_IDEMPOTENCIA = "Idempotency-Key";
+
+/** Un pedido tal como lo devuelve el servicio. */
+export type PedidoGuardado = {
+  id: string;
+  codigo: string;
+  estado: string;
+  precio: number;
+  zonaId: number;
+  retiroFecha: string;
+  retiroHora: string;
+  creadoEn: string;
+};
+
+/**
+ * Crea un pedido.
+ *
+ * `clave` identifica el INTENTO, no el paquete: los reintentos y la reanudacion
+ * posterior al ingreso tienen que compartirla, o cada uno crearia un pedido.
+ *
+ * **El servicio responde 201 con uno nuevo y 200 con el que ya existia**, y
+ * desde aca los dos casos son el mismo: se devuelve el pedido. Quien reintenta
+ * porque no supo si funciono tiene que llegar al mismo lugar que si hubiera
+ * funcionado a la primera; distinguirlos obligaria a cada pantalla a decidir
+ * que hacer con una diferencia que no le importa.
+ */
+export async function crearPedido(
+  cuerpo: unknown,
+  clave: string,
+  credencial: string | null,
+): Promise<PedidoGuardado> {
+  const r = await pedir<{ pedido: PedidoGuardado }>("/pedidos", {
+    metodo: "POST",
+    cuerpo,
+    credencial,
+    cabeceras: { [CABECERA_IDEMPOTENCIA]: clave },
+  });
+  return r.pedido;
+}
+
+/**
+ * Los pedidos de quien pide.
+ *
+ * No tiene pantalla en `007` (FR-030 difiere "Mis Pedidos"): existe porque
+ * FR-031 pide poder leer los pedidos sin abrir la base, y porque es lo que va a
+ * consumir ese feature cuando se construya.
+ */
+export async function misPedidos(credencial: string | null): Promise<PedidoGuardado[]> {
+  const r = await pedir<{ pedidos: PedidoGuardado[] }>("/pedidos", { credencial });
+  return r.pedidos ?? [];
 }
