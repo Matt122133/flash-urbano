@@ -126,6 +126,35 @@ default; components that need interactivity (forms, nav toggle) are marked
   `specs/001-web-mvp/spec.md`); the highest-priority surface per the
   constitution's Principle II. Client-side validation and the field set live
   here; if the client's brief changes, this is usually the file to touch.
+
+  **It does not, and must not, import `lib/api.ts` or `lib/sesion.ts`.** Since
+  `007` the form confirms an order against the service, but it does so through
+  an `onConfirmar` prop — the composition in
+  `web/components/pedido/crear-pedido.tsx` is what actually talks to the
+  service. This looks like ceremony and is not: this file is one of the
+  `ENTRADAS` of `web/lib/cotizar-abierto.test.ts`, the guard that proves
+  quoting works with the backend down (FR-001, FR-002). An import of the API
+  client here turns that guard red, correctly — it would be a form that can end
+  up needing the network to show a price. **If you find yourself "simplifying"
+  this by importing the client directly, the guard will stop you; the guard is
+  right.** Reasoning in `specs/007-pedido-identificado/research.md` D1.
+
+  The guard has a **positive control** asserting that `crear-pedido.tsx` *does*
+  reach `lib/api.ts`. Without it, deleting the whole send would leave the guard
+  green.
+
+- `web/components/pedido/` — the composition layer for `/pedido`: the piece
+  allowed to import the API client, plus the login dialog that opens over the
+  form. The dialog does **not** navigate, which is what keeps the draft —
+  including the recipient's name and phone, a third party's data — out of
+  browser storage (FR-006a).
+
+- `backend/internal/pedidos/` — orders. Two things worth knowing before
+  touching it: the order **copies** profile data rather than referencing it, so
+  someone moving house does not rewrite where a courier went six months ago;
+  and the service **does not resolve zones**, so it stores the point and the
+  declared price. That second one is a deliberate, recorded tradeoff — see the
+  `Medium` row of 2026-08-12 in `docs/tech-debt-tracker.md` before "fixing" it.
 - `web/lib/zona-lookup.ts` — resolves which delivery zone a marked point falls
   in, and therefore what the customer is charged. The only module in the repo
   with unit tests (`zona-lookup.test.ts`), because it is the only one where a

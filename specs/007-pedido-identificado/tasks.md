@@ -164,8 +164,8 @@ mismo archivo y la misma tarea de enganche que `POST /pedidos`, y porque US2 los
 necesita para su propia verificación. Esta fase es lo que **prueba** FR-031 y
 FR-032.
 
-- [ ] T041 [P] [US5] Probar en `handlers_test.go` que `GET /pedidos` devuelve sólo los del usuario del contexto de sesión, con dos usuarios y pedidos cruzados (FR-017, SC-010). Una lista vacía es `200` con `"pedidos": []`, no `404`
-- [ ] T042 [P] [US5] Probar que `GET /pedidos` **no acepta ningún parámetro** que permita pedir los de otro. No hay `?usuarioId=` y no debe haberlo
+- [x] T041 [P] [US5] Probar en `handlers_test.go` que `GET /pedidos` devuelve sólo los del usuario del contexto de sesión, con dos usuarios y pedidos cruzados (FR-017, SC-010). Una lista vacía es `200` con `"pedidos": []`, no `404`
+- [x] T042 [P] [US5] Probar que `GET /pedidos` **no acepta ningún parámetro** que permita pedir los de otro. No hay `?usuarioId=` y no debe haberlo
 - [ ] T043 [US5] [MANUAL] Verificar SC-015: crear un pedido desde el sitio y recuperarlo íntegro con `curl` contra `GET /admin/pedidos`, sin ejecutar una consulta SQL
 
 **Checkpoint**: SC-015 verde. **Sin pantalla**, a propósito: FR-030 difiere *Mis
@@ -179,15 +179,15 @@ Pedidos*.
 haber diferido el aviso a Diego. Cerrar el feature sin él cambia una promesa
 falsa por otra.
 
-- [ ] T044 Corregir en `web/app/pedido/page.tsx` las dos frases: sacar *"Podés cargarlo como invitado, sin necesidad de crear una cuenta"* (FR-027) y *"marcá en el mapa desde dónde retiramos el paquete"* (FR-028), que dejó de ser cierta en `003`. Es lo primero que lee quien llega desde un buscador
-- [ ] T045 Reemplazar en `web/components/pedido-form.tsx` el texto de la confirmación (FR-029). Hoy dice **"¡Pedido cargado! Nos pondremos en contacto para confirmar el retiro"** y **nadie se va a poner en contacto**: el aviso a Diego vive en la app Android, que no existe. Lo que lo reemplace tiene que decir dos cosas ciertas — que el pedido quedó registrado con su código, y por dónde se coordina de verdad mientras tanto
+- [x] T044 Corregir en `web/app/pedido/page.tsx` las dos frases: sacar *"Podés cargarlo como invitado, sin necesidad de crear una cuenta"* (FR-027) y *"marcá en el mapa desde dónde retiramos el paquete"* (FR-028), que dejó de ser cierta en `003`. Es lo primero que lee quien llega desde un buscador
+- [x] T045 Reemplazar en `web/components/pedido-form.tsx` el texto de la confirmación (FR-029). Hoy dice **"¡Pedido cargado! Nos pondremos en contacto para confirmar el retiro"** y **nadie se va a poner en contacto**: el aviso a Diego vive en la app Android, que no existe. Lo que lo reemplace tiene que decir dos cosas ciertas — que el pedido quedó registrado con su código, y por dónde se coordina de verdad mientras tanto
 - [ ] T046 [MANUAL] Verificar M6: leer `/pedido` y la confirmación **texto por texto** contra SC-012. Es la verificación que se olvida
 - [ ] T047 [MANUAL] Verificar M7: con el servicio caído, confirmar falla diciendo que el pedido **no** se creó, lo cargado sigue en pantalla, y al levantarlo confirmar de nuevo deja **un** pedido (SC-013)
 - [ ] T048 [MANUAL] Verificar M8: un punto de retiro fuera de las cinco zonas **no permite confirmar desde el sitio** y deriva a contacto directo (SC-009, FR-020). **No** hay que verificar que el servicio lo rechace: no lo hace, y FR-020a lo dice explícitamente
-- [ ] T049 Anotar en `docs/tech-debt-tracker.md` el **riesgo residual del precio** que FR-021a obliga a registrar: el servicio guarda el precio declarado sin verificarlo, quien arme la petición a mano puede declarar cualquier monto **y también un punto fuera de cobertura** (FR-020a), y el único control es que Diego mira el pedido antes de aceptarlo. Las dos mitades se cierran por el mismo camino —el día que el servicio conozca las zonas, conoce las dos— así que van en **una sola fila**, no en dos. Incluir la salida evaluada en [research D6](research.md) —la tabla de cinco precios sin geometría, generada desde `web/design-source/`— para que la próxima discusión no arranque de cero
+- [x] T049 Anotar en `docs/tech-debt-tracker.md` el **riesgo residual del precio** que FR-021a obliga a registrar: el servicio guarda el precio declarado sin verificarlo, quien arme la petición a mano puede declarar cualquier monto **y también un punto fuera de cobertura** (FR-020a), y el único control es que Diego mira el pedido antes de aceptarlo. Las dos mitades se cierran por el mismo camino —el día que el servicio conozca las zonas, conoce las dos— así que van en **una sola fila**, no en dos. Incluir la salida evaluada en [research D6](research.md) —la tabla de cinco precios sin geometría, generada desde `web/design-source/`— para que la próxima discusión no arranque de cero
 - [ ] T050 Cerrar en `docs/tech-debt-tracker.md` las dos filas `High` que este feature resuelve: la promesa falsa de la confirmación (2026-08-12) y la contradicción del formulario con la constitución (2026-08-11). **Cerrarlas sólo si T044, T045 y la puerta están hechas**; si alguna quedó afuera, la fila se actualiza, no se cierra
-- [ ] T051 Actualizar `ARCHITECTURE.md` con la tabla `pedidos`, los tres endpoints, y la inversión de dependencia de `pedido-form.tsx` — **por qué** el formulario no importa el cliente del API es lo que hay que dejar escrito, o el próximo lo "arregla"
-- [ ] T052 Agregar la entrada de este feature a `docs/README.md`
+- [x] T051 Actualizar `ARCHITECTURE.md` con la tabla `pedidos`, los tres endpoints, y la inversión de dependencia de `pedido-form.tsx` — **por qué** el formulario no importa el cliente del API es lo que hay que dejar escrito, o el próximo lo "arregla"
+- [x] T052 Agregar la entrada de este feature a `docs/README.md`
 - [ ] T053 Correr el `verify:` completo del plan y dejarlo verde, **con `TEST_DATABASE_URL` puesta y los `SKIP` en cero**
 - [ ] T054 Poner `specs/007-pedido-identificado/plan.md` en `status: completed`. **Commitear antes**: el sensor de cobertura rebota el commit si el plan ya está en `completed`
 
