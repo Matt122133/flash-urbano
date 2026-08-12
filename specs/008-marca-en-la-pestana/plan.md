@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El generador. Un script versionado, no un binario que alguien produjo una
   # vez en su maquina (FR-007). Se nombra el archivo, NO `web/design-source/`
