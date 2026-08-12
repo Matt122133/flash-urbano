@@ -193,15 +193,32 @@ confirmar, y se deriva a contacto directo. Igual que hoy al cotizar.
 ### M9 — El `.gitignore` (SC-014)
 
 ```bash
-git switch -c prueba-gitignore master
-printf 'SECRETO=x\n' > backend/.env
-git add -A && git status --short | grep -c 'backend/.env$'   # tiene que dar 0
-git switch - && git branch -D prueba-gitignore && rm backend/.env
+git check-ignore -v backend/.env backend/.env.local
+git check-ignore -v backend/.env.example   # NO tiene que estar ignorado
 ```
 
-Cero significa que el `.env` **no** quedó preparado para commit. Correrlo desde
-una rama nueva salida de `master` es el punto: el defecto original era que la
-protección dependía de en qué rama se estaba parado.
+La primera linea tiene que responder que las dos rutas estan ignoradas, **y por
+que regla**: la salida nombra el archivo y el numero de linea, asi que se ve si
+la proteccion viene del `.gitignore` de la RAIZ —lo que queremos, porque vale en
+todas las ramas— o del de `backend/`. La segunda tiene que salir vacia (codigo
+1): `.env.example` esta versionado a proposito, es la documentacion de que
+variables hacen falta.
+
+> **NO crear un `backend/.env` de prueba para comprobar esto.** La version
+> anterior de este paso decia `printf 'SECRETO=x' > backend/.env`, y **eso pisa
+> el `.env` real de quien lo corra** — un archivo que no esta en git y que por lo
+> tanto no se puede recuperar.
+>
+> Paso de verdad el 2026-08-12: el agente siguio este mismo paso y destruyo el
+> `.env` local, con la clave de Resend adentro. Reconstruir el resto fue posible
+> —el Client ID estaba en `web/.env.local`, la base y el remitente en la
+> documentacion— pero la clave hubo que sacarla de nuevo del panel.
+>
+> `git check-ignore` responde exactamente la misma pregunta sin escribir nada.
+
+Si igual se quiere la prueba de punta a punta —que un `git add -A` no lo
+levante— hay que hacerla con un nombre que **no exista**, por ejemplo
+`backend/.env.prueba`, que cae bajo el mismo patron `.env.*`.
 
 ---
 
