@@ -5,6 +5,25 @@ import (
 	"strings"
 )
 
+// CabecerasPermitidas es lo que el preflight autoriza, y es una lista que hay
+// que MANTENER: cada cabecera que el sitio agrega a una request tiene que
+// aparecer aca o el navegador corta el pedido antes de mandarlo.
+//
+//   - Authorization: por donde viaja la credencial (FR-016 de `006`). Sin ella
+//     se rompe toda request autenticada cruzando origenes.
+//   - Content-Type: `application/json` no es un valor simple, asi que cualquier
+//     POST con cuerpo JSON la pide en el preflight.
+//   - Idempotency-Key: la de `pedidos.CabeceraIdempotencia`. Falto desde que se
+//     escribio el endpoint hasta el 2026-08-14, y mientras falto **ningun
+//     navegador pudo crear un pedido** — ni en local ni en produccion, porque el
+//     sitio y el servicio son origenes distintos siempre. Lo encontro una prueba
+//     manual; el `verify:` estaba verde.
+//
+// La cabecera de pedidos se nombra aca como texto y no importando la constante:
+// `pedidos` importa `httpx`, y al reves seria un ciclo. El control que ata las
+// dos puntas vive en `pedidos/handlers_test.go`, que si puede ver ambas.
+const CabecerasPermitidas = "Authorization, Content-Type, Idempotency-Key"
+
 // CORS deja pasar solo los origenes autorizados (FR-023, FR-025).
 //
 // La lista sale de la configuracion del entorno, nunca del codigo: mudar el
@@ -31,10 +50,7 @@ func CORS(origenesPermitidos []string, siguiente http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origen)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
 
-			// Authorization es el header por el que viaja la credencial
-			// (FR-016). Sin permitirlo explicitamente, el navegador bloquea
-			// toda request autenticada cruzando origenes.
-			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Allow-Headers", CabecerasPermitidas)
 			w.Header().Set("Access-Control-Max-Age", "600")
 
 			// NO se manda Access-Control-Allow-Credentials, y es deliberado:

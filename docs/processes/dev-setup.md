@@ -62,6 +62,60 @@ All web commands run from `web/`.
 Backend commands run from `backend/`: `go vet ./...`, `go test ./...`,
 `go build ./...`.
 
+## Probar desde un teléfono de la red local
+
+Este repo exige verificación manual **en un teléfono** — es donde el producto se
+usa y donde `006` y `007` encontraron lo que ninguna prueba veía. Llegar ahí tiene
+cuatro trampas que no producen ningún mensaje de error útil. Escrito el
+2026-08-14, después de perder una hora con la tercera.
+
+**`npm run dev` no sirve.** Next bloquea a propósito los assets de desarrollo
+pedidos desde un origen que no sea `localhost` (`allowedDevOrigins`). El síntoma
+engaña: la página carga pero **no hidrata**, así que se queda congelada en el
+estado inicial del componente y parece un cuelgue del sitio.
+
+Se sirve el export estático, construido apuntando a la IP de la máquina en la LAN:
+
+```bash
+cd web
+GITHUB_PAGES=true NEXT_PUBLIC_API_URL=http://<ip-lan>:8080 npm run build
+```
+
+Esa IP tiene que estar en `CORS_ORIGENES` de `backend/.env`
+(`http://<ip-lan>:3000`) — **y conviene sacarla al terminar**. El backend se
+levanta con `backend/dev.sh`. Después se sirve `web/out` con cualquier servidor
+estático que maneje el `trailingSlash` del export: `/pedido/` es una carpeta con
+su `index.html`, así que hay que entrar **con la barra final**.
+
+Las cuatro trampas:
+
+1. **El firewall de Windows puede tener reglas de entrada de tipo *Block* por
+   programa.** En la máquina de desarrollo actual hay dos para `python.exe`, así
+   que `python -m http.server` levanta perfecto, contesta `200` desde la propia
+   máquina, y es **inalcanzable desde el teléfono**. Node no las tiene. Agregar
+   una regla de *Allow* para el puerto **no arregla nada**: en Windows Firewall el
+   bloqueo gana sobre el permiso.
+2. **Google no acepta una IP como origen autorizado.** Los orígenes JavaScript
+   del cliente OAuth están en [`google-oauth.md`](google-oauth.md) y la consola no
+   admite direcciones IP. Desde la LAN hay que entrar por **código de mail**. No
+   debilita las verificaciones de la puerta: lo que miden es la puerta y la
+   reanudación, no cuál de los dos ingresos se usó — pero **hay que escribirlo en
+   la tarea** en vez de tildarla como si hubiera sido con Google.
+3. **`http://` no es contexto seguro, y ahí faltan APIs del navegador.** Costó una
+   hora: `crypto.randomUUID()` es `undefined` fuera de contexto seguro, tiraba, y
+   el botón de confirmar **no hacía nada**. Ya está arreglado (`claveDeIntento` en
+   `web/lib/pedido.ts` tiene respaldo) pero la clase sigue viva. **Si algo anda en
+   la computadora y no en el teléfono, sospechar de esto antes que del teléfono.**
+4. **Windows tiene tomada `web/out` mientras un servidor la sirve**, así que
+   `npm run build` falla con `EBUSY` al intentar borrarla. Cortar el servidor
+   antes de reconstruir.
+
+Y una que no es trampa sino cuenta pendiente: **las verificaciones que necesitan
+una credencial no las puede correr un agente.** `sesiones.token_hash` guarda el
+hash, así que el token sólo existe en el navegador —`localStorage`, clave
+`flashurbano.sesion`, campo `credencial`—. Cualquier tarea que diga "comprobalo
+con `curl` contra `/admin/pedidos`" es de una persona con el navegador abierto.
+
 ## Despliegue (GitHub Pages)
 
 La web se publica como sitio **estático** en GitHub Pages, vía

@@ -45,10 +45,23 @@ func baseDePrueba(t *testing.T) *Pool {
 	return pool
 }
 
+// vaciar deja la base como si nunca se hubiera migrado.
+//
+// OJO: la lista es ESTATICA, y por lo tanto hay que agregarle cada tabla nueva
+// que introduzca una migracion. Olvidarse no da un error que se lea como lo que
+// es: la tabla sobrevive al vaciado y la migracion siguiente choca contra si
+// misma con `already exists`, apuntando al objeto equivocado —en 0003, a la
+// secuencia del codigo y no a la tabla que la creo—.
+//
+// Y el CASCADE no salva: se lleva las claves foraneas que APUNTAN a las tablas
+// listadas, no las tablas que las contienen. `pedidos` referencia a `usuarios`,
+// asi que al dropear `usuarios CASCADE` se cae la FK y `pedidos` queda.
+//
+// Que esto sea estatico esta anotado como deuda en docs/tech-debt-tracker.md.
 func vaciar(t *testing.T, ctx context.Context, pool *Pool) {
 	t.Helper()
 	const sql = `
-		DROP TABLE IF EXISTS rastro_ingresos, codigos_acceso, sesiones,
+		DROP TABLE IF EXISTS pedidos, rastro_ingresos, codigos_acceso, sesiones,
 			usuarios, migraciones_aplicadas CASCADE`
 	if _, err := pool.Exec(ctx, sql); err != nil {
 		t.Fatalf("no se pudo vaciar la base de prueba: %v", err)

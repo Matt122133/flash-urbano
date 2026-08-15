@@ -22,7 +22,13 @@ import type { Zona } from "@/lib/zonas";
 
 type PackageSize = "chico" | "mediano" | "grande";
 
-type FormState = {
+/**
+ * Lo que el formulario junta.
+ *
+ * Exportado desde `007` porque es el tipo de lo que viaja por `onConfirmar`:
+ * quien compone este formulario necesita nombrarlo para cumplir esa prop.
+ */
+export type FormState = {
   name: string;
   phone: string;
   // Donde hay que retirar el paquete. La direccion y el punto son lo mismo desde
@@ -215,10 +221,63 @@ function validate(
   return errors;
 }
 
-export function PedidoForm() {
-  const [form, setForm] = useState<FormState>(INITIAL_STATE);
+/**
+ * Que paso al intentar confirmar.
+ *
+ * `cancelado` no es un error: es la persona que llego a la puerta de ingreso y
+ * decidio no entrar. El formulario tiene que quedar igual que estaba, sin
+ * mensaje rojo, porque no hizo nada mal.
+ */
+export type ResultadoConfirmacion =
+  | { estado: "creado"; codigo: string }
+  | { estado: "cancelado" }
+  | { estado: "error"; mensaje: string };
+
+export type PedidoFormProps = {
+  /**
+   * Confirma el pedido. **Es la unica forma en que este componente llega al
+   * mundo exterior**, y por eso es una prop y no un import.
+   *
+   * El motivo no es elegancia: `components/pedido-form.tsx` es una de las
+   * ENTRADAS de `lib/cotizar-abierto.test.ts`, la guarda que verifica que
+   * cotizar no dependa del servicio (FR-001, FR-002, FR-004). Importar el
+   * cliente del API desde aca pondria esa guarda en rojo —con razon: seria un
+   * formulario que puede terminar necesitando la red para mostrar un precio—.
+   * Quien monta este componente decide como se cumple.
+   *
+   * (Y ni siquiera se puede NOMBRAR ese import con su sintaxis en un comentario:
+   * la guarda busca por texto y toma de mas a proposito, "hacia el lado
+   * seguro". Se comprobo de la peor manera, poniendola en rojo con un
+   * comentario.)
+   *
+   * Ver research D1 en specs/007-pedido-identificado/research.md.
+   */
+  onConfirmar: (datos: FormState) => Promise<ResultadoConfirmacion>;
+
+  /**
+   * Valores iniciales, para precargar desde el perfil (US4). Se combinan sobre
+   * los vacios: lo que no venga queda como estaba.
+   */
+  inicial?: Partial<FormState>;
+
+  /**
+   * Avisa que se volvio del comprobante al formulario (FR-034).
+   *
+   * Existe porque el encabezado de la pantalla lo renderiza quien monta este
+   * componente, y necesita saber cuando volver a mostrarlo. Opcional: el
+   * formulario sigue sirviendo sin nadie escuchando.
+   */
+  onReiniciar?: () => void;
+};
+
+export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProps) {
+  const [form, setForm] = useState<FormState>({ ...INITIAL_STATE, ...inicial });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState<FormState | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [errorDeEnvio, setErrorDeEnvio] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState<
+    { form: FormState; codigo: string } | null
+  >(null);
   const [estadoMosaicos, setEstadoMosaicos] =
     useState<EstadoMosaicos>("cargando");
   // Se recentra cuando el cruce se resuelve, no en cada cambio del punto: el
@@ -280,22 +339,93 @@ export function PedidoForm() {
     });
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+
+    // Doble envio: el guard es lo que evita que un doble toque dispare dos
+    // llamadas. La clave de idempotencia lo cubre del lado del servicio, pero
+    // no hay motivo para mandar la segunda.
+    if (enviando) return;
+
     const nextErrors = validate(form, estadoMosaicos);
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length === 0) {
-      setSubmitted(form);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setErrorDeEnvio(null);
+    setEnviando(true);
+    try {
+      const r = await onConfirmar(form);
+      if (r.estado === "creado") {
+        setSubmitted({ form, codigo: r.codigo });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      if (r.estado === "error") {
+        setErrorDeEnvio(r.mensaje);
+      }
+      // `cancelado` no deja mensaje: desistir del ingreso no es un error, y lo
+      // cargado sigue en pantalla (FR-008).
+    } catch (e) {
+      // Este `catch` no existia hasta el 2026-08-14, y su ausencia produjo el
+      // peor sintoma posible: **el boton de confirmar no hacia nada**.
+      //
+      // Quien implementa `onConfirmar` traduce a un resultado todo lo que
+      // ANTICIPA —red caida, 401, datos invalidos—. Lo que no anticipa tira, y
+      // sin catch el `finally` apagaba `enviando`, la excepcion se perdia, y la
+      // pantalla quedaba exactamente igual que antes de tocar. La persona no
+      // tiene forma de distinguir eso de un boton roto, y vuelve a tocar.
+      //
+      // Paso de verdad probando desde un telefono: `crypto.randomUUID()` no
+      // existe fuera de contexto seguro y tiraba antes de llegar a la red. Esa
+      // causa esta arreglada, pero **la clase no**: cualquier throw futuro
+      // volveria a caer aca. Por eso la red va debajo del arreglo puntual.
+      //
+      // El mensaje dice lo unico que se sabe con certeza —que el pedido NO se
+      // creo— y no inventa un motivo. El detalle va a la consola: al cliente no
+      // le sirve y a quien depura le hace falta.
+      console.error("Fallo inesperado al confirmar el pedido:", e);
+      setErrorDeEnvio(
+        "No pudimos crear el pedido. Lo que cargaste sigue acá, probá de nuevo en un momento.",
+      );
+    } finally {
+      setEnviando(false);
     }
   }
 
   if (submitted) {
-    return <Confirmation form={submitted} onReset={() => {
-      setForm(INITIAL_STATE);
-      setErrors({});
-      setSubmitted(null);
-    }} />;
+    return (
+      <Confirmation
+        form={submitted.form}
+        codigo={submitted.codigo}
+        onReset={() => {
+          // FR-035. Se conserva lo que identifica a QUIEN ENVIA —su nombre, su
+          // telefono y su direccion de retiro con el punto— y se vacia todo lo
+          // que pertenece al envio que se acaba de cerrar: a donde va, cuando,
+          // quien recibe y que se manda.
+          //
+          // El corte no es estetico: lo de arriba es la misma persona pidiendo
+          // otra vez desde el mismo lugar —el caso normal— y lo de abajo cambia
+          // en cada pedido. Hacerle retipear su propia direccion para mandar un
+          // segundo paquete es exactamente el tipeo que el Principio II existe
+          // para sacar.
+          //
+          // Sale del pedido RECIEN CONFIRMADO y no de `inicial`, y esa
+          // diferencia importa: quien entro por la puerta a mitad de formulario
+          // nunca tuvo precarga —corre solo al montar, por FR-007— asi que
+          // `inicial` esta vacio justo en el camino mas comun. Ademas el punto
+          // ya se valido en esta sesion, asi que no hay nada que revalidar.
+          setForm({
+            ...INITIAL_STATE,
+            name: submitted.form.name,
+            phone: submitted.form.phone,
+            retiro: submitted.form.retiro,
+          });
+          setErrors({});
+          setSubmitted(null);
+          onReiniciar?.();
+        }}
+      />
+    );
   }
 
   return (
@@ -561,11 +691,25 @@ export function PedidoForm() {
         </div>
       </section>
 
+      {errorDeEnvio && (
+        <p
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+        >
+          {errorDeEnvio}
+        </p>
+      )}
+
       <button
         type="submit"
-        className="rounded-full bg-accent px-6 py-3.5 text-center text-base font-semibold text-white shadow-lg shadow-orange-900/10 transition-colors hover:bg-orange-600"
+        disabled={enviando}
+        aria-busy={enviando}
+        className="rounded-full bg-accent px-6 py-3.5 text-center text-base font-semibold text-white shadow-lg shadow-orange-900/10 transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Confirmar pedido
+        {/* FR-007a: la reanudacion no puede ser silenciosa. Que el boton diga
+            que esta enviando es lo que evita el "¿se mando o no?" despues de
+            cerrarse el dialogo de ingreso. */}
+        {enviando ? "Enviando…" : "Confirmar pedido"}
       </button>
     </form>
   );
@@ -573,9 +717,11 @@ export function PedidoForm() {
 
 function Confirmation({
   form,
+  codigo,
   onReset,
 }: {
   form: FormState;
+  codigo: string;
   onReset: () => void;
 }) {
   const direccionRetiro = componerDireccion(form.retiro.direccion);
@@ -606,10 +752,37 @@ function Confirmation({
         </span>
         <div>
           <h2 className="text-lg font-semibold text-slate-900">
-            ¡Pedido cargado!
+            Pedido registrado
           </h2>
+          {/* FR-029. Hasta `007` esto decia "¡Pedido cargado! Nos pondremos en
+              contacto para confirmar el retiro" — y **no se guardaba nada, no
+              se le avisaba a nadie, y nadie se iba a poner en contacto**. Era
+              una promesa que el producto le hacia a una persona real y no podia
+              cumplir.
+
+              Ahora el pedido existe de verdad y tiene codigo. Lo que sigue sin
+              existir es el aviso a Diego: vive en la app Android, que todavia no
+              se construyo. Por eso el texto dice por donde se coordina DE VERDAD
+              mientras tanto, en vez de prometer un contacto que nadie va a
+              hacer. Cambiarlo por otra frase optimista seria cambiar una promesa
+              falsa por otra.
+
+              2026-08-14: hasta hoy esto ademas enlazaba a /contacto —"y
+              escribinos por WhatsApp con ese codigo para coordinar el retiro"—.
+              Lo saco el dueño del proyecto al verlo andando: la coordinacion la
+              arranca Diego desde la app, que va a tener el contacto del cliente,
+              y empujar al cliente a WhatsApp es reponer justo el canal manual
+              que este producto existe para reemplazar. FR-029 quedo enmendado
+              con el motivo.
+
+              Lo que queda dicho y no se puede perder: mientras la app no exista,
+              nada le avisa a Diego de un pedido. La frase de abajo es CIERTA
+              —el pedido quedo registrado y ese es su codigo— y por eso puede
+              quedarse sola; lo que falta no es texto, es el aviso. Esta como
+              fila en el tracker y bloquea promocionar el sitio. */}
           <p className="text-sm text-slate-600">
-            Nos pondremos en contacto para confirmar el retiro.
+            Anotá tu código{" "}
+            <strong className="font-semibold text-slate-900">{codigo}</strong>.
           </p>
         </div>
       </div>

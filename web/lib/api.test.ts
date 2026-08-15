@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ErrorApi, baseDelApi, pedir } from "./api";
+import {
+  CABECERA_IDEMPOTENCIA,
+  ErrorApi,
+  baseDelApi,
+  crearPedido,
+  misPedidos,
+  pedir,
+} from "./api";
 
 const BASE = "https://api.example.test";
 
@@ -192,5 +199,83 @@ describe("errores del servicio", () => {
     const error = await pedir("/yo").catch((e) => e);
 
     expect(error.sesionInvalida).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pedidos (007)
+// ---------------------------------------------------------------------------
+
+describe("crearPedido", () => {
+  function cabecerasDe(espia: ReturnType<typeof conFetch>): Record<string, string> {
+    const init = espia.mock.calls[0]?.[1] as RequestInit | undefined;
+    return (init?.headers ?? {}) as Record<string, string>;
+  }
+
+  it("manda la clave de idempotencia en su cabecera", () => {
+    const espia = conFetch(json({ pedido: { codigo: "FU-0001" } }, 201));
+    return crearPedido({ x: 1 }, "clave-abc", "tok").then(() => {
+      expect(cabecerasDe(espia)[CABECERA_IDEMPOTENCIA]).toBe("clave-abc");
+    });
+  });
+
+  it("manda la credencial en Authorization y no en cookies", async () => {
+    const espia = conFetch(json({ pedido: { codigo: "FU-0001" } }, 201));
+    await crearPedido({ x: 1 }, "k", "tok-secreto");
+
+    expect(cabecerasDe(espia)["Authorization"]).toBe("Bearer tok-secreto");
+    const init = espia.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(init?.credentials).toBe("omit");
+  });
+
+  // La cabecera de idempotencia NO puede servir para colar una credencial: la
+  // pone quien sabe cual es, no quien llama.
+  it("no deja pisar Authorization desde las cabeceras extra", async () => {
+    const espia = conFetch(json({ pedido: { codigo: "FU-0001" } }, 201));
+    await pedir("/pedidos", {
+      metodo: "POST",
+      cuerpo: {},
+      credencial: "el-bueno",
+      cabeceras: { Authorization: "Bearer el-falso" },
+    });
+    expect(cabecerasDe(espia)["Authorization"]).toBe("Bearer el-bueno");
+  });
+
+  // FR-016a visto desde el sitio: 201 y 200 son el MISMO caso. Quien reintenta
+  // porque no supo si funciono tiene que llegar al mismo lugar.
+  it("trata 201 y 200 igual: los dos devuelven el pedido", async () => {
+    for (const estado of [201, 200]) {
+      conFetch(json({ pedido: { codigo: "FU-0142", id: "abc" } }, estado));
+      const p = await crearPedido({}, "k", "tok");
+      expect(p.codigo).toBe("FU-0142");
+    }
+  });
+
+  it("un 401 sale como sesion invalida, para que la pantalla abra el ingreso", async () => {
+    conFetch(json({ error: "no autorizado" }, 401));
+    await expect(crearPedido({}, "k", "tok")).rejects.toSatisfy(
+      (e: unknown) => e instanceof ErrorApi && e.sesionInvalida,
+    );
+  });
+
+  it("el servicio caido sale como sin respuesta, no como un 500", async () => {
+    conFetch(new TypeError("network"));
+    await expect(crearPedido({}, "k", "tok")).rejects.toSatisfy(
+      (e: unknown) => e instanceof ErrorApi && e.sinRespuesta,
+    );
+  });
+});
+
+describe("misPedidos", () => {
+  it("devuelve la lista", async () => {
+    conFetch(json({ pedidos: [{ codigo: "FU-0001" }, { codigo: "FU-0002" }] }));
+    expect(await misPedidos("tok")).toHaveLength(2);
+  });
+
+  // Una respuesta sin la clave no puede hacer explotar la pantalla con
+  // "cannot read length of undefined".
+  it("una respuesta rara devuelve lista vacia y no revienta", async () => {
+    conFetch(json({}));
+    expect(await misPedidos("tok")).toEqual([]);
   });
 });

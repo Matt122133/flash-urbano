@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { PedidoForm } from "@/components/pedido-form";
+// Monta la COMPOSICION, no el formulario directo. `CrearPedido` es quien habla
+// con el servicio; el formulario no sabe que existe uno. Ver research D1.
+import { CrearPedido } from "@/components/pedido/crear-pedido";
 
 export const metadata: Metadata = {
   title: "Crear pedido — Flash Urbano",
@@ -8,17 +10,45 @@ export const metadata: Metadata = {
 export default function PedidoPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          Crear pedido
-        </h1>
-        <p className="mt-2 text-sm text-slate-600 sm:text-base">
-          Completá los datos de tu envío y marcá en el mapa desde dónde
-          retiramos el paquete: con eso te mostramos el precio al instante.
-          Podés cargarlo como invitado, sin necesidad de crear una cuenta.
-        </p>
-      </div>
-      <PedidoForm />
+      {/* FR-034. El encabezado se le PASA a `CrearPedido` en vez de renderizarse
+          al lado, porque quien sabe si el pedido ya se confirmo es esa
+          composicion, no esta pantalla. Con el pedido hecho, el titulo "Crear
+          pedido" y la instruccion de escribir la calle dejan de ser ciertos:
+          invitan a hacer algo que se acaba de hacer, arriba del comprobante.
+
+          El texto se queda ACA y no se muda adentro del cliente, por dos
+          motivos: es copy de la pantalla y este es su archivo, y asi sigue
+          entrando en el HTML pre-renderizado, que es lo que lee un buscador
+          —el sitio es indexable desde `004`—. */}
+      <CrearPedido
+        encabezado={
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Crear pedido
+            </h1>
+            {/* Este texto tenia dos cosas falsas, y las dos se corrigen en
+                `007`:
+
+                FR-028 — decia "marcá en el mapa desde dónde retiramos el
+                paquete". Dejó de ser cierto en `003`: el punto sale del cruce de
+                calles y sólo se puede arrastrar dentro de la cuadra declarada.
+                Marcar libre en el mapa es justamente lo que ese feature
+                prohibió, porque un punto libre hace el precio manipulable.
+
+                FR-027 — decía "Podés cargarlo como invitado, sin necesidad de
+                crear una cuenta". La constitución v3.0.0 dice lo contrario desde
+                el 2026-08-11: no hay pedido sin cliente identificado.
+
+                Es lo primero que lee quien llega desde un buscador, y el sitio
+                es indexable desde `004`. */}
+            <p className="mt-2 text-sm text-slate-600 sm:text-base">
+              Escribí la calle y la esquina de retiro: con eso ubicamos el punto
+              y te mostramos el precio al instante, sin necesidad de crear una
+              cuenta. Para confirmar el pedido sí vas a tener que identificarte.
+            </p>
+          </div>
+        }
+      />
     </div>
   );
 }
