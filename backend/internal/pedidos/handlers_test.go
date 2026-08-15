@@ -495,3 +495,25 @@ func TestSerAdministradorSaleDelEntorno(t *testing.T) {
 		t.Errorf("con la configuracion cambiada: quiero 200, dio %d", estado)
 	}
 }
+
+// Exigir una cabecera que el CORS no autoriza es exigir algo que el navegador
+// nunca va a poder mandar.
+//
+// Esta prueba existe porque eso paso de verdad: `CabeceraIdempotencia` se
+// introdujo aca, `httpx.CabecerasPermitidas` quedo con la lista de `006`, y
+// entre las dos ninguna prueba miraba a la otra. El resultado fue que **ningun
+// navegador podia crear un pedido** —el preflight se rechazaba y el POST no
+// salia— con el `verify:` entero en verde. Lo encontro una prueba manual.
+//
+// Es el unico lugar del repo que puede verificarlo: `httpx` no puede importar
+// `pedidos` sin cerrar un ciclo, asi que la union se comprueba desde este lado.
+// Renombrar la cabecera sin tocar el CORS pone esto en rojo.
+func TestLaCabeceraDeIdempotenciaEstaAutorizadaPorElCORS(t *testing.T) {
+	autorizadas := strings.ToLower(httpx.CabecerasPermitidas)
+	if !strings.Contains(autorizadas, strings.ToLower(CabeceraIdempotencia)) {
+		t.Errorf(
+			"el endpoint exige %q y el CORS autoriza %q: el navegador no puede mandarla",
+			CabeceraIdempotencia, httpx.CabecerasPermitidas,
+		)
+	}
+}

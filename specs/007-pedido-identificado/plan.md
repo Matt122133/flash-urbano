@@ -43,6 +43,27 @@ covers:
   # el literal daba dos resultados y habia tres. Se enumeraron los cinco helpers
   # de setup del paquete `auth` uno por uno hasta tener el cuadro completo.
   - backend/internal/auth/handlers_codigo_test.go
+  # AGREGADO EL 2026-08-14, y este NO lo encontro ninguna prueba: lo encontro
+  # la verificacion manual M2, con el navegador abierto.
+  #
+  # `POST /pedidos` manda `Idempotency-Key`, que es una cabecera NO simple: el
+  # navegador hace preflight y pregunta si esta autorizada. `cors.go` respondia
+  # `Authorization, Content-Type` — la lista de `006`, escrita antes de que
+  # existiera esta cabecera— asi que el preflight se rechazaba y **el POST nunca
+  # salia**. No es un problema de local: el sitio (flashurbano.uy) y el servicio
+  # (Railway) son origenes distintos SIEMPRE, o sea que el feature entero estaba
+  # roto en produccion tambien.
+  #
+  # El `verify:` no podia verlo. `TestPreflightAutorizaAuthorization` preguntaba
+  # solo por `authorization` y afirmaba `!= ""` sobre la respuesta: una guarda
+  # que pasa con CUALQUIER lista no vacia. Se endurece de paso —pregunta por las
+  # dos cabeceras y exige las dos— y el control positivo que ata la cabecera al
+  # CORS vive en `pedidos/handlers_test.go`, que ya esta cubierto.
+  #
+  # No se puede diferir: sin esto no hay pedido creado desde un navegador, que
+  # es el feature.
+  - backend/internal/httpx/cors.go
+  - backend/internal/httpx/cors_test.go
   # Tres rutas nuevas y tres dependencias mas. main.go ya lo anticipa: la
   # estructura `dependencias` existe porque "la lista va a seguir creciendo
   # con 007".

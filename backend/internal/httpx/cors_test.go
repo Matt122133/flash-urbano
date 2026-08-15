@@ -3,6 +3,7 @@ package httpx
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -90,16 +91,26 @@ func TestAgregarUnOrigenEsConfiguracion(t *testing.T) {
 	}
 }
 
-// El preflight es lo que el navegador manda antes de una request con
-// Authorization. Si no autoriza ese header, TODO el login se rompe cruzando
-// origenes — que es exactamente el modo de falla que el ADR predice.
-func TestPreflightAutorizaAuthorization(t *testing.T) {
+// El preflight es lo que el navegador manda antes de una request con cabeceras
+// que no son simples. Si no las autoriza, la request real NO SE MANDA — que es
+// exactamente el modo de falla que el ADR predice, y el que rompio los pedidos
+// hasta el 2026-08-14.
+//
+// La version anterior de esta prueba preguntaba solo por `authorization` y
+// afirmaba que la respuesta no estaba vacia. Con eso, agregar una cabecera nueva
+// al sitio y olvidarse de autorizarla la dejaba en verde: la lista seguia sin
+// estar vacia. Ahora se pregunta por las cabeceras de verdad y se exige cada
+// una, asi que la prueba falla cuando falta la que falto.
+func TestPreflightAutorizaLasCabecerasQueElSitioManda(t *testing.T) {
+	// Lo que el navegador pregunta, en minusculas porque asi las manda.
+	exigidas := []string{"authorization", "content-type", "idempotency-key"}
+
 	h, llego := conCORS([]string{origenPermitido})
 
-	req := httptest.NewRequest(http.MethodOptions, "/yo", nil)
+	req := httptest.NewRequest(http.MethodOptions, "/pedidos", nil)
 	req.Header.Set("Origin", origenPermitido)
-	req.Header.Set("Access-Control-Request-Method", "GET")
-	req.Header.Set("Access-Control-Request-Headers", "authorization")
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	req.Header.Set("Access-Control-Request-Headers", strings.Join(exigidas, ", "))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -110,8 +121,14 @@ func TestPreflightAutorizaAuthorization(t *testing.T) {
 	if *llego {
 		t.Error("el preflight no tendria que llegar al handler")
 	}
-	if v := rec.Header().Get("Access-Control-Allow-Headers"); v == "" {
-		t.Error("el preflight tiene que autorizar Authorization")
+
+	// La comparacion va en minusculas: los nombres de cabecera no distinguen
+	// mayusculas y el navegador no compara el texto tal cual.
+	autorizadas := strings.ToLower(rec.Header().Get("Access-Control-Allow-Headers"))
+	for _, cabecera := range exigidas {
+		if !strings.Contains(autorizadas, cabecera) {
+			t.Errorf("el preflight no autoriza %q; autoriza %q", cabecera, autorizadas)
+		}
 	}
 }
 
