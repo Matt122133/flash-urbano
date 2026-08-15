@@ -259,9 +259,18 @@ export type PedidoFormProps = {
    * los vacios: lo que no venga queda como estaba.
    */
   inicial?: Partial<FormState>;
+
+  /**
+   * Avisa que se volvio del comprobante al formulario (FR-034).
+   *
+   * Existe porque el encabezado de la pantalla lo renderiza quien monta este
+   * componente, y necesita saber cuando volver a mostrarlo. Opcional: el
+   * formulario sigue sirviendo sin nadie escuchando.
+   */
+  onReiniciar?: () => void;
 };
 
-export function PedidoForm({ onConfirmar, inicial }: PedidoFormProps) {
+export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProps) {
   const [form, setForm] = useState<FormState>({ ...INITIAL_STATE, ...inicial });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
@@ -356,6 +365,28 @@ export function PedidoForm({ onConfirmar, inicial }: PedidoFormProps) {
       }
       // `cancelado` no deja mensaje: desistir del ingreso no es un error, y lo
       // cargado sigue en pantalla (FR-008).
+    } catch (e) {
+      // Este `catch` no existia hasta el 2026-08-14, y su ausencia produjo el
+      // peor sintoma posible: **el boton de confirmar no hacia nada**.
+      //
+      // Quien implementa `onConfirmar` traduce a un resultado todo lo que
+      // ANTICIPA —red caida, 401, datos invalidos—. Lo que no anticipa tira, y
+      // sin catch el `finally` apagaba `enviando`, la excepcion se perdia, y la
+      // pantalla quedaba exactamente igual que antes de tocar. La persona no
+      // tiene forma de distinguir eso de un boton roto, y vuelve a tocar.
+      //
+      // Paso de verdad probando desde un telefono: `crypto.randomUUID()` no
+      // existe fuera de contexto seguro y tiraba antes de llegar a la red. Esa
+      // causa esta arreglada, pero **la clase no**: cualquier throw futuro
+      // volveria a caer aca. Por eso la red va debajo del arreglo puntual.
+      //
+      // El mensaje dice lo unico que se sabe con certeza —que el pedido NO se
+      // creo— y no inventa un motivo. El detalle va a la consola: al cliente no
+      // le sirve y a quien depura le hace falta.
+      console.error("Fallo inesperado al confirmar el pedido:", e);
+      setErrorDeEnvio(
+        "No pudimos crear el pedido. Lo que cargaste sigue acá, probá de nuevo en un momento.",
+      );
     } finally {
       setEnviando(false);
     }
@@ -367,9 +398,31 @@ export function PedidoForm({ onConfirmar, inicial }: PedidoFormProps) {
         form={submitted.form}
         codigo={submitted.codigo}
         onReset={() => {
-          setForm(INITIAL_STATE);
+          // FR-035. Se conserva lo que identifica a QUIEN ENVIA —su nombre, su
+          // telefono y su direccion de retiro con el punto— y se vacia todo lo
+          // que pertenece al envio que se acaba de cerrar: a donde va, cuando,
+          // quien recibe y que se manda.
+          //
+          // El corte no es estetico: lo de arriba es la misma persona pidiendo
+          // otra vez desde el mismo lugar —el caso normal— y lo de abajo cambia
+          // en cada pedido. Hacerle retipear su propia direccion para mandar un
+          // segundo paquete es exactamente el tipeo que el Principio II existe
+          // para sacar.
+          //
+          // Sale del pedido RECIEN CONFIRMADO y no de `inicial`, y esa
+          // diferencia importa: quien entro por la puerta a mitad de formulario
+          // nunca tuvo precarga —corre solo al montar, por FR-007— asi que
+          // `inicial` esta vacio justo en el camino mas comun. Ademas el punto
+          // ya se valido en esta sesion, asi que no hay nada que revalidar.
+          setForm({
+            ...INITIAL_STATE,
+            name: submitted.form.name,
+            phone: submitted.form.phone,
+            retiro: submitted.form.retiro,
+          });
           setErrors({});
           setSubmitted(null);
+          onReiniciar?.();
         }}
       />
     );
@@ -712,20 +765,24 @@ function Confirmation({
               se construyo. Por eso el texto dice por donde se coordina DE VERDAD
               mientras tanto, en vez de prometer un contacto que nadie va a
               hacer. Cambiarlo por otra frase optimista seria cambiar una promesa
-              falsa por otra. */}
-          {/* Se enlaza a /contacto en vez de repetir el numero: el telefono
-              publicado vive en esa pantalla y en ningun otro lado. Copiarlo aca
-              crearia una segunda fuente de verdad que un dia va a discrepar. */}
+              falsa por otra.
+
+              2026-08-14: hasta hoy esto ademas enlazaba a /contacto —"y
+              escribinos por WhatsApp con ese codigo para coordinar el retiro"—.
+              Lo saco el dueño del proyecto al verlo andando: la coordinacion la
+              arranca Diego desde la app, que va a tener el contacto del cliente,
+              y empujar al cliente a WhatsApp es reponer justo el canal manual
+              que este producto existe para reemplazar. FR-029 quedo enmendado
+              con el motivo.
+
+              Lo que queda dicho y no se puede perder: mientras la app no exista,
+              nada le avisa a Diego de un pedido. La frase de abajo es CIERTA
+              —el pedido quedo registrado y ese es su codigo— y por eso puede
+              quedarse sola; lo que falta no es texto, es el aviso. Esta como
+              fila en el tracker y bloquea promocionar el sitio. */}
           <p className="text-sm text-slate-600">
             Anotá tu código{" "}
-            <strong className="font-semibold text-slate-900">{codigo}</strong> y{" "}
-            <Link
-              href="/contacto"
-              className="font-medium text-brand underline underline-offset-2"
-            >
-              escribinos por WhatsApp
-            </Link>{" "}
-            con ese código para coordinar el retiro.
+            <strong className="font-semibold text-slate-900">{codigo}</strong>.
           </p>
         </div>
       </div>

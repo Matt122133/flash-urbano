@@ -140,3 +140,43 @@ export function armarCuerpoPedido(datos: DatosDelPedido): ArmadoDelCuerpo {
     },
   };
 }
+
+/**
+ * Un identificador para el INTENTO de envio, que sirva de clave de idempotencia.
+ *
+ * Existe como funcion propia —y aca, donde hay pruebas— por un defecto concreto
+ * del 2026-08-14: `crear-pedido.tsx` llamaba a `crypto.randomUUID()` directo, y
+ * **esa funcion solo existe en contexto seguro**. `https://` y `localhost` lo
+ * son; `http://192.168.1.4:3000`, que es como se prueba el sitio desde un
+ * telefono en la red local, NO. Ahi `crypto.randomUUID` es `undefined`, la
+ * llamada tira, y el sintoma fue el peor posible: **el boton de confirmar no
+ * hacia absolutamente nada**.
+ *
+ * En produccion siempre hay contexto seguro, asi que esto no arregla un bug de
+ * los clientes. Arregla algo mas caro: que la unica forma de probar el flujo en
+ * un telefono de verdad —que es donde el producto se usa— fuera imposible.
+ *
+ * `crypto.getRandomValues` **si** esta disponible sin contexto seguro, asi que
+ * el respaldo arma el mismo UUID v4 con el. El servicio no exige formato —solo
+ * que no venga vacia— pero se mantiene el mismo para que un pedido no se
+ * distinga de otro por como se probo.
+ */
+export function claveDeIntento(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  // Los dos campos que hacen que sea un UUID v4 y no dieciseis bytes al azar:
+  // la version en el nibble alto del byte 6, y la variante en el del byte 8.
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0"));
+  return [
+    hex.slice(0, 4).join(""),
+    hex.slice(4, 6).join(""),
+    hex.slice(6, 8).join(""),
+    hex.slice(8, 10).join(""),
+    hex.slice(10, 16).join(""),
+  ].join("-");
+}

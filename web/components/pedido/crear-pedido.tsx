@@ -27,8 +27,24 @@ import {
 import { useSesion } from "@/components/sesion/proveedor-sesion";
 import { rehidratarRetiro } from "@/components/sesion/rehidratar-retiro";
 import { ErrorApi, crearPedido } from "@/lib/api";
-import { armarCuerpoPedido, type DatosDelPedido } from "@/lib/pedido";
+import { armarCuerpoPedido, claveDeIntento, type DatosDelPedido } from "@/lib/pedido";
 import { credencial } from "@/lib/sesion";
+
+/**
+ * Lo que la precarga le entrega al formulario.
+ *
+ * Los tres campos van juntos siempre —en vez de una union por estado— para que
+ * quien la consume no tenga que estrechar el tipo antes de leer `inicial`.
+ */
+type Precarga = {
+  /** Falso mientras no se sepa que precargar: el formulario todavia no se monta. */
+  listaLaPrecarga: boolean;
+  inicial?: Partial<FormState>;
+  avisoDelPunto: string | null;
+};
+
+/** La respuesta mientras no se sepa. Constante: no hay nada que decidir. */
+const ESPERANDO: Precarga = { listaLaPrecarga: false, avisoDelPunto: null };
 
 /** Traduce lo que junto el formulario a lo que el mapeo puro espera. */
 function aDatos(form: FormState): DatosDelPedido {
@@ -51,7 +67,15 @@ function aDatos(form: FormState): DatosDelPedido {
 const SIN_RESPUESTA =
   "No pudimos crear el pedido: el servicio no responde. Lo que cargaste sigue acá, probá de nuevo en un momento.";
 
-export function CrearPedido() {
+export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
+  /**
+   * Si ya hay un pedido confirmado en pantalla (FR-034).
+   *
+   * Vive aca y no en el formulario porque el encabezado lo renderiza la
+   * PANTALLA: `app/pedido/page.tsx` lo pasa como prop y esta composicion decide
+   * si mostrarlo. El formulario no lo conoce, y no tiene por que.
+   */
+  const [creado, setCreado] = useState(false);
   /**
    * La clave del INTENTO de envio en curso.
    *
@@ -109,7 +133,10 @@ export function CrearPedido() {
       }
 
       if (!claveDelIntento.current) {
-        claveDelIntento.current = crypto.randomUUID();
+        // No es `crypto.randomUUID()` directo a proposito: esa funcion solo
+        // existe en contexto seguro y desaparece al probar desde un telefono
+        // sobre http. Ver `claveDeIntento` en lib/pedido.ts.
+        claveDelIntento.current = claveDeIntento();
       }
       const clave = claveDelIntento.current;
 
@@ -132,6 +159,7 @@ export function CrearPedido() {
           const pedido = await crearPedido(armado.cuerpo, clave, credencial());
           // Creado: el proximo envio es otro pedido y necesita otra clave.
           claveDelIntento.current = null;
+          setCreado(true); // FR-034: con esto se retira el encabezado.
           return { estado: "creado", codigo: pedido.codigo };
         } catch (e) {
           if (!(e instanceof ErrorApi)) {
@@ -172,15 +200,25 @@ export function CrearPedido() {
   // sabe hacer— o pisar lo que la persona ya escribio, que es justo lo que
   // FR-007 prohibe.
   if (!listaLaPrecarga) {
+    // El encabezado va TAMBIEN en esta rama, y no es un detalle: es la que se
+    // pre-renderiza al construir el sitio —ahi `cargando` siempre es true— y si
+    // el titulo no estuviera aca, el HTML que lee un buscador no tendria `h1`.
     return (
-      <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-        Un momento…
-      </p>
+      <>
+        {encabezado}
+        <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+          Un momento…
+        </p>
+      </>
     );
   }
 
   return (
     <>
+      {/* FR-034: con el pedido hecho queda solo el comprobante. El titulo y la
+          instruccion de escribir la calle invitarian a hacer algo que se acaba
+          de hacer. */}
+      {!creado && encabezado}
       {avisoDelPunto && (
         // FR-022. No se cobra en silencio sobre un punto que ya no corresponde:
         // se recoloco en el cruce y se pide que lo revise.
@@ -188,7 +226,11 @@ export function CrearPedido() {
           {avisoDelPunto}
         </p>
       )}
-      <PedidoForm onConfirmar={onConfirmar} inicial={inicial} />
+      <PedidoForm
+        onConfirmar={onConfirmar}
+        inicial={inicial}
+        onReiniciar={() => setCreado(false)}
+      />
       <DialogoIngreso
         abierto={dialogoAbierto}
         onListo={() => cerrarDialogo(true)}
@@ -208,94 +250,116 @@ export function CrearPedido() {
  * dialogo, a mitad de formulario— la precarga no vuelve a correr, y es
  * deliberado: FR-007 prohibe que identificarse le reescriba una direccion que
  * acaba de tipear. El valor de la precarga es ahorrar tipeo, no imponerlo.
+ *
+ * **2026-08-14 — esa promesa era falsa, y la encontro T039.** El efecto no
+ * volvia a correr, es cierto, pero eso no alcanzaba: quien entraba por el
+ * dialogo pasaba de `usuario: null` a tener sesion CON direccion guardada, y
+ * entonces la rama derivada de abajo devolvia `listaLaPrecarga: false` mientras
+ * se rehidrataba. Eso **desmonta `PedidoForm`**, y al volver se monta de cero
+ * con el `inicial` del perfil — o sea que todo lo tipeado se perdia y quedaba
+ * pisado por la direccion guardada. Justo lo que FR-007 prohibe, por un camino
+ * que nadie miro: no "la precarga corre dos veces" sino "el formulario se monta
+ * dos veces".
+ *
+ * Por eso hoy la decision **se congela**: apenas hay algo que entregarle al
+ * formulario, ese valor queda fijo y ninguna sesion posterior lo cambia. La
+ * garantia deja de depender de que un efecto no vuelva a dispararse.
+ *
+ * No lo cubre ninguna prueba automatica: `web/` corre en entorno `node` sin DOM
+ * y nada de este repo renderiza React. Esta anotado en el tracker.
  */
-function usePrecarga() {
+function usePrecarga(): Precarga {
   const { usuario, cargando } = useSesion();
 
   /**
-   * Solo la rama ASINCRONA necesita estado.
+   * La decision ENTERA, tomada una sola vez.
    *
-   * Los otros tres casos —todavia cargando, sin sesion, con sesion y sin
-   * direccion guardada— se derivan abajo sin guardar nada. Meterlos en estado
-   * obligaria a escribirlo sincronicamente dentro del efecto, que ademas de ser
-   * un render de mas es lo que `react-hooks/set-state-in-effect` marca.
+   * Antes del 2026-08-14 solo la rama asincrona vivia en estado y los otros tres
+   * casos se derivaban en cada render. Eso era el defecto: derivar significa
+   * volver a mirar la sesion, y la sesion cambia cuando alguien entra por el
+   * dialogo. Con todo adentro del estado, lo que se decidio al montar es lo que
+   * queda.
    */
-  const [resuelto, setResuelto] = useState<{
-    inicial: Partial<FormState>;
-    aviso: string | null;
-  } | null>(null);
+  const [precarga, setPrecarga] = useState<Precarga | null>(null);
 
-  // Corre una sola vez. Si la persona se identifica DESPUES —desde el dialogo, a
-  // mitad de formulario— la precarga no vuelve a correr, y es deliberado:
-  // FR-007 prohibe que identificarse le reescriba una direccion recien tipeada.
+  // Corre una sola vez, apenas se sabe si hay sesion. Si la persona se identifica
+  // DESPUES —desde el dialogo, a mitad de formulario— este efecto vuelve a
+  // dispararse y sale por `yaCorrio`: FR-007 prohibe que identificarse le
+  // reescriba algo que acaba de tipear.
   const yaCorrio = useRef(false);
   const retiro = usuario?.retiro ?? null;
   const nombre = usuario?.nombre ?? "";
   const telefono = usuario?.telefono ?? "";
 
   useEffect(() => {
-    if (cargando || !retiro || yaCorrio.current) return;
+    if (cargando || yaCorrio.current) return;
     yaCorrio.current = true;
 
-    const base: Partial<FormState> = { name: nombre, phone: telefono };
     let vigente = true;
 
-    rehidratarRetiro(retiro)
-      .then((r) => {
-        if (!vigente) return;
+    // Todo cuelga de una promesa ya resuelta, igual que en `proveedor-sesion`:
+    // el lint prohibe llamar a setState de forma sincrona dentro de un efecto.
+    // Aca aplica a los dos casos que se resuelven sin esperar a nadie.
+    Promise.resolve()
+      .then(async (): Promise<Precarga> => {
+        // Sin sesion: el formulario arranca vacio, como siempre. Cotizar no pide
+        // nada. **Este es el caso que estaba roto**: se decide ahora y no se
+        // vuelve a tocar, aunque despues ingrese desde el dialogo.
+        if (!usuario) return { listaLaPrecarga: true, avisoDelPunto: null };
 
-        // FR-022, y es la razon por la que `rehidratarRetiro` devuelve
-        // `puntoEnLaCuadra`. El perfil puede MOSTRAR un punto viejo; el pedido
-        // COBRA sobre el, asi que no puede usarlo sin revalidar.
-        //
-        // El caso no es hipotetico: el indice de calles se regenera, y un punto
-        // guardado en agosto puede quedar en otra cuadra —o en otra zona, o sea
-        // a otro precio— en octubre, sin que nadie toque nada.
-        if (r.ubicable && r.estado.esquina && !r.puntoEnLaCuadra) {
-          setResuelto({
-            inicial: {
-              ...base,
-              retiro: {
-                ...r.estado,
-                direccion: { ...r.estado.direccion, punto: r.estado.esquina.punto },
-              },
-            },
-            aviso:
-              "Revisá el punto de retiro en el mapa: lo recolocamos en el cruce porque el que tenías guardado ya no cae en esa cuadra.",
-          });
-          return;
+        const base: Partial<FormState> = { name: nombre, phone: telefono };
+
+        // FR-025: un perfil sin direccion deja el formulario utilizable y vacio
+        // en esa parte, sin errores.
+        if (!retiro) {
+          return { listaLaPrecarga: true, inicial: base, avisoDelPunto: null };
         }
-        setResuelto({ inicial: { ...base, retiro: r.estado }, aviso: null });
+
+        try {
+          const r = await rehidratarRetiro(retiro);
+
+          // FR-022, y es la razon por la que `rehidratarRetiro` devuelve
+          // `puntoEnLaCuadra`. El perfil puede MOSTRAR un punto viejo; el pedido
+          // COBRA sobre el, asi que no puede usarlo sin revalidar.
+          //
+          // El caso no es hipotetico: el indice de calles se regenera, y un punto
+          // guardado en agosto puede quedar en otra cuadra —o en otra zona, o sea
+          // a otro precio— en octubre, sin que nadie toque nada.
+          if (r.ubicable && r.estado.esquina && !r.puntoEnLaCuadra) {
+            return {
+              listaLaPrecarga: true,
+              inicial: {
+                ...base,
+                retiro: {
+                  ...r.estado,
+                  direccion: { ...r.estado.direccion, punto: r.estado.esquina.punto },
+                },
+              },
+              avisoDelPunto:
+                "Revisá el punto de retiro en el mapa: lo recolocamos en el cruce porque el que tenías guardado ya no cae en esa cuadra.",
+            };
+          }
+
+          return {
+            listaLaPrecarga: true,
+            inicial: { ...base, retiro: r.estado },
+            avisoDelPunto: null,
+          };
+        } catch {
+          // Que no se pueda reconstruir la direccion no puede dejar sin pedir a
+          // quien igual la puede escribir a mano.
+          return { listaLaPrecarga: true, inicial: base, avisoDelPunto: null };
+        }
       })
-      .catch(() => {
-        // Que no se pueda reconstruir la direccion no puede dejar sin pedir a
-        // quien igual la puede escribir a mano.
-        if (vigente) setResuelto({ inicial: base, aviso: null });
+      .then((p) => {
+        if (vigente) setPrecarga(p);
       });
 
     return () => {
       vigente = false;
     };
-  }, [cargando, retiro, nombre, telefono]);
+  }, [cargando, usuario, retiro, nombre, telefono]);
 
-  if (cargando) return { listaLaPrecarga: false } as const;
-
-  // Sin sesion: el formulario arranca vacio, como siempre. Cotizar no pide nada.
-  if (!usuario) return { listaLaPrecarga: true, avisoDelPunto: null } as const;
-
-  const base: Partial<FormState> = { name: nombre, phone: telefono };
-
-  // FR-025: un perfil sin direccion deja el formulario utilizable y vacio en esa
-  // parte, sin errores.
-  if (!retiro) {
-    return { inicial: base, listaLaPrecarga: true, avisoDelPunto: null } as const;
-  }
-
-  if (!resuelto) return { listaLaPrecarga: false } as const;
-
-  return {
-    inicial: resuelto.inicial,
-    listaLaPrecarga: true,
-    avisoDelPunto: resuelto.aviso,
-  } as const;
+  // Sin ramas derivadas y sin mirar la sesion: lo que se decidio, se devuelve.
+  return precarga ?? ESPERANDO;
 }

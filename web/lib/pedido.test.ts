@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { armarCuerpoPedido, type DatosDelPedido } from "./pedido";
+import { armarCuerpoPedido, claveDeIntento, type DatosDelPedido } from "./pedido";
 import { ZONAS } from "./zonas";
 import { resolverZona } from "./zona-lookup";
 import type { Direccion } from "./direccion";
@@ -159,5 +159,50 @@ describe("armar el cuerpo no toca la red", () => {
     expect(r.ok).toBe(true);
     expect(espia).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+});
+
+// El defecto del 2026-08-14: `crypto.randomUUID()` solo existe en contexto
+// seguro, y probar el sitio desde un telefono contra `http://<ip>:3000` no lo
+// es. La llamada tiraba y el boton de confirmar quedaba mudo.
+describe("claveDeIntento", () => {
+  const UUID_V4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  it("usa randomUUID cuando el navegador la tiene", () => {
+    const espia = vi
+      .spyOn(crypto, "randomUUID")
+      .mockReturnValue("11111111-2222-4333-8444-555555555555");
+
+    expect(claveDeIntento()).toBe("11111111-2222-4333-8444-555555555555");
+    expect(espia).toHaveBeenCalled();
+    espia.mockRestore();
+  });
+
+  // El caso que importa: es exactamente lo que ve un telefono sobre http.
+  it("sigue dando un UUID v4 valido sin randomUUID (contexto no seguro)", () => {
+    const original = crypto.randomUUID;
+    // @ts-expect-error se simula el navegador que NO la expone
+    crypto.randomUUID = undefined;
+    try {
+      expect(claveDeIntento()).toMatch(UUID_V4);
+    } finally {
+      crypto.randomUUID = original;
+    }
+  });
+
+  // El control positivo: sin esto, un respaldo que devolviera siempre la misma
+  // constante pasaria la prueba de arriba — y dos pedidos distintos quedarian
+  // con la misma clave, o sea que el segundo se descartaria como duplicado.
+  it("no repite la clave entre intentos", () => {
+    const original = crypto.randomUUID;
+    // @ts-expect-error se simula el navegador que NO la expone
+    crypto.randomUUID = undefined;
+    try {
+      const claves = new Set(Array.from({ length: 200 }, () => claveDeIntento()));
+      expect(claves.size).toBe(200);
+    } finally {
+      crypto.randomUUID = original;
+    }
   });
 });
