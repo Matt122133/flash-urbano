@@ -176,6 +176,10 @@ Leer `/pedido` entera y la pantalla de confirmación, texto por texto:
 - **No promete un contacto que nadie va a hacer** (FR-029). Ésta es la que se
   olvida: la frase *"Nos pondremos en contacto para confirmar el retiro"* está
   viva en producción hoy y el feature no está hecho mientras siga ahí.
+- **Tampoco manda a escribir por WhatsApp.** Desde la enmienda de FR-029 del
+  2026-08-14, la confirmación dice el código y nada más: la coordinación la
+  arranca Diego desde la app. Si volvió a aparecer un enlace a `/contacto` en esa
+  pantalla, es una regresión.
 
 ### M7 — El servicio caído al confirmar (SC-013)
 

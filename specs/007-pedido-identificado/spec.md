@@ -508,11 +508,28 @@ del navegador sin tocar la base de datos directamente.
 - **FR-029**: La pantalla de confirmación MUST NOT prometer un contacto que el
   sistema no pueda respaldar. Con el aviso a Diego diferido a la app Android, la
   frase actual —*"Nos pondremos en contacto para confirmar el retiro"*— es falsa
-  y MUST cambiar en este feature. Lo que la reemplace MUST decir dos cosas
-  ciertas: que el pedido quedó registrado con su código, y por dónde se coordina
-  de verdad mientras tanto. **Este es el requisito que carga con la consecuencia
-  del diferimiento**, y cerrar el feature sin él reemplaza una promesa falsa por
-  otra.
+  y MUST cambiar en este feature. Lo que la reemplace MUST decir que el pedido
+  quedó registrado y con qué código. **Este es el requisito que carga con la
+  consecuencia del diferimiento**, y cerrar el feature sin él reemplaza una
+  promesa falsa por otra.
+
+  **Enmendado el 2026-08-14.** Hasta esa fecha este requisito exigía una segunda
+  cosa: *"y por dónde se coordina de verdad mientras tanto"*, que la pantalla
+  cumplía enlazando a `/contacto` para escribir por WhatsApp con el código. El
+  dueño del proyecto lo sacó al verlo funcionando, con este motivo: **la
+  coordinación la inicia Diego desde la app**, que va a tener el contacto del
+  cliente, y el frente no tiene por qué empujar al cliente a WhatsApp — que es
+  exactamente el canal manual que el producto existe para reemplazar
+  (Principio II).
+
+  **Lo que la enmienda deja abierto, y no hay que perder**: mientras la app
+  Android no exista, ese enlace era el único camino por el que un pedido llegaba
+  a un humano. El pedido queda en la base, pero **nada le avisa a Diego** y hoy
+  se leen con `curl`. O sea que entre esta fecha y la app, un cliente que pide
+  recibe un código y silencio. Se acepta porque el sitio todavía no se promociona
+  y `/contacto` sigue existiendo en la navegación. Queda como fila en
+  `docs/tech-debt-tracker.md`, y **es un bloqueante para promocionar el sitio**,
+  no una deuda cosmética.
 
 **Que el cliente vea sus pedidos**
 
@@ -540,6 +557,44 @@ del navegador sin tocar la base de datos directamente.
   que nació en la rama de `006`; el patrón tiene que valer para todo el
   repositorio. Ya ocurrió una vez que el `.env` quedara preparado para commit, y
   lo frenó por casualidad un control que buscaba otra cosa.
+
+**Después de confirmar**
+
+*Los dos requisitos de abajo se agregaron el **2026-08-14**, con el feature ya
+implementado y probándose en un teléfono. Salieron de mirar la pantalla real, no
+de la planificación — que es exactamente para lo que sirve verificar a mano.
+Entran acá en vez de a un feature aparte porque los dos son sobre la pantalla que
+`007` acaba de construir, y ninguno agrega superficie: son cinco líneas cada uno,
+dentro de archivos que ya están en `covers:`. Lo que sí agregan es **verificación
+manual**, y por eso ganan tareas propias en vez de colarse.*
+
+*No confundir FR-035 con “repetir pedido”, que FR-030 difiere explícitamente a
+otro feature: aquello es recuperar un pedido del historial: esto es no vaciar un
+formulario que la persona tiene delante.*
+
+- **FR-034**: Con un pedido ya confirmado en pantalla, `/pedido` MUST mostrar
+  sólo el comprobante. El encabezado —el título *Crear pedido* y la instrucción
+  de escribir la calle y la esquina— MUST desaparecer: invita a hacer algo que
+  se acaba de hacer, arriba de la constancia de haberlo hecho. Al volver al
+  formulario MUST reaparecer. Es el mismo criterio que FR-027 y FR-028 aplicado
+  al estado siguiente de la pantalla: **el texto tiene que ser cierto en el
+  momento en que se lee**.
+- **FR-035**: *Cargar otro pedido* MUST conservar los datos de quien envía —su
+  nombre, su teléfono y su dirección de retiro con el punto ya ubicado— y MUST
+  vaciar los del envío que se cerró: dirección de entrega, fecha y hora de
+  retiro, quién recibe, y tipo y cantidad de paquete. El corte es entre **lo que
+  no cambia entre dos pedidos de la misma persona** y lo que sí.
+
+  Los datos MUST salir del pedido **recién confirmado**, no de la precarga del
+  perfil. No es equivalente: la precarga corre sólo al montar (FR-007), así que
+  quien se identificó desde el diálogo a mitad de formulario **nunca la tuvo**, y
+  ése es el camino más común. Tampoco corresponde revalidar el punto (FR-022):
+  se acaba de usar en esta misma sesión.
+
+  Hasta el 2026-08-14 el botón devolvía el formulario **completamente vacío**, y
+  eso obligaba a quien mandaba un segundo paquete desde su casa a reescribir su
+  propio nombre y su propia dirección — justo el tipeo que el Principio II
+  existe para eliminar.
 
 ### Key Entities
 
