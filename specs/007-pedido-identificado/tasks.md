@@ -166,7 +166,7 @@ FR-032.
 
 - [x] T041 [P] [US5] Probar en `handlers_test.go` que `GET /pedidos` devuelve sólo los del usuario del contexto de sesión, con dos usuarios y pedidos cruzados (FR-017, SC-010). Una lista vacía es `200` con `"pedidos": []`, no `404`
 - [x] T042 [P] [US5] Probar que `GET /pedidos` **no acepta ningún parámetro** que permita pedir los de otro. No hay `?usuarioId=` y no debe haberlo
-- [ ] T043 [US5] [MANUAL] Verificar SC-015: crear un pedido desde el sitio y recuperarlo íntegro con `curl` contra `GET /admin/pedidos`, sin ejecutar una consulta SQL
+- [X] T043 [US5] [MANUAL] *(hecho el 2026-08-15: `FU-0007` recuperado entero por `GET /admin/pedidos` — remitente, las dos direcciones con el punto del retiro, paquete, fecha y hora, destinatario, `precio` y `zonaId`, estado y marcas de tiempo. Sin una sola consulta SQL)* Verificar SC-015: crear un pedido desde el sitio y recuperarlo íntegro con `curl` contra `GET /admin/pedidos`, sin ejecutar una consulta SQL
 
 **Checkpoint**: SC-015 verde. **Sin pantalla**, a propósito: FR-030 difiere *Mis
 Pedidos*.

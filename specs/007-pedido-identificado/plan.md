@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # ---------------------------------------------------------------- backend
   # El paquete nuevo: repositorio, handlers y sus pruebas.
