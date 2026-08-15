@@ -192,7 +192,7 @@ falsa por otra.
 - [x] T056 Hacer que *Cargar otro pedido* conserve nombre, teléfono y dirección de retiro con su punto, y vacíe entrega, fecha, hora, destinatario y paquete (FR-035). Los datos salen del pedido **recién confirmado**, no de `inicial`: quien entró por la puerta nunca tuvo precarga
 - [X] T057 [MANUAL] *(hecho el 2026-08-14 en Safari de iPhone, sobre el build con los dos cambios: cargó un segundo pedido y el formulario conservó lo del remitente y vació el resto)* Verificar FR-034 y FR-035 en un **teléfono**, seguidos: confirmar un pedido y ver que arriba del comprobante **no queda nada**; tocar *Cargar otro pedido* y contar los campos que hay que reescribir — **cero** para nombre, teléfono y retiro, y **vacíos** entrega, fecha, hora, quién recibe y paquete. Comprobar además que el encabezado **volvió**
 - [X] T053 *(2026-08-15: verde entero — 152 pruebas de Go con 0 SKIP, `vet` y `build` OK; `lint` limpio, 119 de web, `build` OK)* Correr el `verify:` completo del plan y dejarlo verde, **con `TEST_DATABASE_URL` puesta y los `SKIP` en cero**
-- [ ] T054 Poner `specs/007-pedido-identificado/plan.md` en `status: completed`. **Commitear antes**: el sensor de cobertura rebota el commit si el plan ya está en `completed`
+- [X] T054 *(hecho el 2026-08-15, en el commit que cierra el feature)* Poner `specs/007-pedido-identificado/plan.md` en `status: completed`. **Commitear antes**: el sensor de cobertura rebota el commit si el plan ya está en `completed`
 
 ---
 
