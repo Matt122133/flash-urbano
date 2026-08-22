@@ -41,7 +41,7 @@ comprobar que el archivo empieza con uno de esos prefijos.
 **Purpose**: sin esto ninguna de las dos historias puede leer un pedido completo.
 
 - [x] T002 Ensanchar `PedidoGuardado` en `web/lib/api.ts` hasta lo que `GET /pedidos` devuelve de verdad (remitente, las dos direcciones con `numero`/`apto` nulables, el punto de retiro, paquete, cantidad, destinatario), según la tabla de [data-model.md](data-model.md), y dejar anotado en el comentario del tipo que es una copia a mano del backend que TypeScript no valida en runtime
-- [ ] T003 Comprobar en la consola del navegador, con sesión iniciada, que `misPedidos()` devuelve objetos con `retiro.punto` y `destinatarioNombre` — no los siete campos de `007` (resultado observable del Tramo 1 de [plan.md](plan.md))
+- [x] T003 **Verificado por observacion, no por consola (2026-08-22)**: las tarjetas desplegadas muestran retiro y entrega completos, destinatario y `creadoEn`, que solo existen si `PedidoGuardado` viaja ensanchado. El paso literal —`misPedidos()` en la consola— no se corrio. ~~Comprobar en la consola del navegador, con sesión iniciada, que `misPedidos()` devuelve objetos con `retiro.punto` y `destinatarioNombre` — no los siete campos de `007` (resultado observable del Tramo 1 de [plan.md](plan.md))~~
 
 ---
 
@@ -58,7 +58,7 @@ depender de US2.
 - [x] T004 [P] [US1] Crear `web/components/pedido/tarjeta-pedido.tsx`: tarjeta con código, fecha de **retiro**, estado traducido, precio cobrado y calle de entrega; detalle desplegable con `<details>`/`<summary>` (research D8) que muestra retiro y entrega completos, tamaño y cantidad, destinatario y `creadoEn`. Los estados se traducen según la tabla de [contracts/pantallas.md](contracts/pantallas.md) y un valor desconocido se muestra crudo antes que romper la pantalla (FR-006)
 - [x] T005 [US1] Crear `web/components/pedido/historial.tsx`: trae la lista con `useLlamadaAutenticada()` —no con `pedir` directo, o un 401 deja la pantalla sin salida—, **respeta el orden en que vino** (el servicio ya devuelve `creado_en DESC`; re-ordenar en el navegador es la única forma de romper FR-002), muestra los 5 más recientes con un "Ver todos" para el resto de lo ya traído, y resuelve los tres estados que no son una lista: sin pedidos (FR-010), error con botón de reintentar (FR-009), y nada en absoluto sin sesión (FR-008)
 - [x] T006 [US1] Montar `Historial` en `web/app/perfil/page.tsx` debajo del formulario de datos, sólo en la rama con sesión, sin tocar la rama `SinSesion` ni la de carga
-- [ ] T007 [US1] Ejecutar M1, M2, M3 y M4 de [quickstart.md](quickstart.md) **en un teléfono**. M4 es ⚠: exige dos cuentas y comprobar que un `?repetir=` ajeno no filtra nada (SC-004)
+- [~] T007 [US1] **Parcial (2026-08-22)**: **M1 corrido y correcto** —tres pedidos y mas, el mas nuevo arriba, codigo, fecha de retiro, estado "Pendiente", precio y destino; el detalle muestra apto y cooperativa—. **M2 (teclado y lector de pantalla) NO se corrio. M3 (los tres estados vacios) NO se corrio. M4 (⚠ nadie ve lo ajeno) NO se corrio**: exige una segunda cuenta y quedo sin hacer. ~~Ejecutar M1, M2, M3 y M4 de [quickstart.md](quickstart.md) **en un teléfono**. M4 es ⚠: exige dos cuentas y comprobar que un `?repetir=` ajeno no filtra nada (SC-004)~~
 
 **Checkpoint**: US1 entregable. `verify:` verde y M1–M4 hechos.
 
@@ -82,7 +82,7 @@ código distinto sin que el original se altere.
 - [x] T012b [US2] Comprobar que un envío repetido usa una **clave de idempotencia nueva** (`claveDeIntento()` de `web/lib/pedido.ts`), y que repetir dos veces a propósito no comparte clave (FR-019). Una clave reusada convierte dos envíos deliberados en uno, que no es un pedido de menos sino un paquete que nadie pasa a buscar
 - [x] T013 [US2] Cubrir los casos feos de la tabla del contrato en la misma composición: id que no está en la lista, id de otra cuenta, servicio sin responder, y sin sesión. Los cuatro terminan en un aviso y un **formulario vacío y usable**, nunca en una pantalla a medio cargar (research D1)
 - [x] T014 [US2] Mostrar el aviso de reajuste arriba del formulario, por el mismo camino que `avisoDelPunto`, sin el monto anterior y sin poner los dos precios juntos (FR-015a/b/c). Los dos avisos pueden convivir, y el del punto va primero
-- [ ] T015 [US2] Ejecutar M5 a M13 de [quickstart.md](quickstart.md) **en un teléfono**. M7, M8 y M11 son ⚠ y son los que verifican SC-003 y FR-021; M5 incluye el paso que detecta el remonte del formulario, que ninguna prueba de este repo puede ver
+- [~] T015 [US2] **Parcial (2026-08-22)**: **M6 corrido y correcto** —se repitio FU-0005, se confirmo, y salio FU-0008 con codigo distinto y el original intacto—. **M5, M7 a M13 NO se corrieron.** M5, M7 y M8 verifican el precio derivado del **punto de retiro**, que `011` esta por reemplazar: correrlos hubiera sido verificar a fondo un comportamiento en vias de cambiar. M9 a M13 quedaron sin correr sin mas motivo que el corte de la sesion. ~~Ejecutar M5 a M13 de [quickstart.md](quickstart.md) **en un teléfono**. M7, M8 y M11 son ⚠ y son los que verifican SC-003 y FR-021; M5 incluye el paso que detecta el remonte del formulario, que ninguna prueba de este repo puede ver~~
 
 **Checkpoint**: feature completa.
 
@@ -92,7 +92,7 @@ código distinto sin que el original se altere.
 
 - [x] T016 `verify:` verde: `cd web && npm run lint && npm test && npm run build`
 - [x] T017 Comprobar que el diff **no** toca `web/components/pedido-form.tsx`, `web/components/sesion/rehidratar-retiro.ts` ni `backend/`, y que `npx vitest run lib/cotizar-abierto.test.ts` pasa **sin haber tocado `ENTRADAS` ni `PROHIBIDOS`** (FR-022)
-- [ ] T018 Comprobar que `git status` no muestra `web/lib/zonas.ts` modificado: M7 y M8 lo editan a mano para forzar los casos malos, y ese archivo es generado — si el precio de prueba llega a un commit, se cobra mal
+- [x] T018 **Se cumple trivialmente**: M7 y M8 no se corrieron, asi que `zonas.ts` nunca se edito. `git status` limpio y el archivo generado intacto. ~~Comprobar que `git status` no muestra `web/lib/zonas.ts` modificado: M7 y M8 lo editan a mano para forzar los casos malos, y ese archivo es generado — si el precio de prueba llega a un commit, se cobra mal~~
 - [x] T019 Anotar en `docs/tech-debt-tracker.md` la ausencia de paginado **con el umbral en números** — a partir de cuántos pedidos por persona la respuesta empieza a doler (FR-024)
 - [x] T020 Anotar en `docs/tech-debt-tracker.md` el agujero de verificación, diciendo **qué pantallas quedaron sin prueba automática**, sumándolo a la fila del 2026-08-14 o abriendo la suya (FR-026)
 - [x] T021 Actualizar `ARCHITECTURE.md`: los componentes nuevos de `web/components/pedido/` y `web/lib/repetir.ts`, y que `/perfil` dejó de ser sólo el formulario de datos
@@ -107,7 +107,7 @@ plan no se cierra con requisitos suyos sin construir.
 
 - [x] T023 [FR-027] En `web/app/perfil/page.tsx`, partir la rama con sesión en dos vistas excluyentes con dos botones —*Mi cuenta* y *Mis pedidos*—, entrando siempre por *Mi cuenta*. El conmutador va **en la página**, no en un componente nuevo: es arquitectura de la pantalla de cuenta, y `web/components/pedido/` es la carpeta del dominio pedidos. La rama `SinSesion` y la de carga **no se tocan** (FR-008). Los botones tienen que ser operables con teclado y anunciar cuál está activo (`aria-current` o el patrón de pestañas), que es lo mismo que M2 le exige a la tarjeta
 - [x] T024 [FR-028] En `web/components/pedido/tarjeta-pedido.tsx`, la línea de resumen pasa de la calle sola a **calle, número y esquina** (`A Martín García 123, esq. Justicia`). **Sin apartamento** y **sin quitar `truncate`** — FR-011 sigue mandando que la tarjeta no se ensanche. Reusar `componer()` con una variante que omita apto y cooperativa antes que escribir un tercer armador de direcciones: `lib/direccion.ts` y `componer()` ya son dos
-- [ ] T025 Rehacer **M1** y **M2** del [quickstart](quickstart.md) sobre lo enmendado, en un teléfono: que entrar a *Mi cuenta* abra los datos y no los pedidos, que el conmutador se opere con teclado, y que la línea de resumen distinga dos pedidos a la misma calle con números distintos. Y `verify:` verde otra vez
+- [~] T025 **Parcial (2026-08-22)**: **M1 sobre lo enmendado, correcto** —entrar a Mi cuenta abre los datos, el conmutador cambia de vista, y la linea de resumen trae numero y esquina—, aprobado por el dueño del repo mirando la pantalla. **El teclado y el lector de pantalla (M2) NO se probaron, y no se probo en un telefono**: las capturas son de escritorio. `verify:` si quedo verde. ~~Rehacer **M1** y **M2** del [quickstart](quickstart.md) sobre lo enmendado, en un teléfono: que entrar a *Mi cuenta* abra los datos y no los pedidos, que el conmutador se opere con teclado, y que la línea de resumen distinga dos pedidos a la misma calle con números distintos. Y `verify:` verde otra vez~~
 
 ---
 

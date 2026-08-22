@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La pantalla que gana la sección de historial. Hoy sólo monta el formulario
   # de perfil.
@@ -243,3 +243,43 @@ descuido ni una omisión del harness — es la respuesta a una pregunta que se h
 explícitamente el 2026-08-22, con las tres opciones sobre la mesa. Lo que
 compensa la decisión son FR-025 y FR-026: un quickstart que produce los casos
 malos a propósito, y una deuda anotada con el tamaño real del hueco.
+
+## Cierre — 2026-08-22
+
+`010` se cierra **con la verificación manual incompleta, y eso queda dicho acá
+en vez de disimulado en un tilde**. La decisión la tomó el dueño del repo el
+2026-08-22, con el motivo delante: el cliente pidió invertir el origen del
+precio —del punto de **retiro** al punto de **entrega**— y ese cambio sale como
+`011`. Los pasos del quickstart que más faltan (M5, M7, M8) verifican
+exactamente el precio derivado del retiro, o sea el comportamiento que `011`
+reemplaza.
+
+**Lo que se verificó de verdad, en datos reales:**
+
+- **M1** — el historial lista, ordena de más nuevo a más viejo, y la tarjeta
+  muestra código, fecha de retiro, estado y precio. El detalle abre con las dos
+  direcciones completas, apartamento incluido.
+- **M6** — se repitió `FU-0005`, se confirmó, y salió `FU-0008`: código nuevo,
+  pedido original intacto.
+- **M1 de la enmienda** (T025) — las dos vistas y la línea de resumen con número
+  y esquina.
+- **`verify:`** verde en cada tramo, incluida la guarda de FR-022.
+
+**Lo que NO se corrió, y hay que saberlo antes de confiar en estas pantallas:**
+
+- **M2** — teclado y lector de pantalla sobre la tarjeta y sobre el conmutador
+  nuevo. Nadie comprobó que el historial se opere sin tocar la pantalla.
+- **M3** — los tres estados que no son una lista: sin pedidos, sin sesión, y
+  ⚠ servicio caído con su reintento.
+- **M4** — ⚠ la guarda de que nadie ve lo ajeno. **Es la ausencia más cara de
+  esta lista**: SC-004 quedó sin ninguna verificación, ni automática ni manual.
+- **M5, M7 a M13** — el remonte del formulario, el aviso de reajuste, el punto
+  fuera de zona, la sesión vencida, la doble repetición, el almacenamiento
+  limpio, y que `007` no se rompió.
+- **Nada se probó en un teléfono.** Todo lo observado fue en escritorio, contra
+  el export estático servido en la LAN.
+
+**Consecuencia práctica**: `011` toca el mismo formulario y el mismo camino de
+repetición. Los pasos de arriba **no desaparecen** — se rehacen dentro del
+quickstart de `011`, ya sobre el precio derivado de la entrega, y M2, M3 y M4 se
+arrastran tal cual porque no dependen de qué punto decide el precio.
