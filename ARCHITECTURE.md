@@ -149,6 +149,34 @@ default; components that need interactivity (forms, nav toggle) are marked
   including the recipient's name and phone, a third party's data — out of
   browser storage (FR-006a).
 
+  Since `010` this folder also holds **the order history** (`historial.tsx`,
+  `tarjeta-pedido.tsx`), even though it renders inside `/perfil`: what places a
+  component here is the domain — orders — and the permission to talk to the
+  service, not which screen it appears on. `crear-pedido.tsx` gained a second
+  preload path, the one for `/pedido?repetir=<id>`, and it is **mutually
+  exclusive** with the profile one on purpose: two sources writing over the same
+  form is the shape of the defect this very file already produced once (the
+  2026-08-14 row in the tech-debt tracker).
+
+  **None of those three screens has an automated test**, by a decision recorded
+  on 2026-08-22. Read `specs/010-mis-pedidos/quickstart.md` before touching
+  them: it is the entire verification they have.
+
+- `web/app/pedido/page.tsx` — since `010` it wraps the composition in a
+  `<Suspense>`, and **the header goes in the `fallback` too**. That is not
+  decoration: reading `?repetir=` with `useSearchParams` pushes the whole subtree
+  below the boundary to the client, and without the header in the fallback the
+  `h1` disappears from the prerendered HTML — the one a search engine reads, and
+  the site has been indexable since `004`. Without the `<Suspense>` the **build
+  fails outright**; in development it works fine, which is the trap.
+
+- `web/lib/repetir.ts` — the pure half of repeating an order: mapping what was
+  saved onto the form's fields, and deciding whether the price was readjusted. It
+  lives in `lib/` rather than in the component so it can be tested in the `node`
+  environment the repo already has — it is the only part of `010` with an
+  automated net. Its test includes a guard that it never reaches `components/`,
+  with a positive control.
+
 - `backend/internal/pedidos/` — orders. Two things worth knowing before
   touching it: the order **copies** profile data rather than referencing it, so
   someone moving house does not rewrite where a courier went six months ago;
