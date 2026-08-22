@@ -88,6 +88,10 @@ func unPedido(usuarioID, clave string) Nuevo {
 			Calle:   "Rivera",
 			Esquina: "Comercio",
 			Numero:  texto("4567"),
+			// **El punto que decide zona y precio desde 011.** El del retiro
+			// quedo arriba y ya no cobra: se guarda para la ruta, y puede
+			// faltar. Este no.
+			Punto: &Punto{Lat: -34.872, Lng: -56.16},
 		},
 		PaqueteTamano:        TamanoChico,
 		Cantidad:             1,
@@ -148,8 +152,13 @@ func TestCrearYReleerConservaTodo(t *testing.T) {
 	if leido.Codigo != creado.Codigo {
 		t.Errorf("el codigo cambio entre crear y releer: %q vs %q", creado.Codigo, leido.Codigo)
 	}
-	if leido.Entrega.Punto != nil {
-		t.Error("la entrega volvio con punto, y no debe tener")
+	// Invertido en 011: la entrega es la que SIEMPRE tiene punto, porque es la
+	// que cobra. Antes la afirmacion era la contraria.
+	if leido.Entrega.Punto == nil {
+		t.Fatal("la entrega volvio sin punto, y es el que decide el precio")
+	}
+	if dif := leido.Entrega.Punto.Lng - (-56.16); dif > 1e-6 || dif < -1e-6 {
+		t.Errorf("longitud de la entrega: quiero -56.16, dio %v", leido.Entrega.Punto.Lng)
 	}
 	if leido.Precio != 200 || leido.ZonaID != 1 {
 		t.Errorf("cobro: quiero 200/zona 1, dio %d/zona %d", leido.Precio, leido.ZonaID)

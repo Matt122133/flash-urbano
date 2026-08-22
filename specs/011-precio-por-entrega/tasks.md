@@ -26,9 +26,9 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 
 ## Phase 1: Setup
 
-- [ ] T001 Leer `web/AGENTS.md` y la guía de la versión de Next bajo `node_modules/next/dist/docs/` antes de tocar nada en `web/` — es obligación del repo
-- [ ] T002 Leer [research.md](research.md) entero antes de la primera edición. **D1, D2 y D6 no son contexto opcional**: D6 en particular describe una guarda de `007` que se muda, y tocarla sin haberla leído es la forma más probable de romper este feature
-- [ ] T003 Confirmar que `.specify/memory/constitution.md` está en **4.0.0** y que el Principio V dice "delivery zone". Si dice "pickup", la enmienda se perdió en un merge y **hay que frenar** — este plan sería una violación directa
+- [x] T001 Leer `web/AGENTS.md` y la guía de la versión de Next bajo `node_modules/next/dist/docs/` antes de tocar nada en `web/` — es obligación del repo
+- [x] T002 Leer [research.md](research.md) entero antes de la primera edición. **D1, D2 y D6 no son contexto opcional**: D6 en particular describe una guarda de `007` que se muda, y tocarla sin haberla leído es la forma más probable de romper este feature
+- [x] T003 Confirmar que `.specify/memory/constitution.md` está en **4.0.0** y que el Principio V dice "delivery zone". Si dice "pickup", la enmienda se perdió en un merge y **hay que frenar** — este plan sería una violación directa
 
 ---
 
@@ -36,12 +36,12 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 
 **Bloquean todo lo demás**: sin la columna y sin los modos, ninguna historia se puede terminar.
 
-- [ ] T004 Vaciar la tabla de pedidos de la base local antes de migrar: `docker exec flash-pg-dev psql -U postgres -d flash_dev -c "TRUNCATE pedidos;"`. **No es limpieza, es parte del procedimiento** (research D5): la columna nueva entra `NOT NULL` sin default y las filas viejas tienen precios calculados con la regla vieja
-- [ ] T005 Crear `backend/migrations/0004_precio_por_entrega.sql`: `ADD COLUMN entrega_punto geography(Point,4326) NOT NULL`, `ALTER COLUMN retiro_punto DROP NOT NULL`, y **el comentario que corrige** al de `0003` —que argumenta "sin punto no hay zona, sin zona no hay precio" sobre la columna equivocada—. **`0003` no se edita**: es una migración aplicada, y reescribirla es reescribir historia que otra base ya ejecutó
-- [ ] T006 Comprobar que la migración corre limpia y que `\d pedidos` muestra `entrega_punto` obligatoria y `retiro_punto` nullable
-- [ ] T007 [P] Mudar la guarda de `backend/internal/pedidos/handlers.go:209` del punto de retiro al de entrega, con el mensaje nuevo (*falta el punto de entrega*). **La guarda del retiro se borra, no se afloja**: con FR-015 un retiro sin punto es válido, y una guarda que rechaza lo válido es un defecto (research D4)
-- [ ] T008 [P] Mudar la misma guarda de `backend/internal/pedidos/pedido.go:212`, conservando su motivo textual —evitar un `NOT NULL violation` con un mensaje incomprensible—, que ahora aplica a `entrega_punto`
-- [ ] T009 Cubrir en `backend/internal/pedidos/handlers_test.go` los tres casos del [contrato](contracts/formulario-y-pedido.md) §2: con los dos puntos (creado), **sin el de retiro (creado — es el caso de FR-015 y no es un error)**, y sin el de entrega (400). El caso del medio es el que demuestra que la guarda vieja se fue de verdad
+- [x] T004 Vaciar la tabla de pedidos de la base local antes de migrar: `docker exec flash-pg-dev psql -U postgres -d flash_dev -c "TRUNCATE pedidos;"`. **No es limpieza, es parte del procedimiento** (research D5): la columna nueva entra `NOT NULL` sin default y las filas viejas tienen precios calculados con la regla vieja
+- [x] T005 Crear `backend/migrations/0004_precio_por_entrega.sql`: `ADD COLUMN entrega_punto geography(Point,4326) NOT NULL`, `ALTER COLUMN retiro_punto DROP NOT NULL`, y **el comentario que corrige** al de `0003` —que argumenta "sin punto no hay zona, sin zona no hay precio" sobre la columna equivocada—. **`0003` no se edita**: es una migración aplicada, y reescribirla es reescribir historia que otra base ya ejecutó
+- [x] T006 Comprobar que la migración corre limpia y que `\d pedidos` muestra `entrega_punto` obligatoria y `retiro_punto` nullable
+- [x] T007 [P] Mudar la guarda de `backend/internal/pedidos/handlers.go:209` del punto de retiro al de entrega, con el mensaje nuevo (*falta el punto de entrega*). **La guarda del retiro se borra, no se afloja**: con FR-015 un retiro sin punto es válido, y una guarda que rechaza lo válido es un defecto (research D4)
+- [x] T008 [P] Mudar la misma guarda de `backend/internal/pedidos/pedido.go:212`, conservando su motivo textual —evitar un `NOT NULL violation` con un mensaje incomprensible—, que ahora aplica a `entrega_punto`
+- [x] T009 Cubrir en `backend/internal/pedidos/handlers_test.go` los tres casos del [contrato](contracts/formulario-y-pedido.md) §2: con los dos puntos (creado), **sin el de retiro (creado — es el caso de FR-015 y no es un error)**, y sin el de entrega (400). El caso del medio es el que demuestra que la guarda vieja se fue de verdad
 - [ ] T010 Renombrar los modos de `web/components/bloque-direccion.tsx`: `retiro`/`entrega` pasan a `exigente`/`oportunista` (research D1), y actualizar el comentario de cabecera que hoy explica la diferencia entre los modos viejos. **Un modo llamado `retiro` que usa la entrega es una mentira que dura hasta que alguien la lee mal**
 - [ ] T010a **Quitar el valor por defecto de `modo`** (`bloque-direccion.tsx:73` dice `modo = "retiro"`) y volverlo obligatorio. Lo encontró el analyze del 2026-08-22: hoy **un solo** sitio pasa el modo explícito, y los otros dos —la sección de retiro y *Mi cuenta*— viven del default. Renombrar sin esto **le cambia el comportamiento a Mi cuenta sin que nadie lo pida**, y en silencio. Con `modo` obligatorio, el compilador enumera los tres sitios y no queda ninguno decidido por descarte
 - [ ] T011 Agregar al modo `oportunista` lo único que no existía: capturar el punto **cuando el cruce resuelve solo**, y **no ofrecer candidatos cuando hay más de uno** (research D2, FR-014). Sin preguntar nunca y sin bloquear nunca
