@@ -34,9 +34,14 @@
 **Estado**: 16/16 en verde antes y después del barrido de `/speckit-clarify`
 (2026-08-22), sin ningún `[NEEDS CLARIFICATION]`. Seis clarificaciones aceptadas
 en total: tres en la sesión de `/speckit-specify` (2026-08-21) y tres más en el
-barrido. **Las tres del barrido se resolvieron contra la recomendación**, y las
+barrido. **Ninguna de las tres del barrido salió como se recomendaba**, y las
 tres quedaron escritas con su motivo y su consecuencia — que es para lo que
-sirve el registro.
+sirve el registro. La del aviso de precio se resolvió **dos veces**: primero no
+avisar, y después avisar sin mostrar el monto viejo, que es una forma que no
+estaba entre las opciones ofrecidas y es mejor que la que se había recomendado
+(ver el porqué en el spec). En el spec queda sólo la respuesta final; el hecho
+de que hubo una corrección queda dicho ahí y acá, y no como dos requisitos que
+se contradicen.
 
 ### Sobre el primer ítem, dicho de frente
 

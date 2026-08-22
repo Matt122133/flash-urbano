@@ -147,17 +147,24 @@ entero y ya lo sirve autenticado. Lo que falta es la pantalla.
   Lo que queda sin prueba automática es **la pantalla**, no todo el feature.
 
 - Q: Cuando el precio de hoy difiere del que se pagó, ¿la pantalla lo dice? → A:
-  **No. Muestra sólo el precio de hoy**, igual que en cualquier pedido nuevo.
-  Decisión del dueño del proyecto el 2026-08-22, contra la recomendación de
-  avisar la diferencia. Se descartó también avisar sólo cuando sube: una
-  pantalla que elige cuándo hablar según si la noticia es mala se nota.
+  **Sí, avisa que hubo un reajuste — y no muestra el precio viejo.** Un aviso
+  sobrio al lado del precio vigente, sólo cuando hay diferencia, sin el número
+  anterior y sin comparar.
 
-  Consecuencia asumida: quien repite un envío que le salía $X puede confirmar
-  $Y sin registrar el cambio. **El dato no se esconde** —el precio viejo sigue a
-  la vista en la tarjeta del historial, a un toque de distancia— pero la
-  pantalla no lo pone al lado ni lo compara. Gana simplicidad: repetir queda
-  siendo el mismo formulario de siempre, sin una rama de copy que sólo aparece
-  en un caso poco frecuente.
+  Decisión del dueño del proyecto el 2026-08-22, corrigiendo su propia respuesta
+  anterior en la misma sesión —primero se había resuelto no avisar nada— y
+  llegando a una forma que no estaba entre las opciones que se le ofrecieron:
+  **la que se propuso ponía el monto viejo al lado del vivo** (*"la vez pasada
+  pagaste $X"*), y esta no. Es mejor, y por un motivo concreto: dos precios
+  juntos en la misma pantalla es la situación exacta en la que alguien confirma
+  mirando el número equivocado. El aviso resuelve lo que importa —que nadie
+  confirme un precio distinto sin registrarlo— sin crear ese riesgo.
+
+  Se descartó avisar sólo cuando el precio sube: una pantalla que elige cuándo
+  hablar según si la noticia es mala se nota. El aviso es el mismo suba o baje.
+
+  El monto anterior no desaparece: sigue a la vista en la tarjeta del historial
+  (FR-005), a un toque de distancia, que es donde corresponde.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -233,6 +240,12 @@ pedido **nuevo y distinto**, con código distinto, con los mismos datos.
    tocar nada, **Then** el precio que ve es el que corresponde hoy al punto de
    retiro guardado, y **en ningún lugar** se presenta el precio del pedido viejo
    como el precio de este.
+2a. **Given** un pedido cuyo precio hoy es distinto al que se pagó, **When** la
+   persona lo repite, **Then** ve un aviso de que hubo un reajuste junto al
+   precio vigente, **sin** el monto anterior y **sin** los dos precios juntos en
+   pantalla. El aviso es el mismo si el precio subió que si bajó.
+2b. **Given** un pedido cuyo precio hoy es el mismo que se pagó, **When** la
+   persona lo repite, **Then** no aparece ningún aviso de reajuste.
 3. **Given** ese formulario precargado, **When** completa fecha y hora y
    confirma, **Then** se crea un pedido **nuevo**, con **código propio**, y el
    pedido original queda intacto en el historial.
@@ -269,7 +282,11 @@ pedido **nuevo y distinto**, con código distinto, con los mismos datos.
 - **Un pedido con el estado movido por la app Android** —`aceptacion`,
   `entrega`—: el historial lo muestra con su nombre en castellano y sin prometer
   nada que nadie esté haciendo. Ver FR-006.
-- **Precio distinto al repetir**: es lo esperado, no un error. Manda el de hoy.
+- **Precio distinto al repetir**: es lo esperado, no un error. Manda el de hoy,
+  y la pantalla avisa que hubo un reajuste sin decir cuánto era antes
+  (FR-015a/b/c). Puede pasar por dos vías distintas y el aviso es el mismo:
+  cambiaron los precios de las zonas, o se corrigió un límite y el punto de
+  retiro quedó en otra zona.
 - **Repetir desde un teléfono angosto**: la tarjeta se lee entera sin
   desplazamiento horizontal y el botón de repetir se toca con el pulgar.
 
@@ -335,10 +352,15 @@ pedido **nuevo y distinto**, con código distinto, con los mismos datos.
   **en el momento de repetir**, con el mismo cálculo que usa cualquier pedido
   nuevo. El precio congelado del pedido original MUST NOT presentarse como el
   precio del nuevo.
-- **FR-015a**: La pantalla MUST NOT comparar el precio de hoy con el del pedido
-  original, ni avisar que cambió. Muestra el precio vigente y nada más, como en
-  cualquier pedido. El precio original queda visible en la tarjeta del
-  historial (FR-005), que es donde corresponde.
+- **FR-015a**: Si el precio que corresponde hoy difiere del que se pagó en el
+  pedido original, la pantalla MUST avisar que hubo un reajuste, junto al precio
+  vigente.
+- **FR-015b**: Ese aviso MUST NOT incluir el monto anterior, y la pantalla MUST
+  NOT mostrar los dos precios juntos. Dos números de plata en la misma pantalla
+  es la situación en que alguien confirma mirando el equivocado. El monto
+  anterior queda en la tarjeta del historial (FR-005), que es donde corresponde.
+- **FR-015c**: El aviso MUST ser el mismo suba o baje el precio, y MUST NOT
+  aparecer cuando el precio no cambió.
 - **FR-016**: Antes de dejar cobrar, el punto de retiro guardado MUST
   revalidarse. Si ya no resuelve zona, MUST NOT haber precio ni pedido: la
   pantalla lo dice y encamina al contacto directo. Nunca se adivina una zona ni
@@ -409,7 +431,8 @@ pedido **nuevo y distinto**, con código distinto, con los mismos datos.
 - **SC-002**: Repetir un envío pasa de **más de una docena de campos** a **dos
   decisiones**: cuándo se retira, y confirmar.
 - **SC-003**: **Cero** pedidos repetidos cobrados a un precio que no sea el
-  vigente al momento de confirmarlos.
+  vigente al momento de confirmarlos, y **cero** repeticiones en que el precio
+  haya cambiado sin que la pantalla lo avise.
 - **SC-004**: **Cero** casos en que una persona vea un pedido que no es suyo.
 - **SC-005**: El historial se lee y se opera entero en la pantalla de un
   teléfono, sin desplazamiento horizontal ni zoom.
