@@ -54,9 +54,11 @@ Con **una** cuenta alcanza para casi todo; H3 necesita dos.
 ## El `verify:` del plan
 
 ```bash
-cd web && npm run lint && npm test && npm run build
-cd backend && go vet ./... && go test ./...
+(cd web && npm run lint && npm test && npm run build) && (cd backend && go vet ./... && go test ./...)
 ```
+
+Los paréntesis no son adorno: sin ellos el `cd` se acumula y correrlo dos veces
+en la misma terminal falla por una razón que no tiene nada que ver con el código.
 
 **Las dos mitades**, porque este feature toca las dos superficies. Y ojo con la
 trampa que `backend/README.md` documenta: **las pruebas que necesitan Postgres se
