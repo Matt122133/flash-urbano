@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # Los dos modos del bloque de direccion, que dejan de nombrarse por la
   # direccion que ocupan y pasan a nombrarse por lo que hacen. Ver research D1.
@@ -31,7 +31,7 @@ covers:
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: (cd web && npm run lint && npm test && npm run build) && (cd backend && go vet ./... && go test ./...)
-analyzed:
+analyzed: 2026-08-22
 ---
 
 # Implementation Plan: El precio sale de la entrega, no del retiro
