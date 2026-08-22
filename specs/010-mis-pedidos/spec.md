@@ -103,6 +103,62 @@ entero y ya lo sirve autenticado. Lo que falta es la pantalla.
   donde la persona mira para saber quién está adentro, y `006` decidió eso
   mismo con el mismo argumento.
 
+### Session 2026-08-22
+
+- Q: Al repetir, ¿el nombre y el teléfono de **quien envía** salen del perfil
+  actual o de la copia congelada del pedido viejo? → A: **Del pedido viejo.**
+  Decisión del dueño del proyecto, contra la recomendación de usar el perfil, y
+  con un argumento mejor que el que se le opuso: **si el botón dice repetir,
+  repite** — ningún dato se cambia solo por detrás. El pedido se abre cargado
+  exactamente como fue, y **si la persona quiere cambiar un teléfono de contacto
+  o lo que sea, lo cambia ahí y después confirma**.
+
+  Esto convierte una objeción en un requisito: lo que sostiene la decisión no es
+  que la copia congelada sea mejor dato, sino que **todo lo precargado es
+  editable antes de confirmar** (FR-013a). Sin esa segunda mitad, la decisión
+  sería resucitar en silencio un teléfono viejo; con ella, es mostrar el pedido
+  tal cual fue y dejar que la persona decida qué cambia.
+
+  Efecto lateral que hay que mirar al planificar: sobre `/pedido` conviven dos
+  precargas —la del perfil, de `007`, y la de este feature— y **la de repetir
+  tiene que ganar entera**, no campo por campo. Dos fuentes mezclándose sobre el
+  mismo formulario es exactamente el defecto que `007` ya pagó una vez.
+
+- Q: Este feature es interfaz de punta a punta y el repo hoy no puede probar
+  interfaz —`web/vitest.config.ts` corre en entorno `node` e incluye sólo
+  `lib/**/*.test.ts`—. ¿Se monta un entorno con DOM, se prueba la lógica en
+  `lib/` y la pantalla a mano, o todo a mano? → A: **Todo a mano, documentado.**
+  Decisión del dueño del proyecto el 2026-08-22. No se agrega infraestructura de
+  pruebas en este feature.
+
+  **La consecuencia se escribe acá y no se descubre después**: el `verify:` de
+  `010` va a estar en verde **sin haber ejercitado una sola línea de la
+  pantalla**. Verde va a significar "no rompí lo que ya andaba" y nada más. Es
+  la misma clase de agujero que la fila del 2026-08-14 del tracker ya tiene
+  abierta —una corrección de `007` sostenida sólo por una prueba manual— y este
+  feature la agranda en vez de cerrarla. Se acepta a sabiendas; lo que no se
+  acepta es que quede implícito, y por eso FR-025 obliga a que el plan lo diga y
+  a que exista un quickstart con pasos ejecutables de verdad.
+
+  **Lo que esta decisión no cambia**: si al construir aparece lógica pura
+  —mapear un pedido guardado a los campos del formulario, revalidar el punto,
+  decidir el precio— y esa lógica termina en `web/lib/`, se prueba ahí, porque
+  es la convención que el repo ya tiene y que `007` siguió con `lib/pedido.ts`.
+  Lo que queda sin prueba automática es **la pantalla**, no todo el feature.
+
+- Q: Cuando el precio de hoy difiere del que se pagó, ¿la pantalla lo dice? → A:
+  **No. Muestra sólo el precio de hoy**, igual que en cualquier pedido nuevo.
+  Decisión del dueño del proyecto el 2026-08-22, contra la recomendación de
+  avisar la diferencia. Se descartó también avisar sólo cuando sube: una
+  pantalla que elige cuándo hablar según si la noticia es mala se nota.
+
+  Consecuencia asumida: quien repite un envío que le salía $X puede confirmar
+  $Y sin registrar el cambio. **El dato no se esconde** —el precio viejo sigue a
+  la vista en la tarjeta del historial, a un toque de distancia— pero la
+  pantalla no lo pone al lado ni lo compara. Gana simplicidad: repetir queda
+  siendo el mismo formulario de siempre, sin una rama de copy que sólo aparece
+  en un caso poco frecuente.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ver mis pedidos (Priority: P1)
@@ -167,9 +223,12 @@ pedido **nuevo y distinto**, con código distinto, con los mismos datos.
 **Acceptance Scenarios**:
 
 1. **Given** una persona viendo un pedido en su historial, **When** toca
-   *Repetir*, **Then** llega al formulario de pedido con retiro, entrega,
-   paquete, cantidad y destinatario ya cargados, y con la fecha y la hora de
-   retiro **vacías**.
+   *Repetir*, **Then** llega al formulario de pedido con remitente, retiro,
+   entrega, paquete, cantidad y destinatario ya cargados **tal como se
+   guardaron**, y con la fecha y la hora de retiro **vacías**.
+1a. **Given** ese formulario precargado, **When** la persona cambia cualquier
+   dato —por ejemplo el teléfono de contacto— y confirma, **Then** el pedido se
+   crea con lo que quedó en pantalla, no con lo que decía el pedido original.
 2. **Given** ese formulario precargado, **When** la persona lo mira antes de
    tocar nada, **Then** el precio que ve es el que corresponde hoy al punto de
    retiro guardado, y **en ningún lugar** se presenta el precio del pedido viejo
@@ -246,20 +305,40 @@ pedido **nuevo y distinto**, con código distinto, con los mismos datos.
   ofrecerle crear el primero.
 - **FR-011**: El historial MUST leerse entero en un teléfono, sin desplazamiento
   horizontal (Principio IV).
+- **FR-011a**: Desplegar y plegar un pedido, y repetirlo, MUST poder hacerse con
+  teclado, y el estado desplegado/plegado MUST ser perceptible para un lector de
+  pantalla. No es un extra: `003` reemplazó los campos de dirección por un
+  combobox accesible hecho a mano justamente para no dejar afuera a quien ya
+  podía pedir, y una tarjeta que sólo se abre con el dedo repetiría ese error en
+  la pantalla nueva.
 
 **Repetir (US2)**
 
 - **FR-012**: Cada pedido del historial MUST ofrecer repetirlo.
 - **FR-013**: Repetir MUST llevar al formulario de pedido con estos datos ya
-  cargados: dirección de retiro —calle, esquina, número, apartamento,
+  cargados, **tal como se guardaron en el pedido original**: nombre y teléfono
+  de quien envía, dirección de retiro —calle, esquina, número, apartamento,
   cooperativa— **y su punto**, dirección de entrega, tamaño de paquete,
-  cantidad, y nombre y teléfono de quien recibe.
+  cantidad, y nombre y teléfono de quien recibe. Es todo lo que el pedido tiene
+  salvo el cuándo (FR-014) y el precio (FR-015).
+- **FR-013a**: Todo lo precargado MUST ser editable antes de confirmar, con el
+  mismo comportamiento y la misma validación que en un pedido nuevo. Es la
+  condición que hace aceptable a FR-013: se muestra el pedido tal cual fue, y
+  quien envía decide qué cambia.
+- **FR-013b**: Cuando se repite un pedido, la precarga del perfil (`007`) MUST
+  NOT mezclarse con la del pedido repetido. Gana la del pedido, **entera**, no
+  campo por campo: dos fuentes escribiendo sobre el mismo formulario es el
+  defecto que `007` ya pagó una vez.
 - **FR-014**: Repetir MUST dejar **vacías** la fecha y la hora de retiro, y MUST
   NOT proponer una por defecto.
 - **FR-015**: El precio del pedido repetido MUST resolverse del punto de retiro
   **en el momento de repetir**, con el mismo cálculo que usa cualquier pedido
   nuevo. El precio congelado del pedido original MUST NOT presentarse como el
   precio del nuevo.
+- **FR-015a**: La pantalla MUST NOT comparar el precio de hoy con el del pedido
+  original, ni avisar que cambió. Muestra el precio vigente y nada más, como en
+  cualquier pedido. El precio original queda visible en la tarjeta del
+  historial (FR-005), que es donde corresponde.
 - **FR-016**: Antes de dejar cobrar, el punto de retiro guardado MUST
   revalidarse. Si ya no resuelve zona, MUST NOT haber precio ni pedido: la
   pantalla lo dice y encamina al contacto directo. Nunca se adivina una zona ni
@@ -295,6 +374,17 @@ pedido **nuevo y distinto**, con código distinto, con los mismos datos.
   misma obligación que FR-021a de `007` le puso al precio no verificado: un
   riesgo asumido que vive sólo dentro de un spec cerrado es un riesgo que nadie
   vuelve a mirar.
+- **FR-025**: La verificación de este feature es **manual y documentada**. En
+  consecuencia: el plan MUST decir explícitamente qué **no** cubre su `verify:`,
+  y MUST existir un quickstart con pasos ejecutables —qué tocar, en qué orden,
+  qué tiene que pasar— para cada escenario de aceptación de US1 y US2, incluidos
+  los caminos feos (sin pedidos, servicio caído, punto fuera de zona, sesión
+  vencida). Un quickstart que diga "revisar que ande" no cumple este requisito.
+- **FR-026**: Al cerrar, el agujero de verificación MUST sumarse a la fila
+  abierta del 2026-08-14 en `docs/tech-debt-tracker.md` —o abrir la suya—
+  diciendo **qué pantallas quedaron sin prueba automática**. La fila existente
+  habla de una corrección puntual de `007`; después de `010` el hueco es una
+  sección entera del producto, y la deuda tiene que reflejar ese tamaño.
 
 ### Key Entities
 

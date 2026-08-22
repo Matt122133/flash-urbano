@@ -31,10 +31,12 @@
 
 ## Notes
 
-**Estado**: 16/16 en verde, sin ningún `[NEEDS CLARIFICATION]`. Las tres
-preguntas que había se resolvieron **antes** de escribir el spec, con el dueño
-del proyecto, y están en *Clarifications* con la alternativa descartada y su
-motivo.
+**Estado**: 16/16 en verde antes y después del barrido de `/speckit-clarify`
+(2026-08-22), sin ningún `[NEEDS CLARIFICATION]`. Seis clarificaciones aceptadas
+en total: tres en la sesión de `/speckit-specify` (2026-08-21) y tres más en el
+barrido. **Las tres del barrido se resolvieron contra la recomendación**, y las
+tres quedaron escritas con su motivo y su consecuencia — que es para lo que
+sirve el registro.
 
 ### Sobre el primer ítem, dicho de frente
 
@@ -48,24 +50,34 @@ datos"— escondería justo lo que hace que esto sea una pantalla y no medio
 backend. La fuga está acotada a esos anclajes; ninguna FR prescribe cómo se
 construye la pantalla.
 
-### Lo que el plan tiene que decidir, y no puede empujar hacia adelante
+### Lo que el barrido resolvió, y lo que eso deja abierto
 
-- **Este feature es casi todo interfaz, y hoy este repo no puede probar
-  interfaz.** `web/vitest.config.ts` corre en entorno `node` e incluye
-  únicamente `lib/**/*.test.ts`: los componentes no están ni en el barrido, no
-  hay DOM, y no hay nada que renderice React. Ya hay una fila abierta del
-  2026-08-14 en el tracker por exactamente esto —una corrección de `007` que
-  quedó sostenida sólo por una prueba manual—. Con `010`, **esa fila deja de ser
-  una anécdota**: US1 y US2 son pantalla de punta a punta, y planificarlas sobre
-  el entorno actual significa que el `verify:` puede estar en verde sin haber
-  ejercitado una sola línea de lo que se construyó. El plan tiene que elegir
-  explícitamente entre montar un entorno con DOM y aceptar verificación manual
-  documentada; **elegir por omisión es la única opción inaceptable**.
+- **La verificación es manual y documentada.** Se preguntó explícitamente y se
+  eligió no montar entorno con DOM ni extraer lógica a `lib/` sólo para poder
+  probarla. Ya no es una decisión pendiente del plan — es una decisión tomada,
+  con su costo escrito en el spec y dos requisitos colgando de ella: **FR-025**
+  (el plan dice qué **no** cubre su `verify:`, y hay un quickstart con pasos
+  ejecutables para cada escenario, incluidos los caminos feos) y **FR-026** (el
+  agujero se anota en el tracker con el tamaño que tiene después de `010`).
+  **Si el plan se cierra sin esas dos, el feature queda sin ninguna red**: ni
+  automática ni escrita.
 - **SC-003 y SC-004 son guardas negativas** —cero pedidos al precio viejo, cero
-  pedidos ajenos a la vista—. Una prueba que afirma que algo no pasa necesita un
-  caso que demuestre que sabría detectarlo. Vale acá lo que ya vale para
-  `cotizar-abierto.test.ts`, que tiene su control positivo justamente porque sin
-  él borrar el envío entero lo dejaba en verde.
+  pedidos ajenos a la vista— y con verificación manual **no hay control positivo
+  posible**: no existe una prueba a la que romperle la implementación para verla
+  en rojo. Lo que queda en su lugar son pasos de quickstart que **produzcan** el
+  caso malo a propósito (mover el precio de una zona y repetir; abrir el
+  historial con dos cuentas distintas), no pasos que sólo miren el caso bueno.
+  Un quickstart que sólo recorre el camino feliz deja estas dos SC sin nada
+  detrás.
+- **El remitente se copia del pedido viejo** (FR-013), no del perfil. Lo que
+  hace aceptable esa elección es **FR-013a**: todo lo precargado es editable
+  antes de confirmar. Las dos viajan juntas; separarlas convierte la decisión en
+  resucitar un teléfono viejo en silencio.
+- **FR-013b es el requisito que más fácil se rompe sin querer**: sobre `/pedido`
+  van a convivir dos precargas —la del perfil y la del pedido repetido— y la de
+  repetir tiene que ganar **entera**. `007` ya pagó una vez el defecto de dos
+  cosas escribiendo sobre el mismo formulario, y ahí ni siquiera eran dos
+  fuentes: era la misma corriendo dos veces.
 - **FR-017 es el requisito con más riesgo escondido.** Rehidratar una dirección
   guardada contra el índice de calles no es copiar texto: hay ~50 grupos de
   calles homónimas en Montevideo, y `web/lib/direcciones.ts` ya carga con esa
