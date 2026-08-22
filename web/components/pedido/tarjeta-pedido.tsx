@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { DireccionGuardada, PedidoGuardado } from "@/lib/api";
 
 /**
@@ -74,9 +75,26 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
             valor={`${pedido.destinatarioNombre} · ${pedido.destinatarioTelefono}`}
           />
         </dl>
-        <p className="mt-4 text-xs text-slate-400">
-          Cargado el {formatearInstante(pedido.creadoEn)}
-        </p>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-400">
+            Cargado el {formatearInstante(pedido.creadoEn)}
+          </p>
+          {/* Va ADENTRO del detalle y no en la cabecera, a proposito: repetir
+              tiene consecuencia de plata, y que exija haber abierto y mirado el
+              pedido es una friccion a favor.
+
+              Viaja el `id` y NUNCA el codigo `FU-####`: el codigo es para la
+              persona, el id para la maquina. Un codigo en la URL invitaria a
+              tipear uno ajeno a mano — que no funcionaria, porque el pedido se
+              busca en la lista propia, pero es una invitacion que no hace falta
+              hacer. Ver contracts/pantallas.md §1. */}
+          <Link
+            href={`/pedido?repetir=${pedido.id}`}
+            className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+          >
+            Repetir
+          </Link>
+        </div>
       </div>
     </details>
   );

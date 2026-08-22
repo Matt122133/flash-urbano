@@ -16,8 +16,13 @@
 // La guarda tiene un control positivo que afirma que ESTE archivo si alcanza
 // `lib/api.ts`. Sin el, borrar el envio entero dejaria la prueba en verde.
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import {
+  ESTADO_DIRECCION_VACIO,
+  type EstadoDireccion,
+} from "@/components/bloque-direccion";
 import { DialogoIngreso } from "@/components/pedido/dialogo-ingreso";
 import {
   PedidoForm,
@@ -26,8 +31,14 @@ import {
 } from "@/components/pedido-form";
 import { useSesion } from "@/components/sesion/proveedor-sesion";
 import { rehidratarRetiro } from "@/components/sesion/rehidratar-retiro";
-import { ErrorApi, crearPedido } from "@/lib/api";
+import { ErrorApi, crearPedido, misPedidos, type PedidoGuardado } from "@/lib/api";
 import { armarCuerpoPedido, claveDeIntento, type DatosDelPedido } from "@/lib/pedido";
+import {
+  camposDelPedido,
+  huboReajuste,
+  precioDeHoy,
+  retiroDelPedido,
+} from "@/lib/repetir";
 import { credencial } from "@/lib/sesion";
 
 /**
@@ -41,10 +52,32 @@ type Precarga = {
   listaLaPrecarga: boolean;
   inicial?: Partial<FormState>;
   avisoDelPunto: string | null;
+  /**
+   * El precio de hoy no es el que se pago en el pedido que se esta repitiendo
+   * (FR-015a). **Nunca dice cuanto era antes** (FR-015b): dos numeros de plata
+   * en la misma pantalla es la situacion en que alguien confirma mirando el
+   * equivocado. El monto viejo queda en la tarjeta del historial.
+   */
+  avisoDeReajuste: string | null;
+  /** Por que no se pudo repetir: id que no existe, sin sesion, servicio caido. */
+  avisoDeRepeticion: string | null;
 };
 
 /** La respuesta mientras no se sepa. Constante: no hay nada que decidir. */
-const ESPERANDO: Precarga = { listaLaPrecarga: false, avisoDelPunto: null };
+const ESPERANDO: Precarga = {
+  listaLaPrecarga: false,
+  avisoDelPunto: null,
+  avisoDeReajuste: null,
+  avisoDeRepeticion: null,
+};
+
+/** Lo que se le entrega al formulario cuando no hay nada que precargar. */
+const SIN_PRECARGA: Precarga = {
+  listaLaPrecarga: true,
+  avisoDelPunto: null,
+  avisoDeReajuste: null,
+  avisoDeRepeticion: null,
+};
 
 /** Traduce lo que junto el formulario a lo que el mapeo puro espera. */
 function aDatos(form: FormState): DatosDelPedido {
@@ -191,7 +224,13 @@ export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
     [pedirIngreso],
   );
 
-  const { inicial, listaLaPrecarga, avisoDelPunto } = usePrecarga();
+  const {
+    inicial,
+    listaLaPrecarga,
+    avisoDelPunto,
+    avisoDeReajuste,
+    avisoDeRepeticion,
+  } = usePrecarga();
 
   // El formulario se monta recien cuando la precarga se resolvio.
   //
@@ -219,11 +258,28 @@ export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
           instruccion de escribir la calle invitarian a hacer algo que se acaba
           de hacer. */}
       {!creado && encabezado}
+      {/* El orden no es casual: uno explica por que se movio algo, el otro que
+          salio de eso. Los tres pueden convivir, y esta bien que convivan — son
+          hechos distintos y la persona tiene que enterarse de todos. */}
+      {avisoDeRepeticion && (
+        // No se pudo repetir. El formulario queda vacio y utilizable igual: quien
+        // llego hasta aca queria mandar un paquete (contracts/pantallas.md §1).
+        <p className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {avisoDeRepeticion}
+        </p>
+      )}
       {avisoDelPunto && (
         // FR-022. No se cobra en silencio sobre un punto que ya no corresponde:
         // se recoloco en el cruce y se pide que lo revise.
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {avisoDelPunto}
+        </p>
+      )}
+      {avisoDeReajuste && (
+        // FR-015a. Sin el monto anterior y sin comparar: el precio de hoy lo
+        // muestra el formulario, una sola vez, mas abajo.
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {avisoDeReajuste}
         </p>
       )}
       <PedidoForm
@@ -272,6 +328,21 @@ function usePrecarga(): Precarga {
   const { usuario, cargando } = useSesion();
 
   /**
+   * Que pedido repetir, si se llego por el historial (`/pedido?repetir=<id>`).
+   *
+   * Viaja por la URL y no por memoria ni por almacenamiento, y las tres partes
+   * de esa decision importan (research D1): por memoria se pierde al recargar,
+   * y en `sessionStorage` quedaria escrito **el nombre y el telefono de quien
+   * recibe** —un tercero que no consintio nada— en el disco de un telefono que
+   * puede ser compartido, que es lo que FR-021 prohibe. Un uuid solo no dice
+   * nada de nadie, y no autoriza nada: el pedido se busca en la lista PROPIA.
+   *
+   * `useSearchParams` obliga a un limite de Suspense en la pantalla: sin el, el
+   * build estatico falla. Ver `app/pedido/page.tsx`.
+   */
+  const idARepetir = useSearchParams().get("repetir");
+
+  /**
    * La decision ENTERA, tomada una sola vez.
    *
    * Antes del 2026-08-14 solo la rama asincrona vivia en estado y los otros tres
@@ -301,56 +372,16 @@ function usePrecarga(): Precarga {
     // el lint prohibe llamar a setState de forma sincrona dentro de un efecto.
     // Aca aplica a los dos casos que se resuelven sin esperar a nadie.
     Promise.resolve()
-      .then(async (): Promise<Precarga> => {
-        // Sin sesion: el formulario arranca vacio, como siempre. Cotizar no pide
-        // nada. **Este es el caso que estaba roto**: se decide ahora y no se
-        // vuelve a tocar, aunque despues ingrese desde el dialogo.
-        if (!usuario) return { listaLaPrecarga: true, avisoDelPunto: null };
-
-        const base: Partial<FormState> = { name: nombre, phone: telefono };
-
-        // FR-025: un perfil sin direccion deja el formulario utilizable y vacio
-        // en esa parte, sin errores.
-        if (!retiro) {
-          return { listaLaPrecarga: true, inicial: base, avisoDelPunto: null };
-        }
-
-        try {
-          const r = await rehidratarRetiro(retiro);
-
-          // FR-022, y es la razon por la que `rehidratarRetiro` devuelve
-          // `puntoEnLaCuadra`. El perfil puede MOSTRAR un punto viejo; el pedido
-          // COBRA sobre el, asi que no puede usarlo sin revalidar.
-          //
-          // El caso no es hipotetico: el indice de calles se regenera, y un punto
-          // guardado en agosto puede quedar en otra cuadra —o en otra zona, o sea
-          // a otro precio— en octubre, sin que nadie toque nada.
-          if (r.ubicable && r.estado.esquina && !r.puntoEnLaCuadra) {
-            return {
-              listaLaPrecarga: true,
-              inicial: {
-                ...base,
-                retiro: {
-                  ...r.estado,
-                  direccion: { ...r.estado.direccion, punto: r.estado.esquina.punto },
-                },
-              },
-              avisoDelPunto:
-                "Revisá el punto de retiro en el mapa: lo recolocamos en el cruce porque el que tenías guardado ya no cae en esa cuadra.",
-            };
-          }
-
-          return {
-            listaLaPrecarga: true,
-            inicial: { ...base, retiro: r.estado },
-            avisoDelPunto: null,
-          };
-        } catch {
-          // Que no se pueda reconstruir la direccion no puede dejar sin pedir a
-          // quien igual la puede escribir a mano.
-          return { listaLaPrecarga: true, inicial: base, avisoDelPunto: null };
-        }
-      })
+      .then((): Promise<Precarga> =>
+        // **Las dos precargas son EXCLUYENTES** (FR-013b). Repetir gana entera:
+        // no se mezcla campo por campo con la del perfil. Mezclarlas seria
+        // reintroducir, con mas superficie, la forma del defecto que este mismo
+        // hook produjo el 2026-08-14 — dos cosas escribiendo sobre el mismo
+        // formulario.
+        idARepetir
+          ? desdeUnPedido(idARepetir, Boolean(usuario))
+          : desdeElPerfil(usuario ? { nombre, telefono, retiro } : null),
+      )
       .then((p) => {
         if (vigente) setPrecarga(p);
       });
@@ -358,8 +389,176 @@ function usePrecarga(): Precarga {
     return () => {
       vigente = false;
     };
-  }, [cargando, usuario, retiro, nombre, telefono]);
+  }, [cargando, usuario, retiro, nombre, telefono, idARepetir]);
 
   // Sin ramas derivadas y sin mirar la sesion: lo que se decidio, se devuelve.
   return precarga ?? ESPERANDO;
+}
+
+const AVISO_PUNTO_RECOLOCADO =
+  "Revisá el punto de retiro en el mapa: lo recolocamos en el cruce porque el que tenías guardado ya no cae en esa cuadra.";
+
+/**
+ * El aviso de FR-015a, y lo que NO dice es la mitad del requisito.
+ *
+ * No lleva el monto anterior (FR-015b) ni distingue si subio o bajo (FR-015c).
+ * La primera version propuesta decia "la vez pasada pagaste $X" y se descarto:
+ * dos precios juntos en la misma pantalla es la situacion exacta en la que
+ * alguien confirma mirando el numero equivocado.
+ */
+const AVISO_REAJUSTE =
+  "El precio de este envío se reajustó desde la última vez. Abajo está el que corresponde hoy.";
+
+/**
+ * El retiro guardado, revalidado antes de que se cobre sobre el (FR-016).
+ *
+ * Compartido por las dos precargas a proposito: es la regla que decide plata, y
+ * dos copias serian dos criterios que un dia se separan. `rehidratarRetiro`
+ * devuelve `puntoEnLaCuadra` justamente para esto — el perfil puede MOSTRAR un
+ * punto viejo, el pedido COBRA sobre el.
+ *
+ * El caso no es hipotetico: el indice de calles se regenera, y un punto guardado
+ * en agosto puede quedar en otra cuadra —o en otra zona, o sea a otro precio— en
+ * octubre sin que nadie toque nada.
+ *
+ * Cuando el punto recolocado queda fuera de toda zona, aca no hace falta hacer
+ * nada especial: el formulario ya no muestra precio y no deja confirmar, y
+ * encamina al contacto. Nunca la zona mas cercana (Principio V).
+ *
+ * El tipo del parametro se deriva de la funcion en vez de importarse: sirve
+ * tanto para el retiro del perfil como para el de un pedido, que son la misma
+ * forma declarada en dos lugares.
+ */
+async function retiroRevalidado(
+  guardado: Parameters<typeof rehidratarRetiro>[0],
+): Promise<{ estado: EstadoDireccion; aviso: string | null }> {
+  const r = await rehidratarRetiro(guardado);
+
+  if (r.ubicable && r.estado.esquina && !r.puntoEnLaCuadra) {
+    return {
+      estado: {
+        ...r.estado,
+        direccion: { ...r.estado.direccion, punto: r.estado.esquina.punto },
+      },
+      aviso: AVISO_PUNTO_RECOLOCADO,
+    };
+  }
+
+  return { estado: r.estado, aviso: null };
+}
+
+/** La precarga de siempre: lo que el perfil ya sabe (`007`, FR-023). */
+async function desdeElPerfil(
+  u: { nombre: string; telefono: string; retiro: Parameters<typeof rehidratarRetiro>[0] | null } | null,
+): Promise<Precarga> {
+  // Sin sesion: el formulario arranca vacio, como siempre. Cotizar no pide nada.
+  // **Este es el caso que estaba roto**: se decide ahora y no se vuelve a tocar,
+  // aunque despues ingrese desde el dialogo.
+  if (!u) return SIN_PRECARGA;
+
+  const base: Partial<FormState> = { name: u.nombre, phone: u.telefono };
+
+  // FR-025 de `007`: un perfil sin direccion deja el formulario utilizable y
+  // vacio en esa parte, sin errores.
+  if (!u.retiro) return { ...SIN_PRECARGA, inicial: base };
+
+  try {
+    const { estado, aviso } = await retiroRevalidado(u.retiro);
+    return { ...SIN_PRECARGA, inicial: { ...base, retiro: estado }, avisoDelPunto: aviso };
+  } catch {
+    // Que no se pueda reconstruir la direccion no puede dejar sin pedir a quien
+    // igual la puede escribir a mano.
+    return { ...SIN_PRECARGA, inicial: base };
+  }
+}
+
+/**
+ * La precarga de `010`: un pedido anterior, tal como se guardo.
+ *
+ * **Todo camino que falla termina en el mismo lugar: formulario vacio y
+ * utilizable, con un aviso que dice que paso.** Nunca en una pantalla a medio
+ * cargar ni bloqueada — quien llego hasta aca queria mandar un paquete, y
+ * tenerlo que escribir a mano es peor que repetirlo pero mucho mejor que nada.
+ */
+async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> {
+  if (!haySesion) {
+    return {
+      ...SIN_PRECARGA,
+      avisoDeRepeticion:
+        "Para repetir un pedido tenés que ingresar. Mientras tanto podés cargarlo a mano o ver el precio.",
+    };
+  }
+
+  let pedido: PedidoGuardado | undefined;
+  try {
+    // Se busca en la lista PROPIA, y ahi esta la autorizacion: el servicio la
+    // arma con la credencial y no acepta parametro que lo esquive, asi que un id
+    // ajeno simplemente no aparece (FR-007). No hay que escribir ninguna
+    // comprobacion de dueño aca, y no hay que escribirla nunca.
+    pedido = (await misPedidos(credencial())).find((p) => p.id === id);
+  } catch (e) {
+    return {
+      ...SIN_PRECARGA,
+      avisoDeRepeticion:
+        e instanceof ErrorApi && e.sesionInvalida
+          ? "Tu sesión venció. Ingresá de nuevo para repetir el pedido."
+          : "No pudimos traer ese pedido. Podés cargarlo a mano.",
+    };
+  }
+
+  if (!pedido) {
+    return {
+      ...SIN_PRECARGA,
+      avisoDeRepeticion: "No encontramos ese pedido. Podés cargarlo a mano.",
+    };
+  }
+
+  const campos = camposDelPedido(pedido);
+
+  // La entrega entra como TEXTO, sin resolver el cruce: no tiene punto guardado
+  // —`003` la dejo asi a proposito— y sin punto no hay con que desempatar entre
+  // las ~50 parejas de calles homonimas de Montevideo. Elegir la primera
+  // coincidencia seria el valor aproximado que FR-017 prohibe.
+  const entrega: EstadoDireccion = {
+    ...ESTADO_DIRECCION_VACIO,
+    direccion: { ...ESTADO_DIRECCION_VACIO.direccion, ...campos.entrega },
+  };
+
+  const base: Partial<FormState> = {
+    name: campos.name,
+    phone: campos.phone,
+    packageSize: campos.packageSize,
+    quantity: campos.quantity,
+    receiverName: campos.receiverName,
+    receiverPhone: campos.receiverPhone,
+    entrega,
+  };
+
+  try {
+    const { estado, aviso } = await retiroRevalidado(retiroDelPedido(pedido));
+
+    // El reajuste se mide contra el punto QUE SE VA A COBRAR —el ya revalidado,
+    // recolocado si hizo falta—, no contra el que estaba guardado. Medirlo
+    // contra el viejo avisaria de un cambio que no es el que se va a cobrar.
+    const reajuste = huboReajuste(
+      pedido.precio,
+      precioDeHoy(estado.direccion.punto ?? null),
+    );
+
+    return {
+      ...SIN_PRECARGA,
+      inicial: { ...base, retiro: estado },
+      avisoDelPunto: aviso,
+      avisoDeReajuste: reajuste ? AVISO_REAJUSTE : null,
+    };
+  } catch {
+    // El resto del pedido se precarga igual: perder la direccion de retiro no
+    // tiene por que costar tambien el destinatario y el paquete.
+    return {
+      ...SIN_PRECARGA,
+      inicial: base,
+      avisoDeRepeticion:
+        "No pudimos reconstruir la dirección de retiro. Escribila de nuevo y el resto ya está cargado.",
+    };
+  }
 }
