@@ -13,13 +13,11 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — **queda 1**. FR-011 y FR-012 se
-      contestaron el 2026-08-22 (el retiro se valida contra el área, y su punto
-      se sigue guardando, resuelto en silencio). Esa respuesta **abrió** FR-015:
-      qué hacer cuando el texto del retiro no resuelve a ningún punto y por lo
-      tanto no hay contra qué comprobar el área. FR-014 (calle homónima) se
-      cerró sin preguntar: resolver la ambigüedad en silencio está prohibido por
-      el propio índice de calles.
+- [x] No [NEEDS CLARIFICATION] markers remain — los tres se cerraron el
+      2026-08-22: FR-011 (el retiro se valida contra el área), FR-012 (su punto
+      se sigue guardando, resuelto en silencio) y FR-015 (si no resuelve, pasa
+      como texto sin punto y sin avisar). FR-014 se cerró sin preguntar: resolver
+      una calle homónima en silencio está prohibido por el propio índice.
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)

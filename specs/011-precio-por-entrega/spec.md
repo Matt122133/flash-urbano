@@ -60,10 +60,19 @@ entrega.
   devolverle al retiro la pantalla que este feature le quita. **La inversión se
   mantiene: un solo mapa, y es el de la entrega.**
 
-Lo que esas dos respuestas abren, y quedó anotado como requisito en vez de
-descubrirse implementando: el retiro **no siempre** se puede resolver en
-silencio. Con calle homónima hay que preguntar (FR-014) y sin resolución no hay
-área que comprobar (FR-015, abierto).
+- **¿Y cuando el retiro no resuelve a ningún punto?** → **Pasa igual, como texto
+  y sin punto, en silencio** (FR-015). El registro queda con el punto vacío y eso
+  alcanza para encontrarlo después; el caso se atiende por el canal humano que ya
+  existe, cuando Diego avise que no le anda el mapa para ir a retirar.
+  **Explícitamente provisorio**: se elige no trancar el primer pedido real por
+  encima de tener el dato completo, y se puede elegir así justamente porque
+  todavía no hay nadie en producción.
+
+Lo que esas respuestas abren, y quedó anotado en vez de descubrirse
+implementando: el retiro **no siempre** se puede resolver en silencio. Con calle
+homónima hay que preguntar (FR-014), y sin resolución no hay área que comprobar,
+así que **FR-011 pasa a ser de mejor esfuerzo** y **el punto de retiro deja de ser
+obligatorio en la base** (FR-012).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -173,14 +182,25 @@ rompiera, se pierde el motivo por el que alguien guarda su dirección.
   **retiro**.
 - **FR-010**: El servicio MUST NOT resolver zonas ni recalcular precios. Sigue
   guardando el punto y el precio declarado.
-- **FR-011**: El retiro MUST caer dentro del área de servicio, y el sitio MUST
-  comprobarlo (decisión del 2026-08-22). La comprobación se hace contra el punto
-  resuelto en silencio de FR-003, **no** pidiéndole a nadie que marque un mapa.
-  Un retiro fuera de toda zona MUST avisar y MUST NOT dejar confirmar.
-- **FR-012**: El punto de retiro MUST seguir guardándose, aunque no decida el
-  precio (decisión del 2026-08-22). El motivo no es la cotización sino la ruta:
-  la app Android planifica desde la posición de Diego, y un pedido sin
-  coordenadas del retiro la obliga a geocodificar texto o a ubicarlo a mano.
+- **FR-011**: El retiro MUST caer dentro del área de servicio **cuando su punto
+  se pueda resolver** (decisión del 2026-08-22). La comprobación se hace contra el
+  punto resuelto en silencio de FR-003, **no** pidiéndole a nadie que marque un
+  mapa. Un retiro que resuelve y cae fuera de toda zona MUST avisar y MUST NOT
+  dejar confirmar.
+  - **Es una comprobación de mejor esfuerzo, no una garantía**, y conviene no
+    confundirse: por FR-015 un retiro que no resuelve pasa igual, sin control.
+    O sea que el área se cumple **casi siempre**, no siempre, y la diferencia es
+    exactamente el tamaño de los huecos del índice de calles.
+- **FR-012**: El punto de retiro MUST seguir guardándose **cuando exista**,
+  aunque no decida el precio (decisión del 2026-08-22). El motivo no es la
+  cotización sino la ruta: la app Android planifica desde la posición de Diego, y
+  un pedido sin coordenadas del retiro la obliga a geocodificar texto o a
+  ubicarlo a mano.
+  - **Deja de ser obligatorio.** Hoy la columna es `NOT NULL` con el argumento
+    escrito de que "sin punto no hay zona, sin zona no hay precio". Ese argumento
+    ya no aplica —el precio sale de la entrega— y FR-015 exige poder guardar un
+    pedido sin él. **La app Android tiene que tolerar un retiro sin coordenadas**,
+    y eso hay que decírselo a quien la construya.
 - **FR-013**: Los pedidos creados antes de este feature MUST tener un
   comportamiento definido al repetirse, y ese comportamiento MUST NOT ser una
   pantalla rota.
@@ -192,12 +212,18 @@ rompiera, se pierde el motivo por el que alguien guarda su dirección.
   calles tiene documentada. La fricción aparece **sólo** cuando hay ambigüedad
   real, no en el caso común.
 - **FR-015**: Cuando el texto del retiro **no resuelva a ningún punto** —calle
-  fuera del índice, error de tipeo, o un cruce que no existe— el sitio MUST
-  [NEEDS CLARIFICATION: ¿deja pasar el pedido avisando, o lo bloquea? FR-011
-  exige que el retiro esté en el área, pero **el área sólo se puede comprobar
-  donde el texto resuelve**. Bloquear convierte un hueco del índice en un pedido
-  perdido, sobre la dirección propia de quien envía, que él sabe que está bien;
-  dejar pasar hace que FR-011 se cumpla "casi siempre" en vez de siempre.]
+  fuera del índice, error de tipeo, o un cruce que no existe— el pedido MUST
+  seguir adelante **con el retiro como texto y sin punto**, y MUST NOT decirle
+  nada a quien lo está creando (decisión del 2026-08-22). El pedido se guarda con
+  el punto de retiro **vacío**, y ese vacío es la señal: quien opera el sistema
+  puede encontrarlo consultando la base, sin que el que envía se entere de que
+  hubo un problema.
+  - **El hueco se atiende por el canal humano que ya existe.** El caso previsto
+    es Diego preguntando "no me anda el mapa para ir a retirar"; la respuesta sale
+    de mirar el registro, y él sigue adelante con la dirección escrita.
+  - **Es deliberadamente provisorio**, y el motivo es que todavía no hay nadie en
+    producción: prioriza no trancar el primer pedido real por encima de tener el
+    dato completo. Queda anotado como deuda con su disparador.
 
 ### Key Entities
 
