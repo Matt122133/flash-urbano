@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Historial } from "@/components/pedido/historial";
 import { FormularioPerfil } from "@/components/sesion/formulario-perfil";
 import { useSesion } from "@/components/sesion/proveedor-sesion";
 
@@ -38,6 +39,10 @@ export default function PerfilPage() {
               Lo que guardes acá lo usamos para no pedirte lo mismo en cada envío.
             </p>
             <FormularioPerfil />
+            {/* `010`. Va DENTRO de la rama con sesion y despues del formulario:
+                sin sesion no existe (FR-008), y arriba estaria lo que la persona
+                viene a editar tapado por lo que viene a mirar. */}
+            <Historial />
           </>
         )}
       </div>

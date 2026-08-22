@@ -162,16 +162,75 @@ async function leerJson(respuesta: Response): Promise<unknown> {
 /** Cabecera que identifica un INTENTO de envio. Ver contracts/pedidos.md. */
 export const CABECERA_IDEMPOTENCIA = "Idempotency-Key";
 
-/** Un pedido tal como lo devuelve el servicio. */
+/** Un punto en lat/lng, tal como viaja en la respuesta. */
+export type PuntoGuardado = { lat: number; lng: number };
+
+/**
+ * Una direccion tal como se guardo con el pedido.
+ *
+ * `numero` y `apto` son NULABLES en la base y llegan como `null`, no como `""`.
+ * La diferencia importa al mostrarlos: "no lo dijo" no es "dijo que no".
+ *
+ * **El punto solo lo tiene el retiro.** La entrega quedo como texto en `003`
+ * (FR-007a de aquel feature): no incide en el precio y la ubica la app Android.
+ * Por eso es opcional aca y no un campo que a veces viene en cero.
+ */
+export type DireccionGuardada = {
+  calle: string;
+  esquina: string;
+  numero: string | null;
+  apto: string | null;
+  cooperativa: boolean;
+  punto?: PuntoGuardado | null;
+};
+
+/**
+ * Un pedido tal como lo devuelve el servicio.
+ *
+ * **Es una copia a mano de `pedidos.Pedido` del backend**, igual que `Usuario`
+ * lo es de `usuarios.Vista`. El ADR acepto ese acoplamiento para una superficie
+ * de este tamaño, y la contra hay que tenerla presente: **TypeScript no valida
+ * nada de lo que llega por la red**. Si el servicio cambia la forma de un
+ * pedido, este tipo miente en silencio y lo que se rompe es una pantalla, no una
+ * compilacion.
+ *
+ * `007` declaraba solo siete campos —lo unico que la pantalla de confirmacion
+ * necesitaba—. `010` lo ensancha hasta lo que la respuesta trae de verdad,
+ * porque el historial muestra el pedido entero y repetirlo lo necesita completo.
+ *
+ * **`estado` y `paqueteTamano` son `string` a proposito**, no uniones. El
+ * servicio acepta tres valores de cada uno hoy y la lista ya cambio una vez; un
+ * valor nuevo tiene que poder mostrarse crudo en vez de romper la pantalla, y
+ * una union aca daria la ilusion de una garantia que nadie comprueba.
+ */
 export type PedidoGuardado = {
   id: string;
+  usuarioId: string;
   codigo: string;
   estado: string;
-  precio: number;
-  zonaId: number;
+
+  remitenteNombre: string;
+  remitenteTelefono: string;
+
+  retiro: DireccionGuardada;
+  entrega: DireccionGuardada;
+
+  paqueteTamano: string;
+  cantidad: number;
+
+  /** `YYYY-MM-DD` y `HH:MM`, en hora de Montevideo. No son un instante. */
   retiroFecha: string;
   retiroHora: string;
+
+  destinatarioNombre: string;
+  destinatarioTelefono: string;
+
+  /** Pesos enteros, congelado al crear. Un cambio de precios no lo reescribe. */
+  precio: number;
+  zonaId: number;
+
   creadoEn: string;
+  actualizadoEn: string;
 };
 
 /**
@@ -201,11 +260,17 @@ export async function crearPedido(
 }
 
 /**
- * Los pedidos de quien pide.
+ * Los pedidos de quien pide, **del mas nuevo al mas viejo**.
  *
- * No tiene pantalla en `007` (FR-030 difiere "Mis Pedidos"): existe porque
- * FR-031 pide poder leer los pedidos sin abrir la base, y porque es lo que va a
- * consumir ese feature cuando se construya.
+ * Nacio en `007` sin pantalla (FR-030 difirio "Mis Pedidos"): existia para poder
+ * leer los pedidos sin abrir la base. Desde `010` es lo que alimenta el
+ * historial de *Mi cuenta* y la precarga de un pedido repetido.
+ *
+ * **El orden lo pone el servicio** (`creado_en DESC`) y no se re-ordena aca:
+ * FR-002 se rompe re-ordenando, no confiando.
+ *
+ * **No acepta ningun parametro que permita pedir los de otro**, y no debe
+ * aceptarlo: quien es sale de la credencial, del lado del servicio.
  */
 export async function misPedidos(credencial: string | null): Promise<PedidoGuardado[]> {
   const r = await pedir<{ pedidos: PedidoGuardado[] }>("/pedidos", { credencial });
