@@ -78,11 +78,15 @@ Neither is a reason to charge the wrong price.
   longer decides anything about money. It exists for two things: checking that
   the pickup is inside the service area, and giving the operator's future route
   planner real coordinates.
-- **A homonymous pickup street still asks.** Silent resolution is allowed only
-  where exactly one crossing matches. Taking the first of several candidates is
-  forbidden: Montevideo has roughly fifty families of same-named streets in
-  different neighbourhoods, and picking blind would place the pickup in the
-  wrong one without anybody noticing.
+- **A homonymous pickup street is stored without a point, silently.** Taking the
+  first of several candidates stays forbidden — Montevideo has roughly fifty
+  families of same-named streets in different neighbourhoods, and picking blind
+  would place the pickup in the wrong one without anybody noticing — but the
+  answer is to store no point rather than to ask. An earlier draft of this ADR
+  said the site asks; **corrected on 2026-08-22, before implementation**, once it
+  was clear that asking costs friction on the sender's own address and buys
+  nothing that an absent point does not already buy. **The delivery side still
+  asks**, because that point is what charges.
 - **An unresolvable pickup passes through, silently, without a point.** When the
   text matches no crossing at all, the order is created with the pickup as
   written and no coordinates, and the customer is told nothing. The empty point

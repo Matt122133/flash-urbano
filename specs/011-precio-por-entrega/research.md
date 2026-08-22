@@ -48,10 +48,11 @@ contradiciendo al código.
 barrios distintos, y el índice lo tiene documentado como trampa. `buscarEsquina`
 devuelve varios candidatos y `bloque-direccion` **nunca toma el primero**.
 
-**FR-014 del spec dice: preguntar.** Este research propone cambiarlo.
+**FR-014 del spec decía: preguntar.** Este research propuso cambiarlo, y **el
+cambio se aprobó el 2026-08-22**: el spec ya dice lo de abajo.
 
-**Decisión propuesta**: cuando el retiro sea ambiguo, **no preguntar y no guardar
-punto** — tratarlo igual que un texto que no resuelve (FR-015).
+**Decisión**: cuando el retiro sea ambiguo, **no preguntar y no guardar punto** —
+tratarlo igual que un texto que no resuelve (FR-015).
 
 **Rationale**:
 
@@ -71,8 +72,11 @@ punto** — tratarlo igual que un texto que no resuelve (FR-015).
 calles homónimas cuya persona no guardó su dirección en el perfil. Cae en la
 misma deuda ya anotada, y la misma consulta la mide.
 
-**Requiere cambiar FR-014 en el spec.** El plan no avanza sobre esto sin esa
-corrección aprobada.
+**FR-014 quedó corregido en el spec el 2026-08-22.** El encuadre del dueño del
+repo al aprobarlo, que vale conservar porque es el criterio y no el detalle: *"en
+vez de levantar un problema pasamos nomás la ubicación como texto, cualquier cosa
+que Diego se comunique"*. Es la misma lógica que FR-015 y tiene la misma fecha de
+vencimiento: **primera instancia, sin nadie en producción**.
 
 ---
 

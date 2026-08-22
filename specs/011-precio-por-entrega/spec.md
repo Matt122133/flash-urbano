@@ -235,12 +235,19 @@ rompiera, se pierde el motivo por el que alguien guarda su dirección.
   comportamiento definido al repetirse, y ese comportamiento MUST NOT ser una
   pantalla rota.
 - **FR-014**: Cuando el cruce del retiro sea **ambiguo** —más de un candidato,
-  que es lo que pasa con las ~50 familias de calles homónimas de Montevideo—
-  el sitio MUST pedir que se elija, igual que hace hoy. **Resolver la ambigüedad
-  en silencio quedándose con el primer candidato está prohibido**: pondría el
-  retiro en otro barrio sin que nadie se entere, y es la trampa que el índice de
-  calles tiene documentada. La fricción aparece **sólo** cuando hay ambigüedad
-  real, no en el caso común.
+  que es lo que pasa con las ~50 familias de calles homónimas de Montevideo— el
+  sitio MUST NOT preguntar y MUST NOT guardar punto: se trata **igual que un
+  texto que no resuelve** (FR-015). Corregido el 2026-08-22, después de que el
+  research mostrara que la versión anterior —pedir que se elija— costaba más y no
+  compraba nada.
+  - **Sigue prohibido quedarse con el primer candidato.** Lo que se descarta es
+    *preguntar*, no la seguridad: sin punto no hay punto equivocado, y el retiro
+    en el barrio equivocado se evita igual.
+  - En la **entrega** la regla es la contraria y sigue como está: ahí se
+    pregunta, porque de ese punto sale la plata y sin él no hay pedido.
+  - **Provisorio como FR-015 y por el mismo motivo**: para esta primera instancia
+    se prefiere que Diego resuelva por teléfono los pocos casos raros antes que
+    trancar a todo el mundo con una pregunta.
 - **FR-015**: Cuando el texto del retiro **no resuelva a ningún punto** —calle
   fuera del índice, error de tipeo, o un cruce que no existe— el pedido MUST
   seguir adelante **con el retiro como texto y sin punto**, y MUST NOT decirle
