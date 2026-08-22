@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # La pantalla que gana la sección de historial. Hoy sólo monta el formulario
   # de perfil.
@@ -21,7 +21,7 @@ covers:
   # spec-kit escribe acá cuál es el feature activo.
   - .specify/feature.json
 verify: cd web && npm run lint && npm test && npm run build
-analyzed:
+analyzed: 2026-08-22
 ---
 
 # Implementation Plan: Mis pedidos — el historial y el botón de repetir
