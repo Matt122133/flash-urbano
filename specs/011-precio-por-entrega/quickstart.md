@@ -54,11 +54,14 @@ Con **una** cuenta alcanza para casi todo; H3 necesita dos.
 ## El `verify:` del plan
 
 ```bash
-(cd web && npm run lint && npm test && npm run build) && (cd backend && go vet ./... && go test ./...)
+cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./...
 ```
 
-Los paréntesis no son adorno: sin ellos el `cd` se acumula y correrlo dos veces
-en la misma terminal falla por una razón que no tiene nada que ver con el código.
+**El `cd ../backend` relativo no es descuido, y no se "arregla" con paréntesis.**
+Se probó: `scripts/harness/speckit_gate.py` corre el `verify:` con `shell=True`,
+o sea **`cmd.exe`** en esta máquina, y ahí los paréntesis agrupan pero **no
+crean un subshell** — el `cd` persiste igual y la segunda mitad no encuentra la
+ruta. La forma relativa funciona en las dos shells.
 
 **Las dos mitades**, porque este feature toca las dos superficies. Y ojo con la
 trampa que `backend/README.md` documenta: **las pruebas que necesitan Postgres se

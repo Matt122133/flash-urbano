@@ -30,7 +30,7 @@ covers:
   - backend/internal/pedidos/
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
-verify: (cd web && npm run lint && npm test && npm run build) && (cd backend && go vet ./... && go test ./...)
+verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./...
 analyzed: 2026-08-22
 ---
 
