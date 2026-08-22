@@ -68,6 +68,20 @@ entrega.
   encima de tener el dato completo, y se puede elegir así justamente porque
   todavía no hay nadie en producción.
 
+- **¿La sección de entrega pasa primera, ya que es la que produce el precio?**
+  → **No: el formulario mantiene retiro → entrega.** De dónde sale y a dónde va
+  es como se piensa un envío, y ese orden se respeta aunque el número aparezca
+  más abajo. **Nada obliga a completar el retiro para ver el precio**: quien sólo
+  quiere cotizar puede ir directo a la entrega, que es lo que mantiene viva la
+  cotización pública sin cuenta.
+
+- **¿Mi cuenta conserva su mapa?** → **Sí, con el punto ajustable.** Es la única
+  pantalla donde marcar la propia dirección **una vez** vale una pantalla, y el
+  beneficio es la calidad del dato, no la simetría: el punto de retiro de cada
+  pedido pasa a salir de algo que la persona confirmó, en vez de deducirse del
+  texto a ciegas. Es exactamente el dato que FR-012 quiere para la ruta, y no
+  agrega ni un paso al formulario de pedido.
+
 Lo que esas respuestas abren, y quedó anotado en vez de descubrirse
 implementando: el retiro **no siempre** se puede resolver en silencio. Con calle
 homónima hay que preguntar (FR-014), y sin resolución no hay área que comprobar,
@@ -164,6 +178,10 @@ rompiera, se pierde el motivo por el que alguien guarda su dirección.
   punto y mostrarlo en el mapa, con el mismo comportamiento que hoy tiene el
   retiro: candidatos cuando la calle es homónima, y el punto confinado a la
   cuadra indicada.
+- **FR-002a**: El formulario MUST conservar el orden **retiro → entrega**
+  (decisión del 2026-08-22), aunque el precio salga de la segunda. Completar el
+  retiro MUST NOT ser condición para ver el precio: la cotización pública sin
+  cuenta depende de eso.
 - **FR-003**: La sección de retiro MUST perder el mapa. **No pierde el punto**:
   lo resuelve **en silencio**, sin mostrarlo y sin pedirle nada a quien escribe
   (clarificación del 2026-08-22). Es lo mismo que `bloque-direccion` ya hace
@@ -201,6 +219,18 @@ rompiera, se pierde el motivo por el que alguien guarda su dirección.
     ya no aplica —el precio sale de la entrega— y FR-015 exige poder guardar un
     pedido sin él. **La app Android tiene que tolerar un retiro sin coordenadas**,
     y eso hay que decírselo a quien la construya.
+- **FR-016**: *Mi cuenta* MUST conservar su mapa y el ajuste del punto de la
+  dirección guardada (decisión del 2026-08-22). Cuando el retiro de un pedido se
+  precargue del perfil, su punto MUST salir del guardado —confirmado por una
+  persona— en vez de resolverse en silencio del texto.
+- **FR-017**: Un punto guardado en el perfil que ya no caiga en la cuadra de su
+  dirección MUST usarse igual, sin descartarlo y sin avisar. **Esto invierte lo
+  que `007` exigía**, y el motivo es que desapareció la razón: aquella regla
+  (FR-022 de `007`) existía porque el pedido **cobraba** sobre ese punto, y
+  cobrar sobre un punto que envejeció es cobrar mal. Desde este feature el punto
+  de retiro no decide plata, así que uno desactualizado es una molestia de ruta,
+  no un error de facturación. **La revalidación no desaparece: se muda** al punto
+  de entrega, que es el que ahora cobra.
 - **FR-013**: Los pedidos creados antes de este feature MUST tener un
   comportamiento definido al repetirse, y ese comportamiento MUST NOT ser una
   pantalla rota.
@@ -233,8 +263,10 @@ rompiera, se pierde el motivo por el que alguien guarda su dirección.
 - **Dirección de retiro**: conserva su punto, que se resuelve sin pantalla. Deja
   de decidir el precio y pasa a servir para dos cosas: comprobar el área y darle
   coordenadas a la ruta.
-- **Perfil**: sigue guardando la dirección propia de quien envía, que precarga el
-  retiro.
+- **Perfil**: sigue guardando la dirección propia de quien envía —con su punto,
+  marcado en un mapa— y precarga el retiro. Pasa a ser **la mejor fuente de
+  coordenadas de retiro que el sistema tiene**, porque son las únicas que una
+  persona confirmó a propósito.
 
 ## Success Criteria *(mandatory)*
 

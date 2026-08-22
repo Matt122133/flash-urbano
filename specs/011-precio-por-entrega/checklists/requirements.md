@@ -35,10 +35,13 @@
 
 ## Notes
 
-- **Bloqueo de gobernanza, no de calidad del spec**: el feature revierte el
-  Principio V de la constitución. El plan no se puede promover a `active` sin la
-  enmienda y su ADR en `docs/decisions/`. Está escrito en el spec, sección
-  *Dependencias y bloqueos*.
-- Las dos preguntas abiertas se resuelven en `/speckit-clarify`, y la respuesta
-  de las dos la tiene Diego. FR-012 es la más urgente de preguntar: es un dato
-  que, si se deja de guardar, no se puede recuperar después.
+- **El bloqueo de gobernanza quedó levantado el 2026-08-22**: el feature revertía
+  el Principio V de la constitución, y ya están el
+  [ADR pricing-from-delivery-zone](../../../docs/decisions/pricing-from-delivery-zone.md)
+  y la enmienda (3.0.0 → 4.0.0). El plan ya se puede escribir; promoverlo a
+  `active` sigue siendo decisión humana.
+- `/speckit-clarify` del 2026-08-22 agregó dos decisiones que el spec no tenía:
+  el formulario mantiene el orden retiro → entrega (FR-002a), y *Mi cuenta*
+  conserva su mapa, lo que convierte al perfil en la mejor fuente de coordenadas
+  de retiro (FR-016) y deja obsoleta la revalidación de `007` sobre ese punto
+  (FR-017).
