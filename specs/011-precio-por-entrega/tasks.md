@@ -103,8 +103,8 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 - [ ] T030 Ejecutar **H2**: los tres estados que no son una lista, incluido el ⚠ del servicio caído con su reintento. Deuda heredada
 - [ ] T031 Ejecutar **H3**: ⚠ que nadie vea lo ajeno, con dos cuentas. **Es la única de las tres que cubre un agujero de seguridad (SC-004) y sigue sin verificarse desde que se construyó**
 - [ ] T032 [P] Anotar en `docs/tech-debt-tracker.md` **el número** que a la deuda del retiro sin punto le falta: cuántos pedidos quedaron con `retiro_punto IS NULL` sobre el total, contando los dos caminos (texto que no resuelve, y calle homónima)
-- [ ] T033 [P] Actualizar `ARCHITECTURE.md`: de dónde sale el precio, los modos renombrados del bloque de dirección, y que el punto de retiro dejó de ser obligatorio
-- [ ] T034 [P] Actualizar `docs/processes/dev-setup.md` si el procedimiento de vaciar la base local antes de migrar merece quedar escrito para la próxima
+- [x] T033 [P] Actualizar `ARCHITECTURE.md`: de dónde sale el precio, los modos renombrados del bloque de dirección, y que el punto de retiro dejó de ser obligatorio
+- [x] T034 [P] Actualizar `docs/processes/dev-setup.md` si el procedimiento de vaciar la base local antes de migrar merece quedar escrito para la próxima
 - [x] T035 Comprobar que `git status` no muestra `web/lib/zonas.ts` ni `web/public/calles-mvd.json` modificados: son archivos generados y este feature no tiene por qué tocarlos
 - [ ] T036 Poner `specs/011-precio-por-entrega/plan.md` en `status: completed` **después** de commitear el resto: el sensor de cobertura rebota un commit cuyo plan ya está cerrado
 

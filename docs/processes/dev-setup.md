@@ -156,6 +156,24 @@ que sirve cualquier hosting estático sin reglas de reescritura.
 WhatsApp y el email reales. El sitio es indexable desde entonces — cosa que
 importa porque el formulario de pedido todavía no le llega a nadie.
 
+## Una migracion que exige la tabla vacia
+
+`0004` (feature `011`) agrega `pedidos.entrega_punto` como **`NOT NULL` sin
+default y sin relleno**, porque no hay con que rellenar: la entrega nunca tuvo
+punto y un default seria un punto falso, o sea un precio falso.
+
+Contra produccion no hubo problema —estaba vacia— y **contra la base local
+falla, a proposito**. El procedimiento es vaciar y volver a crear los pedidos de
+prueba:
+
+```bash
+docker exec flash-pg-dev psql -U postgres -d flash_dev -c "TRUNCATE pedidos;"
+```
+
+Que falle ruidosamente es la proteccion, no el problema: los pedidos viejos
+tienen su precio calculado con una regla que ya no existe, y conservarlos seria
+conservar numeros que no significan nada.
+
 ## Plan-coverage check
 
 The one mechanical sensor in this harness. It enforces the hard constraint
