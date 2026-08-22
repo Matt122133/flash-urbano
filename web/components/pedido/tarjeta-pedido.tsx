@@ -36,10 +36,16 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
           <p className="mt-1 text-sm text-slate-600">
             Retiro el {formatearFecha(pedido.retiroFecha)} a las {pedido.retiroHora}
           </p>
-          {/* `truncate` y no un corte a mano: una calle larga no puede empujar
-              el ancho de la tarjeta y obligar a desplazarse de costado (FR-011). */}
+          {/* Con numero y esquina, no solo la calle (FR-028): dos pedidos a la
+              misma calle son indistinguibles sin desplegarlos, que es justo lo
+              que esta linea existe para evitar.
+              `truncate` y no un corte a mano: una calle larga no puede empujar
+              el ancho de la tarjeta y obligar a desplazarse de costado (FR-011).
+              Con dos direcciones largas el riesgo crece, asi que se queda: en un
+              telefono angosto la linea termina en puntos suspensivos y el dato
+              entero esta a un toque, en el detalle. */}
           <p className="mt-0.5 truncate text-sm text-slate-500">
-            A {pedido.entrega.calle || "—"}
+            A {componer(pedido.entrega, { breve: true })}
           </p>
         </div>
 
@@ -121,14 +127,20 @@ function Dato({ titulo, valor }: { titulo: string; valor: string }) {
  * **nulables** desde la base. Adaptar el tipo para reusar cuatro `join` seria mas
  * codigo que escribirlos, y dejaria a la funcion del formulario aceptando nulos
  * que ahi no existen.
+ *
+ * `breve` es lo que va en la linea de resumen de la tarjeta (FR-028): calle,
+ * numero y esquina, **sin apartamento ni cooperativa**. Es una variante y no un
+ * tercer armador de direcciones a proposito — entre `lib/direccion.ts` y esta
+ * ya hay dos, y el apartamento es el dato que menos distingue un pedido de otro
+ * mientras que es el que mas alarga la linea.
  */
-function componer(d: DireccionGuardada): string {
+function componer(d: DireccionGuardada, { breve = false } = {}): string {
   return (
     [
       [d.calle, d.numero].filter(Boolean).join(" "),
-      d.apto ? `apto ${d.apto}` : "",
+      !breve && d.apto ? `apto ${d.apto}` : "",
       d.esquina ? `esq. ${d.esquina}` : "",
-      d.cooperativa ? "cooperativa" : "",
+      !breve && d.cooperativa ? "cooperativa" : "",
     ]
       .filter(Boolean)
       .join(", ") || "—"

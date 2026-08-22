@@ -466,3 +466,35 @@ pedido **nuevo y distinto**, con código distinto, con los mismos datos.
 - **Se reusa la maquinaria de precarga de `007`.** El formulario ya acepta
   valores iniciales y ya sabe revalidar un punto guardado antes de cobrar; este
   feature le da otra fuente, no una segunda implementación.
+
+## Enmienda del 2026-08-22 — lo que encontró la verificación manual
+
+Los dos requisitos de abajo **no estaban en el spec original**. Salieron de la
+primera pasada del [quickstart](quickstart.md) sobre datos reales: M1 mostró el
+historial funcionando y, con la pantalla a la vista, dos cosas que en el papel no
+se habían visto. Se anexan acá en vez de abrir un feature nuevo porque tocan
+exactamente las mismas pantallas que este plan ya cubre y ni siquiera ensanchan
+su `covers:`.
+
+- **FR-027**: *Mi cuenta* MUST separar **los datos** de **los pedidos** en dos
+  vistas excluyentes dentro de `/perfil`, elegidas por dos botones —*Mi cuenta*
+  y *Mis pedidos*—. Al entrar MUST verse **Mi cuenta**: es la que la persona va
+  a buscar cuando escribe la dirección, y el historial es lo que mira después.
+  Las dos vistas MUST NOT mostrarse apiladas a la vez, que es lo que hay hoy y
+  lo que obliga a desplazarse por el formulario entero para llegar a un pedido.
+  - La elección **no** se guarda entre visitas ni viaja en la URL: entrar a
+    *Mi cuenta* siempre abre *Mi cuenta*. Guardarla sería estado nuevo en el
+    navegador para una preferencia que nadie pidió.
+  - Sin sesión no cambia nada: no hay botones, no hay pestañas, y se ve la
+    invitación a ingresar de siempre (FR-008 sigue mandando).
+- **FR-028**: La línea de resumen de cada tarjeta MUST mostrar la dirección de
+  entrega con **número de puerta y esquina** —"A Martín García 123, esq.
+  Justicia"— y no sólo la calle. Hoy dice sólo la calle y dos pedidos a la misma
+  calle son indistinguibles sin desplegarlos, que es justo lo que la tarjeta
+  resumida existe para evitar.
+  - **El apartamento NO va en el resumen**: alarga la línea y es el dato que
+    menos distingue un pedido de otro. Sigue en el detalle.
+  - El recorte a una línea (`truncate`) **se mantiene**: FR-011 manda que una
+    calle larga no ensanche la tarjeta, y con dos direcciones largas el riesgo
+    crece, no baja. En un teléfono angosto la línea termina en puntos
+    suspensivos y el dato completo queda a un toque, en el detalle.

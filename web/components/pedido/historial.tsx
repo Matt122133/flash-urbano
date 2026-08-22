@@ -92,7 +92,7 @@ export function Historial() {
   if (!hayUsuario) return null;
 
   return (
-    <section className="mt-8 border-t border-slate-200 pt-6">
+    <section className="mt-6">
       <h2 className="text-lg font-semibold text-slate-900">Mis pedidos</h2>
 
       {error ? (

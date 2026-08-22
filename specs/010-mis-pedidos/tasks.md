@@ -100,6 +100,17 @@ código distinto sin que el original se altere.
 
 ---
 
+## Phase 6: Enmienda del 2026-08-22 (FR-027, FR-028)
+
+Salieron de la primera pasada de M1 sobre datos reales. **Van antes de T022**: el
+plan no se cierra con requisitos suyos sin construir.
+
+- [x] T023 [FR-027] En `web/app/perfil/page.tsx`, partir la rama con sesión en dos vistas excluyentes con dos botones —*Mi cuenta* y *Mis pedidos*—, entrando siempre por *Mi cuenta*. El conmutador va **en la página**, no en un componente nuevo: es arquitectura de la pantalla de cuenta, y `web/components/pedido/` es la carpeta del dominio pedidos. La rama `SinSesion` y la de carga **no se tocan** (FR-008). Los botones tienen que ser operables con teclado y anunciar cuál está activo (`aria-current` o el patrón de pestañas), que es lo mismo que M2 le exige a la tarjeta
+- [x] T024 [FR-028] En `web/components/pedido/tarjeta-pedido.tsx`, la línea de resumen pasa de la calle sola a **calle, número y esquina** (`A Martín García 123, esq. Justicia`). **Sin apartamento** y **sin quitar `truncate`** — FR-011 sigue mandando que la tarjeta no se ensanche. Reusar `componer()` con una variante que omita apto y cooperativa antes que escribir un tercer armador de direcciones: `lib/direccion.ts` y `componer()` ya son dos
+- [ ] T025 Rehacer **M1** y **M2** del [quickstart](quickstart.md) sobre lo enmendado, en un teléfono: que entrar a *Mi cuenta* abra los datos y no los pedidos, que el conmutador se opere con teclado, y que la línea de resumen distinga dos pedidos a la misma calle con números distintos. Y `verify:` verde otra vez
+
+---
+
 ## Dependencies
 
 - **T001** antes de cualquier edición en `web/`.
@@ -109,6 +120,7 @@ código distinto sin que el original se altere.
 - **T012 depende de T008**: la composición usa el mapeo puro.
 - **T012a depende de T012**, y es la que M8 verifica. Si se saltea, el feature puede cobrar sobre un punto que envejeció.
 - **Phase 5** al final, y **T022 el último de todos**.
+- **Phase 6 (T023–T025)** entra después de T016 y **antes de T022**: son requisitos del spec, no pulido opcional. T025 depende de T023 y T024.
 
 ## Parallel opportunities
 
