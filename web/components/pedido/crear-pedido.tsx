@@ -35,9 +35,9 @@ import { ErrorApi, crearPedido, misPedidos, type PedidoGuardado } from "@/lib/ap
 import { armarCuerpoPedido, claveDeIntento, type DatosDelPedido } from "@/lib/pedido";
 import {
   camposDelPedido,
+  entregaParaRehidratar,
   huboReajuste,
   precioDeHoy,
-  retiroDelPedido,
 } from "@/lib/repetir";
 import { credencial } from "@/lib/sesion";
 
@@ -406,16 +406,24 @@ const AVISO_PUNTO_RECOLOCADO =
  * dos precios juntos en la misma pantalla es la situacion exacta en la que
  * alguien confirma mirando el numero equivocado.
  */
+/**
+ * Un pedido creado antes de `011`, cuando el precio salia del retiro y la
+ * entrega era texto sin punto. **Se puede repetir igual**, pero falta el unico
+ * dato que hoy decide el precio.
+ */
+const AVISO_SIN_PUNTO_DE_ENTREGA =
+  "Este pedido es anterior a nuestro cambio de precios: elegí la esquina de la entrega para ver cuánto sale hoy.";
+
 const AVISO_REAJUSTE =
   "El precio de este envío se reajustó desde la última vez. Abajo está el que corresponde hoy.";
 
 /**
- * El retiro guardado, revalidado antes de que se cobre sobre el (FR-016).
+ * La ENTREGA guardada, revalidada antes de que se cobre sobre ella (FR-016).
  *
- * Compartido por las dos precargas a proposito: es la regla que decide plata, y
- * dos copias serian dos criterios que un dia se separan. `rehidratarRetiro`
- * devuelve `puntoEnLaCuadra` justamente para esto — el perfil puede MOSTRAR un
- * punto viejo, el pedido COBRA sobre el.
+ * **Hasta `010` esto revalidaba el RETIRO**, y la regla era la misma: no se
+ * cobra sobre un punto guardado sin comprobar que sigue cayendo en su cuadra.
+ * Lo que cambio en `011` no es la regla sino cual es el punto que cobra, asi que
+ * la revalidacion se mudo con el. Ver research D6.
  *
  * El caso no es hipotetico: el indice de calles se regenera, y un punto guardado
  * en agosto puede quedar en otra cuadra —o en otra zona, o sea a otro precio— en
@@ -425,14 +433,15 @@ const AVISO_REAJUSTE =
  * nada especial: el formulario ya no muestra precio y no deja confirmar, y
  * encamina al contacto. Nunca la zona mas cercana (Principio V).
  *
- * El tipo del parametro se deriva de la funcion en vez de importarse: sirve
- * tanto para el retiro del perfil como para el de un pedido, que son la misma
- * forma declarada en dos lugares.
+ * **El punto del RETIRO ya no pasa por aca, y es deliberado** (FR-017): no
+ * decide plata, asi que uno desactualizado es una molestia de ruta y no un error
+ * de facturacion. Descartarlo seria tirar un dato bueno por una regla que dejo
+ * de aplicarle.
  */
-async function retiroRevalidado(
-  guardado: Parameters<typeof rehidratarRetiro>[0],
+async function entregaRevalidada(
+  guardada: Parameters<typeof rehidratarRetiro>[0],
 ): Promise<{ estado: EstadoDireccion; aviso: string | null }> {
-  const r = await rehidratarRetiro(guardado);
+  const r = await rehidratarRetiro(guardada);
 
   if (r.ubicable && r.estado.esquina && !r.puntoEnLaCuadra) {
     return {
@@ -463,8 +472,11 @@ async function desdeElPerfil(
   if (!u.retiro) return { ...SIN_PRECARGA, inicial: base };
 
   try {
-    const { estado, aviso } = await retiroRevalidado(u.retiro);
-    return { ...SIN_PRECARGA, inicial: { ...base, retiro: estado }, avisoDelPunto: aviso };
+    // **Sin revalidar** (FR-017): el punto guardado en *Mi cuenta* lo marco una
+    // persona a mano y es el mejor dato de retiro que hay. Ya no cobra, asi que
+    // no se descarta ni se avisa nada aunque haya quedado fuera de su cuadra.
+    const r = await rehidratarRetiro(u.retiro);
+    return { ...SIN_PRECARGA, inicial: { ...base, retiro: r.estado } };
   } catch {
     // Que no se pueda reconstruir la direccion no puede dejar sin pedir a quien
     // igual la puede escribir a mano.
@@ -515,13 +527,12 @@ async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> 
 
   const campos = camposDelPedido(pedido);
 
-  // La entrega entra como TEXTO, sin resolver el cruce: no tiene punto guardado
-  // —`003` la dejo asi a proposito— y sin punto no hay con que desempatar entre
-  // las ~50 parejas de calles homonimas de Montevideo. Elegir la primera
-  // coincidencia seria el valor aproximado que FR-017 prohibe.
-  const entrega: EstadoDireccion = {
+  // El RETIRO entra como texto, con su punto tal cual se guardo y sin
+  // revalidarlo (FR-017). Puede venir sin punto —una calle homonima o fuera del
+  // indice cuando se creo el pedido— y eso no impide nada.
+  const retiro: EstadoDireccion = {
     ...ESTADO_DIRECCION_VACIO,
-    direccion: { ...ESTADO_DIRECCION_VACIO.direccion, ...campos.entrega },
+    direccion: { ...ESTADO_DIRECCION_VACIO.direccion, ...campos.retiro },
   };
 
   const base: Partial<FormState> = {
@@ -531,11 +542,35 @@ async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> 
     quantity: campos.quantity,
     receiverName: campos.receiverName,
     receiverPhone: campos.receiverPhone,
-    entrega,
+    retiro,
   };
 
+  // **Un pedido anterior a `011` no tiene punto de entrega** (FR-013). No es un
+  // error ni una pantalla rota: se precarga todo lo demas, la entrega queda como
+  // texto para que la persona resuelva el cruce, y no hay precio hasta que lo
+  // haga. Rehidratar sin punto elegiria entre calles homonimas a ciegas, que es
+  // exactamente el valor aproximado que el Principio V prohibe.
+  if (!pedido.entrega.punto) {
+    const entrega: EstadoDireccion = {
+      ...ESTADO_DIRECCION_VACIO,
+      direccion: {
+        ...ESTADO_DIRECCION_VACIO.direccion,
+        calle: pedido.entrega.calle,
+        esquina: pedido.entrega.esquina,
+        numero: pedido.entrega.numero ?? "",
+        apto: pedido.entrega.apto ?? "",
+        cooperativa: pedido.entrega.cooperativa,
+      },
+    };
+    return {
+      ...SIN_PRECARGA,
+      inicial: { ...base, entrega },
+      avisoDeRepeticion: AVISO_SIN_PUNTO_DE_ENTREGA,
+    };
+  }
+
   try {
-    const { estado, aviso } = await retiroRevalidado(retiroDelPedido(pedido));
+    const { estado, aviso } = await entregaRevalidada(entregaParaRehidratar(pedido));
 
     // El reajuste se mide contra el punto QUE SE VA A COBRAR —el ya revalidado,
     // recolocado si hizo falta—, no contra el que estaba guardado. Medirlo
@@ -547,7 +582,7 @@ async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> 
 
     return {
       ...SIN_PRECARGA,
-      inicial: { ...base, retiro: estado },
+      inicial: { ...base, entrega: estado },
       avisoDelPunto: aviso,
       avisoDeReajuste: reajuste ? AVISO_REAJUSTE : null,
     };
