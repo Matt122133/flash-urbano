@@ -17,8 +17,9 @@ mismo.
 | `entrega_punto` | **no existe** | `geography(Point,4326)` **`NOT NULL`** | De acá sale la zona y el precio (FR-001, FR-007) |
 | `retiro_punto` | `geography(Point,4326)` **`NOT NULL`** | `geography(Point,4326)` **nullable** | Deja de decidir plata y puede faltar (FR-012, FR-015) |
 
-**El comentario del esquema sobre `retiro_punto` deja de ser cierto** y se
-reemplaza en la misma migración. Hoy dice, textual: *"sin punto no hay zona, sin
+**El comentario del esquema sobre `retiro_punto` deja de ser cierto**, y la
+corrección se escribe **en `0004`**. `0003` no se edita: es una migración ya
+aplicada, y reescribirla es reescribir historia que otra base ejecutó. Hoy dice, textual: *"sin punto no hay zona, sin
 zona no hay precio, y sin precio no hay pedido"*. Después de `011` la frase
 describe a `entrega_punto`, y dejarla donde está es peor que no tener comentario:
 un lector la va a creer.

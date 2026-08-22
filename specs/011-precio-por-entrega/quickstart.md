@@ -86,6 +86,11 @@ Los pasos ⚠ producen el caso malo a propósito.
 **Es el feature entero en dos pasos.** Antes de `011` los dos casos daban lo
 mismo, y ese "lo mismo" era el precio equivocado en uno de los dos.
 
+**Y el conteo, que es lo que verifica SC-005**: anotar cuántos campos y cuántos
+toques cuesta llegar del formulario vacío al precio, **antes y después** del
+cambio. Tiene que dar igual o menos. Lo que se resolvió en una dirección se dejó
+de resolver en la otra, así que si el número subió, algo quedó pedido dos veces.
+
 ### M2 — El retiro perdió el mapa y no perdió el punto (FR-003, FR-012)
 
 - La sección de retiro **no muestra mapa**, y no pide elegir nada.
@@ -186,19 +191,24 @@ visible en todo momento, y el cambio de estado anunciado.
 
 Sin pedidos, sin sesión, y ⚠ con el servicio caído y su botón de reintentar.
 
-### H3 — ⚠ Nadie ve lo ajeno (era M4 de `010`, SC-004)
+### H3 — ⚠ Nadie ve lo ajeno (era M4 de `010`, **SC-004 de `010`**)
 
 Con dos cuentas: que B no vea los pedidos de A, y que abrir `/pedido?repetir=<id
 de B>` desde A diga que no encontró el pedido, con el formulario **vacío y
 usable**. **Es la única de las tres que cubre un agujero de seguridad**, y sigue
 sin verificarse desde que se construyó.
 
+> **Ojo con el número**: `SC-004` quiere decir dos cosas distintas según el
+> feature. En `010` es *nadie ve lo ajeno*; en `011` es *repetir termina en un
+> precio correcto o en un aviso claro*, y ése se verifica en M9. Citarlos siempre
+> con su feature adelante.
+
 ---
 
 ## Antes de dar el plan por cerrado
 
 - [ ] `verify:` verde en **las dos** superficies, con el conteo de skips mirado.
-- [ ] M1 a M10 hechos **en un teléfono**.
+- [ ] M1 a M10 hechos **en un teléfono**, con el conteo de pasos de M1 anotado.
 - [ ] H1, H2 y H3 hechos — la deuda de `010`.
 - [ ] Los seis pasos ⚠ hechos de verdad.
 - [ ] `git status` limpio de `web/lib/zonas.ts`.

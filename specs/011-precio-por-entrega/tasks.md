@@ -43,8 +43,9 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 - [ ] T008 [P] Mudar la misma guarda de `backend/internal/pedidos/pedido.go:212`, conservando su motivo textual —evitar un `NOT NULL violation` con un mensaje incomprensible—, que ahora aplica a `entrega_punto`
 - [ ] T009 Cubrir en `backend/internal/pedidos/handlers_test.go` los tres casos del [contrato](contracts/formulario-y-pedido.md) §2: con los dos puntos (creado), **sin el de retiro (creado — es el caso de FR-015 y no es un error)**, y sin el de entrega (400). El caso del medio es el que demuestra que la guarda vieja se fue de verdad
 - [ ] T010 Renombrar los modos de `web/components/bloque-direccion.tsx`: `retiro`/`entrega` pasan a `exigente`/`oportunista` (research D1), y actualizar el comentario de cabecera que hoy explica la diferencia entre los modos viejos. **Un modo llamado `retiro` que usa la entrega es una mentira que dura hasta que alguien la lee mal**
+- [ ] T010a **Quitar el valor por defecto de `modo`** (`bloque-direccion.tsx:73` dice `modo = "retiro"`) y volverlo obligatorio. Lo encontró el analyze del 2026-08-22: hoy **un solo** sitio pasa el modo explícito, y los otros dos —la sección de retiro y *Mi cuenta*— viven del default. Renombrar sin esto **le cambia el comportamiento a Mi cuenta sin que nadie lo pida**, y en silencio. Con `modo` obligatorio, el compilador enumera los tres sitios y no queda ninguno decidido por descarte
 - [ ] T011 Agregar al modo `oportunista` lo único que no existía: capturar el punto **cuando el cruce resuelve solo**, y **no ofrecer candidatos cuando hay más de uno** (research D2, FR-014). Sin preguntar nunca y sin bloquear nunca
-- [ ] T012 Actualizar `web/components/sesion/formulario-perfil.tsx` al nombre de modo nuevo. **Su comportamiento no cambia**: Mi cuenta conserva mapa y punto ajustable (FR-016)
+- [ ] T012 Pasar `modo="exigente"` **explícito** en `web/components/sesion/formulario-perfil.tsx`, que hoy no pasa ninguno. **Su comportamiento no cambia**: Mi cuenta conserva mapa y punto ajustable (FR-016). La tarea existe justamente para que siga sin cambiar — sin ella, T010a lo deja sin compilar o T010 se lo cambia de callado
 
 **Checkpoint**: `verify:` verde en las dos superficies, y ningún archivo del repo menciona `modo="retiro"`.
 
@@ -58,6 +59,7 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 
 - [ ] T013 [US1] En `web/components/pedido-form.tsx`, pasar `exigente` a la sección de entrega y mover ahí el mapa. La sección de retiro pasa a `oportunista` y **pierde el mapa**. El orden de las secciones **no cambia** (FR-002a)
 - [ ] T014 [US1] Derivar el precio de `entrega.direccion.punto` en el único lugar donde hoy sale del retiro (`pedido-form.tsx:291` y `:736`). **Una sola fuente de precio**: si quedan dos caminos de cálculo, quedan dos precios posibles para el mismo envío, que es el defecto que este feature saca
+- [ ] T014a [US1] En `web/lib/pedido.ts`, mover el punto obligatorio del retiro a la entrega en `armarCuerpoPedido()` (`:50` lo tipa requerido, `:121` lo escribe) y cubrirlo en `web/lib/pedido.test.ts`. **Es el último eslabón y el más fácil de olvidar**: `crearPedido(cuerpo: unknown)` no tipa el payload, así que si esto falta **TypeScript no dice nada** y el defecto aparece recién al confirmar, como un 400 del servicio. El cuerpo tiene que poder llevar la entrega con punto y el retiro **sin** punto (FR-015)
 - [ ] T015 [US1] Mudar la validación de "sin ubicación no hay pedido" (`pedido-form.tsx:154-174`) al punto de entrega: sin punto no hay precio ni confirmación, fuera de toda zona se encamina al contacto directo, y **nunca la zona más cercana**
 - [ ] T016 [US1] Agregar la comprobación del área para el retiro (FR-011): si el punto resolvió y cae fuera de toda zona, avisa y no deja confirmar. **Sólo actúa cuando hay punto** — si no resolvió, el pedido sigue en silencio (FR-015). Esa asimetría es deliberada y va comentada en el código
 - [ ] T017 [US1] En `web/components/sesion/rehidratar-retiro.ts`, quitar del camino del **retiro** la rama que descarta el punto guardado y avisa cuando ya no cae en su cuadra (FR-017), y dejar esa revalidación donde ahora corresponde: el punto que cobra. **Citar research D6 en el commit** — quien vea una prueba de `007` en rojo sin este contexto va a revivir una guarda que dejó de tener sentido o borrar una que sí lo tiene
@@ -108,12 +110,24 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 
 ---
 
+## Requisitos sin tarea, a propósito
+
+**FR-006** (con dos zonas gana la más barata) y **FR-010** (el servicio no
+resuelve zonas) no tienen ninguna tarea, y está bien: describen lo que **no**
+cambia. `web/lib/zona-lookup.ts` ya los implementa y `zona-lookup.test.ts` ya los
+prueba, y por eso ninguno de los dos está en `covers:`.
+
+**Lo que sí hay que mirar al revisar el diff**: si alguno de esos dos archivos
+aparece tocado, o el feature se desvió o alguien "arregló" una prueba que estaba
+bien.
+
 ## Dependencies
 
 - **T001–T003** antes de cualquier edición. T003 es un gate real, no un trámite.
 - **T004 → T005 → T006.** La migración no corre sobre la base con datos.
 - **T005 → T007, T008.** Las guardas del servicio suponen la columna.
-- **T010 → T011 → T012, T013.** Los modos primero; todo lo demás los consume.
+- **T010 → T010a → T011, T012, T013.** Los modos primero, el default después: T010a es lo que obliga a que los tres consumidores se declaren.
+- **T014 → T014a.** Sin el cuerpo del POST, el precio correcto no llega a la base.
 - **T013 → T014 → T015, T016.** La sección tiene que tener el modo antes de que se le mueva el precio.
 - **US1 (T013–T019)** no depende de US2 ni de US3. Es el MVP.
 - **US2 (T020–T024)** depende de US1 y de T020.

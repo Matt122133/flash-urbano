@@ -20,12 +20,17 @@ covers:
   # El mapeo y la decision del reajuste se mudan a la entrega. Con sus pruebas.
   - web/lib/repetir.ts
   - web/lib/repetir.test.ts
+  # armarCuerpoPedido() arma el cuerpo del POST y hoy exige punto en el retiro.
+  # Lo encontro el analyze del 2026-08-22: sin esto el feature no puede crear un
+  # pedido, y `crearPedido(cuerpo: unknown)` no lo tipa, asi que falla en runtime.
+  - web/lib/pedido.ts
+  - web/lib/pedido.test.ts
   # La migracion 0004 y las dos guardas que exigen el punto de retiro.
   - backend/migrations/
   - backend/internal/pedidos/
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
-verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./...
+verify: (cd web && npm run lint && npm test && npm run build) && (cd backend && go vet ./... && go test ./...)
 analyzed:
 ---
 
@@ -119,7 +124,7 @@ un merge y hay que frenar.**
   sale del punto de entrega, en firme, calculado sin red; fuera de zona no hay
   precio ni pedido; nunca la zona más cercana.
 - **Alcance (no hay pedido sin cliente identificado)**: intacto.
-- **Plan acotado (harness)**: `covers:` nombra doce caminos. `web/lib/zonas.ts`,
+- **Plan acotado (harness)**: `covers:` nombra catorce caminos. `web/lib/zonas.ts`,
   `web/lib/zona-lookup.ts` y `web/lib/cotizar-abierto.test.ts` **no están, a
   propósito**: las zonas no cambian, la regla de resolución tampoco, y la guarda
   de FR-022 se usa como control, no se toca.
@@ -160,6 +165,8 @@ web/
 │       └── formulario-perfil.tsx     # MODIFICADO: consume el modo renombrado
 └── lib/
     ├── api.ts                        # MODIFICADO: el tipo admite las dos formas
+    ├── pedido.ts                     # MODIFICADO: el cuerpo del POST
+    ├── pedido.test.ts                # MODIFICADO
     ├── repetir.ts                    # MODIFICADO: lee la entrega
     └── repetir.test.ts               # MODIFICADO
 
@@ -171,8 +178,8 @@ backend/
     └── *_test.go                     # MODIFICADO
 ```
 
-**Structure Decision**: no aparecen archivos nuevos del lado del navegador, y eso
-es deliberado. Todo lo que este feature necesita ya existe: los dos modos, el
+**Structure Decision**: el único archivo nuevo del feature es la migración. Del
+lado del navegador no aparece ninguno, y eso es deliberado. Todo lo que este feature necesita ya existe: los dos modos, el
 mapa, el índice, la resolución de cruces. **Un archivo nuevo acá sería la señal
 de que se está reimplementando algo en vez de moverlo.**
 
