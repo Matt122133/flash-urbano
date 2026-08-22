@@ -21,16 +21,30 @@ import {
  * validaba a la otra. Aca la esquina **ubica** y el numero **informa**, porque
  * el dato de ejes viales no tiene numeracion domiciliaria.
  *
- * Dos modos, y la diferencia no es cosmetica:
+ * Dos modos, y **se llaman por lo que hacen, no por la direccion que ocupan**:
  *
- * - `retiro`: de aca sale el precio. Elegir de las sugerencias es obligatorio,
- *   el cruce se resuelve a un punto y ese punto es el que se cobra.
- * - `entrega`: el autocompletado es una **ayuda, no una puerta** (FR-007b). No
- *   hay punto ni mapa, y lo tipeado vale aunque no este en el indice: el indice
- *   cubre el area de servicio, y una entrega fuera de ella es un pedido valido.
+ * - `exigente`: de aca sale el precio. Elegir de las sugerencias es obligatorio,
+ *   el cruce se resuelve a un punto, y sin ese punto no se sigue. Con una calle
+ *   homonima **pregunta cual**, porque tomar la primera seria adivinar una zona,
+ *   o sea un precio.
+ * - `oportunista`: el autocompletado es una **ayuda, no una puerta**. Lo tipeado
+ *   vale aunque no este en el indice, no hay mapa, y **nunca bloquea nada**. Si
+ *   el cruce resuelve solo, guarda el punto **en silencio**; si es ambiguo o no
+ *   resuelve, sigue sin punto y sin decir nada.
+ *
+ * Hasta `010` se llamaban `retiro` y `entrega`, y estaban bien: el precio salia
+ * del retiro. Desde `011` sale de la entrega
+ * (docs/decisions/pricing-from-delivery-zone.md), asi que los nombres viejos
+ * describirian al reves quien usa cada uno. **El nombre dice que hace, no donde
+ * se usa**, para que la proxima inversion no vuelva a mentirle a quien lea.
+ *
+ * **`modo` no tiene valor por defecto, a proposito.** Lo tuvo, y era `retiro`:
+ * dos de los tres consumidores vivian del default, asi que renombrar los modos
+ * les habria cambiado el comportamiento sin que nadie lo pidiera. Obligatorio,
+ * el compilador enumera los sitios y ninguno queda decidido por descarte.
  */
 
-export type ModoDireccion = "retiro" | "entrega";
+export type ModoDireccion = "exigente" | "oportunista";
 
 export type EstadoDireccion = {
   direccion: Direccion;
@@ -70,18 +84,18 @@ const cualEs = (esquina: Esquina, calle: Calle): "A" | "B" =>
 
 export function BloqueDireccion({
   id,
-  modo = "retiro",
+  modo,
   valor,
   onCambio,
   errors,
 }: {
   id: string;
-  modo?: ModoDireccion;
+  modo: ModoDireccion;
   valor: EstadoDireccion;
   onCambio: (estado: EstadoDireccion) => void;
   errors: Record<string, string>;
 }) {
-  const ubica = modo === "retiro";
+  const exigente = modo === "exigente";
   const [indice, setIndice] = useState<Indice | null>(null);
   const [indiceFallo, setIndiceFallo] = useState(false);
   const [calle, setCalle] = useState<Calle | null>(null);
@@ -115,9 +129,9 @@ export function BloqueDireccion({
     (texto: string) => {
       if (!indice) return [];
       if (calle) return buscarEsquinaDe(indice, calle, texto).map(opcionDe);
-      return ubica ? [] : buscarCalle(indice, texto).map(opcionDe);
+      return exigente ? [] : buscarCalle(indice, texto).map(opcionDe);
     },
-    [indice, calle, ubica],
+    [indice, calle, exigente],
   );
 
   const calleDe = (opcion: Opcion): Calle | null =>
@@ -131,11 +145,21 @@ export function BloqueDireccion({
    * complementos (FR-013). Quedarse con el punto viejo mostraria un precio que
    * ya no corresponde a la direccion escrita.
    *
-   * En entrega no hay nada que invalidar: no hay punto ni precio.
+   * **El modo oportunista tambien tiene punto que invalidar, desde `011`.** Se
+   * resolvio en silencio, y si la calle cambia deja de corresponder: un punto
+   * viejo pegado a una direccion nueva es exactamente el dato que despues manda
+   * al repartidor a otro lado. Lo que NO se limpia ahi son los complementos
+   * —numero, apto, cooperativa—, que en este modo nunca dependieron de un cruce
+   * resuelto.
    */
   function reiniciarCon(parcial: Partial<Direccion>) {
-    if (!ubica) {
-      actualizar(parcial);
+    if (!exigente) {
+      onCambio({
+        ...valor,
+        direccion: { ...valor.direccion, ...parcial, punto: null },
+        esquina: null,
+        candidatos: [],
+      });
       return;
     }
     onCambio({
@@ -163,16 +187,23 @@ export function BloqueDireccion({
   function alElegirCruzada(opcion: Opcion) {
     const otra = calleDe(opcion);
     setCruzada(otra);
-    if (!ubica || !indice || !calle || !otra) return;
+    // **Los dos modos resuelven el cruce desde `011`**; lo que cambia es que
+    // hacen cuando no pueden. Antes el modo no exigente ni lo intentaba.
+    if (!indice || !calle || !otra) return;
 
     const candidatos = buscarEsquina(indice, calle, otra);
+    // El modo exigente vacia los complementos al elegir cruce (FR-013). El
+    // oportunista los conserva: nunca dependieron del cruce.
     const base: Direccion = {
-      ...ESTADO_DIRECCION_VACIO.direccion,
+      ...(exigente ? ESTADO_DIRECCION_VACIO.direccion : valor.direccion),
       calle: calle.nombre,
       esquina: otra.nombre,
+      punto: null,
     };
 
     if (candidatos.length === 1) {
+      // Un solo cruce posible: se guarda el punto. En modo oportunista esto
+      // pasa **en silencio** — nadie eligio nada y no se muestra nada.
       onCambio({
         direccion: { ...base, punto: candidatos[0].punto },
         esquina: candidatos[0],
@@ -182,9 +213,23 @@ export function BloqueDireccion({
       return;
     }
 
-    // Cero: el cruce no existe. Varios: elige la persona, nunca el sitio
-    // (FR-021) — tomar el primero seria adivinar una zona, o sea un precio.
-    onCambio({ direccion: base, esquina: null, cualEsLaCalle: "A", candidatos });
+    // Cero candidatos: el cruce no existe. Varios: es una calle homonima, de
+    // las ~50 familias que tiene Montevideo.
+    //
+    // **Que se hace con varios depende del modo, y es la decision de FR-014**:
+    //
+    //   - `exigente` los ofrece para que elija la persona, **nunca el sitio**
+    //     (FR-021). Ahi el punto cobra: tomar el primero seria adivinar una
+    //     zona, o sea un precio.
+    //   - `oportunista` **no pregunta y se queda sin punto**. Sin punto no hay
+    //     punto equivocado, y preguntar por una direccion que no cobra es
+    //     friccion sobre la propia casa de quien envia a cambio de nada.
+    onCambio({
+      direccion: base,
+      esquina: null,
+      cualEsLaCalle: "A",
+      candidatos: exigente ? candidatos : [],
+    });
   }
 
   function elegirCandidato(esquina: Esquina) {
@@ -200,10 +245,10 @@ export function BloqueDireccion({
 
   // En entrega los complementos estan siempre disponibles: no dependen de
   // ningun cruce resuelto porque no hay punto que resolver.
-  const habilitado = !ubica || valor.esquina !== null;
-  const hayQueElegir = ubica && valor.candidatos.length > 1;
+  const habilitado = !exigente || valor.esquina !== null;
+  const hayQueElegir = exigente && valor.candidatos.length > 1;
   const cruceInexistente =
-    ubica && cruzada !== null && !valor.esquina && valor.candidatos.length === 0;
+    exigente && cruzada !== null && !valor.esquina && valor.candidatos.length === 0;
 
   const motivo = habilitado
     ? undefined
@@ -213,7 +258,7 @@ export function BloqueDireccion({
     <div className="mt-3 flex flex-col gap-4">
       {indiceFallo && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {ubica
+          {exigente
             ? "No podemos cargar el listado de calles en este momento, así que no podemos ubicar la dirección ni calcular el precio. Probá de nuevo en un rato, o escribinos y lo resolvemos."
             : "No podemos cargar el listado de calles, así que no vas a ver sugerencias. Escribí la dirección a mano: se envía igual."}
         </p>
@@ -227,11 +272,11 @@ export function BloqueDireccion({
           buscar={buscarCalles}
           onTexto={alTipearCalle}
           onElegir={alElegirCalle}
-          deshabilitado={ubica && indiceFallo}
+          deshabilitado={exigente && indiceFallo}
           error={errors.calle}
           placeholder="Empezá a escribir"
           ayuda={
-            ubica
+            exigente
               ? "Elegí una de las sugerencias."
               : "Podés elegir una sugerencia o escribirla a mano."
           }
@@ -244,7 +289,7 @@ export function BloqueDireccion({
           buscar={buscarCruces}
           onTexto={alTipearEsquina}
           onElegir={alElegirCruzada}
-          deshabilitado={ubica && (indiceFallo || !calle)}
+          deshabilitado={exigente && (indiceFallo || !calle)}
           motivoDeshabilitado="Elegí primero la calle."
           error={errors.esquina}
           placeholder="La calle que cruza"
@@ -293,7 +338,7 @@ export function BloqueDireccion({
       {/*
         Numero, apto y cooperativa NO mueven el punto (FR-011): no hay dato de
         numeracion domiciliaria, asi que son informacion para el repartidor, no
-        para ubicar. En retiro aparecen recien con el cruce resuelto.
+        para ubicar. En modo exigente aparecen recien con el cruce resuelto.
       */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

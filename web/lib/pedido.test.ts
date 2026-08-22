@@ -27,7 +27,15 @@ function datos(extra: Partial<DatosDelPedido> = {}): DatosDelPedido {
     nombre: "  Ana Perez  ",
     telefono: " 099111222 ",
     retiro: direccion({ punto: LA_BLANQUEADA }),
-    entrega: direccion({ calle: "Rivera", esquina: "Comercio", numero: "4567", apto: "" }),
+    entrega: direccion({
+      calle: "Rivera",
+      esquina: "Comercio",
+      numero: "4567",
+      apto: "",
+      // **El punto que cobra desde `011`.** El del retiro sigue arriba y se
+      // manda igual, pero no entra en ningun calculo de plata.
+      punto: LA_BLANQUEADA,
+    }),
     tamano: "chico",
     cantidad: "2",
     fecha: "2026-08-13",
@@ -39,7 +47,7 @@ function datos(extra: Partial<DatosDelPedido> = {}): DatosDelPedido {
 }
 
 describe("el cuerpo del pedido se arma desde el punto (FR-019)", () => {
-  it("deriva zona y precio del punto de retiro", () => {
+  it("deriva zona y precio del punto de entrega", () => {
     const r = armarCuerpoPedido(datos());
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -85,7 +93,7 @@ describe("el cuerpo del pedido se arma desde el punto (FR-019)", () => {
       throw new Error("no se encontro ningun punto de una zona con otro precio");
     }
 
-    const r = armarCuerpoPedido(datos({ retiro: direccion({ punto: sonda }) }));
+    const r = armarCuerpoPedido(datos({ entrega: direccion({ punto: sonda }) }));
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
@@ -94,7 +102,7 @@ describe("el cuerpo del pedido se arma desde el punto (FR-019)", () => {
   });
 
   it("sin punto no arma cuerpo", () => {
-    const r = armarCuerpoPedido(datos({ retiro: direccion({ punto: null }) }));
+    const r = armarCuerpoPedido(datos({ entrega: direccion({ punto: null }) }));
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.motivo).toBe("sin-punto");
@@ -103,7 +111,9 @@ describe("el cuerpo del pedido se arma desde el punto (FR-019)", () => {
   // FR-020: sin zona no hay precio, y sin precio no hay pedido. El flujo
   // termina en contacto directo, no en un pedido con precio inventado.
   it("un punto fuera de toda zona no arma cuerpo", () => {
-    const r = armarCuerpoPedido(datos({ retiro: direccion({ punto: FUERA_DE_TODO }) }));
+    const r = armarCuerpoPedido(
+      datos({ entrega: direccion({ punto: FUERA_DE_TODO }) }),
+    );
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.motivo).toBe("fuera-de-zona");
@@ -120,18 +130,28 @@ describe("la forma del cuerpo", () => {
     expect(r.cuerpo.destinatario).toEqual({ nombre: "Juan Gomez", telefono: "098765432" });
     expect(r.cuerpo.retiroCuando).toEqual({ fecha: "2026-08-13", hora: "10:30" });
     expect(r.cuerpo.paquete).toEqual({ tamano: "chico", cantidad: 2 });
-    expect(r.cuerpo.retiro.punto).toEqual(LA_BLANQUEADA);
+    expect(r.cuerpo.entrega.punto).toEqual(LA_BLANQUEADA);
   });
 
-  // La entrega NO lleva punto. El servicio lo rechaza con 400 por campos
-  // desconocidos, asi que mandarlo romperia el envio entero.
-  it("la entrega no lleva punto", () => {
-    const r = armarCuerpoPedido(
-      datos({ entrega: direccion({ punto: LA_BLANQUEADA }) }),
-    );
+  // **Invertido en `011`**: la que puede ir sin punto es el RETIRO, y eso no es
+  // un error sino el caso de una calle homonima o fuera del indice (FR-014,
+  // FR-015). El cuerpo sale sin la clave, que es lo que el servicio espera.
+  it("el retiro puede ir sin punto, y entonces la clave no viaja", () => {
+    const r = armarCuerpoPedido(datos({ retiro: direccion({ punto: null }) }));
+
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.cuerpo.entrega).not.toHaveProperty("punto");
+    expect(r.cuerpo.retiro).not.toHaveProperty("punto");
+    // Control positivo: el precio salio igual, porque nunca dependio de esto.
+    expect(r.cuerpo.cobro.precio).toBeGreaterThan(0);
+  });
+
+  it("el retiro con punto lo manda", () => {
+    const r = armarCuerpoPedido(datos());
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.cuerpo.retiro.punto).toEqual(LA_BLANQUEADA);
   });
 
   it("una cantidad no numerica cae a 1 en vez de mandar NaN", () => {

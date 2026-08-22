@@ -31,16 +31,17 @@ type PackageSize = "chico" | "mediano" | "grande";
 export type FormState = {
   name: string;
   phone: string;
-  // Donde hay que retirar el paquete. La direccion y el punto son lo mismo desde
-  // 003: el punto sale del cruce de calles, no de tocar el mapa.
+  // Donde hay que retirar el paquete. Tiene autocompletado, y su punto se
+  // resuelve **en silencio** cuando el cruce es inequivoco: no se muestra, no se
+  // cobra sobre el, y puede faltar sin trancar el pedido (FR-014, FR-015). Se
+  // guarda para la ruta del repartidor.
+  retiro: EstadoDireccion;
+  // Domicilio de entrega. **De aca sale el precio desde `011`**: el cruce se
+  // resuelve a un punto, ese punto decide la zona, y sin el no hay pedido.
   //
   // La zona y el precio NO se guardan acá: se derivan del punto con
   // resolverZona() en cada render, para que no puedan quedar desincronizados de
   // la ubicacion. Son plata.
-  retiro: EstadoDireccion;
-  // Domicilio de entrega. Tiene autocompletado igual que el retiro, pero no
-  // resuelve punto ni afecta al precio: el precio depende solo del retiro
-  // (FR-020). Y el autocompletado no bloquea (FR-007b).
   entrega: EstadoDireccion;
   // Única forma de declarar qué se envía. La descripción libre se quitó en
   // `004`: el cliente ya la había marcado como no necesaria en el relevamiento
@@ -139,51 +140,76 @@ function validate(
   const problemaDeTelefono = problemaTelefono(form.phone);
   if (problemaDeTelefono) errors.phone = problemaDeTelefono;
 
+  // ------------------------------------------------------------------
+  // El RETIRO se valida solo por completitud, y contra el TEXTO.
+  // ------------------------------------------------------------------
+  //
+  // **Invertido en `011`.** No se exige que la calle exista en el indice, ni que
+  // el cruce resuelva, ni que haya punto: si el texto no resuelve —o la calle es
+  // homonima— el pedido sigue igual, sin punto y **sin decir nada**
+  // (FR-014, FR-015). Rechazarlo seria trancar a alguien por un hueco del indice
+  // sobre su propia direccion, que el sabe que esta bien.
   const retiro = form.retiro;
-  if (!retiro.direccion.calle.trim()) errors.calle = "Elegí la calle.";
-  else if (!retiro.direccion.esquina.trim()) errors.esquina = "Elegí la esquina.";
-  else if (retiro.candidatos.length > 1) {
-    errors.esquina = "Hay más de un cruce con ese nombre: elegí cuál es el tuyo.";
-  } else if (!retiro.esquina) {
-    errors.esquina = "No encontramos ese cruce. Revisá los nombres.";
-  }
-  if (retiro.esquina && !retiro.direccion.numero.trim()) {
+  if (!retiro.direccion.calle.trim()) errors.calle = "Ingresá la calle.";
+  if (!retiro.direccion.esquina.trim()) errors.esquina = "Ingresá la esquina.";
+  if (!retiro.direccion.numero.trim()) {
     errors.numero = "Ingresá el número de puerta.";
   }
 
-  // La ubicacion es obligatoria: de ella sale el precio, y el precio es en firme.
-  // Sin punto no hay pedido, y con el mapa caido tampoco — no se cobra sobre un
-  // mapa que la persona no pudo ver.
-  const punto = retiro.direccion.punto;
+  // La UNICA comprobacion del retiro que puede frenar un pedido (FR-011): si su
+  // punto se resolvio y cae fuera de las cinco zonas, no se retira de ahi.
+  //
+  // **Es de mejor esfuerzo y la asimetria es deliberada**: solo actua cuando hay
+  // punto. Un retiro que no resolvio pasa sin control, porque no hay contra que
+  // comprobarlo. O sea que el area se cumple casi siempre, no siempre, y esa
+  // diferencia es del tamaño de los huecos del indice de calles.
+  const puntoRetiro = retiro.direccion.punto;
+  if (puntoRetiro && !resolverZona(puntoRetiro.lat, puntoRetiro.lng)) {
+    errors.ubicacionRetiro =
+      "Esa dirección de retiro queda fuera de nuestra zona de cobertura. Escribinos y vemos cómo ayudarte.";
+  }
+
+  // ------------------------------------------------------------------
+  // La ENTREGA es la que ubica, y de la que sale el precio.
+  // ------------------------------------------------------------------
+  const entregaEstado = form.entrega;
+  const entrega = entregaEstado.direccion;
+  if (!entrega.calle.trim()) errors.entregaCalle = "Elegí la calle.";
+  else if (!entrega.esquina.trim()) errors.entregaEsquina = "Elegí la esquina.";
+  else if (entregaEstado.candidatos.length > 1) {
+    errors.entregaEsquina =
+      "Hay más de un cruce con ese nombre: elegí cuál es el de la entrega.";
+  } else if (!entregaEstado.esquina) {
+    errors.entregaEsquina = "No encontramos ese cruce. Revisá los nombres.";
+  }
+  if (!entrega.numero.trim())
+    errors.entregaNumero = "Ingresá el número de puerta.";
+
+  // La ubicacion de la entrega es obligatoria: de ella sale el precio, y el
+  // precio es en firme. Sin punto no hay pedido, y con el mapa caido tampoco —
+  // no se cobra sobre un mapa que la persona no pudo ver.
+  const punto = entrega.punto;
   if (estadoMosaicos === "no-disponible") {
-    errors.ubicacionRetiro =
+    errors.ubicacionEntrega =
       "No podemos cargar el mapa en este momento, así que no podemos calcular el precio. Escribinos y lo resolvemos.";
-  } else if (retiro.esquina && !punto) {
-    errors.ubicacionRetiro = "Todavía no pudimos ubicar esa dirección.";
+  } else if (entregaEstado.esquina && !punto) {
+    errors.ubicacionEntrega = "Todavía no pudimos ubicar esa dirección.";
   } else if (punto && !resolverZona(punto.lat, punto.lng)) {
-    errors.ubicacionRetiro =
+    errors.ubicacionEntrega =
       "Ese punto queda fuera de nuestra zona de cobertura. Escribinos y vemos cómo ayudarte.";
   } else if (
     punto &&
-    retiro.esquina &&
-    !contiene(regionPermitida(retiro.esquina, retiro.cualEsLaCalle), punto)
+    entregaEstado.esquina &&
+    !contiene(
+      regionPermitida(entregaEstado.esquina, entregaEstado.cualEsLaCalle),
+      punto,
+    )
   ) {
     // Guarda barata, no el control principal: el arrastre ya se clampea al
     // soltar (FR-018). Si esto salta, algo movio el punto por otra via.
-    errors.ubicacionRetiro =
+    errors.ubicacionEntrega =
       "El punto quedó fuera de la cuadra que indicaste. Movelo de nuevo.";
   }
-
-  // El destino se valida solo por completitud, y contra el texto: NO se exige
-  // que la calle exista en el indice. El indice cubre el area de servicio y una
-  // entrega fuera de ella es un pedido valido (FR-007b), asi que exigirlo
-  // rechazaria entregas reales. Tampoco se comprueba contra las zonas: se cobra
-  // por retiro (FR-020).
-  const entrega = form.entrega.direccion;
-  if (!entrega.calle.trim()) errors.entregaCalle = "Ingresá la calle.";
-  if (!entrega.numero.trim())
-    errors.entregaNumero = "Ingresá el número de puerta.";
-  if (!entrega.esquina.trim()) errors.entregaEsquina = "Ingresá la esquina.";
 
   if (!form.packageSize) errors.packageSize = "Elegí un tamaño de paquete.";
 
@@ -285,13 +311,16 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
   const [centrarEn, setCentrarEn] = useState<Punto | null>(null);
   const [salioDeLaCuadra, setSalioDeLaCuadra] = useState(false);
 
-  const punto = form.retiro.direccion.punto ?? null;
+  // **El punto que cobra es el de ENTREGA desde `011`.** El del retiro existe,
+  // se resuelve en silencio y puede faltar, pero no entra en ningun calculo de
+  // plata: ver docs/decisions/pricing-from-delivery-zone.md.
+  const punto = form.entrega.direccion.punto ?? null;
 
   // Derivada, no guardada. Ver el comentario en FormState.
   const zona = punto ? resolverZona(punto.lat, punto.lng) : null;
 
-  const region = form.retiro.esquina
-    ? regionPermitida(form.retiro.esquina, form.retiro.cualEsLaCalle)
+  const region = form.entrega.esquina
+    ? regionPermitida(form.entrega.esquina, form.entrega.cualEsLaCalle)
     : null;
 
   // Mover el pin puede cruzar de zona y cambiar el precio. Eso se muestra, pero
@@ -464,48 +493,80 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
           ¿De dónde retiramos el paquete?
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Escribí la calle y la esquina: con eso ubicamos el punto y de ahí sale
-          la zona y el precio del envío.
+          Escribí la dirección de dónde pasamos a buscar el paquete.
         </p>
 
         <BloqueDireccion
           id="retiro"
+          // El retiro dejo de cobrar en `011`: su punto se resuelve en silencio,
+          // no se muestra, y puede faltar sin trancar el pedido.
+          modo="oportunista"
           valor={form.retiro}
           errors={errors}
+          // Sin recentrar ni limpiar el aviso de cuadra: los dos son del mapa, y
+          // el mapa se fue a la entrega en `011`.
+          onCambio={(estado) => update("retiro", estado)}
+        />
+
+        {errors.ubicacionRetiro && (
+          <p className={errorClass}>{errors.ubicacionRetiro}</p>
+        )}
+
+      </section>
+
+      <section className={sectionClass}>
+        <h2 className="text-base font-semibold text-slate-900">
+          ¿A dónde lo llevamos?
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Escribí la calle y la esquina: con eso ubicamos el punto y de ahí sale
+          la zona y el precio del envío.
+        </p>
+        <BloqueDireccion
+          id="entrega"
+          // De aca sale la zona y el precio desde `011`.
+          modo="exigente"
+          valor={form.entrega}
           onCambio={(estado) => {
-            update("retiro", estado);
+            update("entrega", estado);
             setSalioDeLaCuadra(false);
             // Solo se recentra al resolverse un cruce nuevo, no al arrastrar.
-            if (estado.esquina && estado.esquina !== form.retiro.esquina) {
+            if (estado.esquina && estado.esquina !== form.entrega.esquina) {
               setCentrarEn(estado.esquina.punto);
             }
+          }}
+          errors={{
+            calle: errors.entregaCalle,
+            esquina: errors.entregaEsquina,
+            numero: errors.entregaNumero,
           }}
         />
 
         {/*
           El mapa va DEBAJO de los campos y no arriba (FR-010b): los campos son
           lo primero de la pantalla, y el mapa es la respuesta a lo que la
-          persona escribio. Mientras no hay cruce resuelto se reserva el espacio
+          persona escribio. **Desde `011` cuelga de la ENTREGA**, que es la que
+          decide la zona. Mientras no hay cruce resuelto se reserva el espacio
           en vez de dejar el mapa vacio (FR-010a): asi no salta el layout al
           aparecer, y nadie intenta tocar un mapa que ya no coloca el punto.
         */}
         <div className="mt-4">
-          {form.retiro.esquina || form.retiro.candidatos.length > 1 ? (
+          {form.entrega.esquina || form.entrega.candidatos.length > 1 ? (
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <MapaZonasDinamico
-                interactivo={Boolean(form.retiro.esquina)}
+                interactivo={Boolean(form.entrega.esquina)}
                 punto={punto}
                 onPunto={(p) =>
-                  update("retiro", {
-                    ...form.retiro,
-                    direccion: { ...form.retiro.direccion, punto: p },
+                  update("entrega", {
+                    ...form.entrega,
+                    direccion: { ...form.entrega.direccion, punto: p },
                   })
                 }
                 region={region}
                 onFueraDeRegion={() => setSalioDeLaCuadra(true)}
                 candidatos={
-                  form.retiro.candidatos.length > 1
-                    ? form.retiro.candidatos.map((c) => c.punto)
+                  form.entrega.candidatos.length > 1
+                    ? form.entrega.candidatos.map((c) => c.punto)
                     : undefined
                 }
                 centrarEn={centrarEn}
@@ -521,7 +582,7 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
           )}
         </div>
 
-        {form.retiro.esquina && (
+        {form.entrega.esquina && (
           <p className="mt-2 text-xs text-slate-500">
             Podés arrastrar el punto dentro de la cuadra sombreada para dejarlo
             en tu puerta.
@@ -531,7 +592,7 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
         {salioDeLaCuadra && (
           <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Lo trajimos de vuelta: el punto solo puede moverse dentro de las
-            cuadras de {form.retiro.direccion.calle} que tocan la esquina que
+            cuadras de {form.entrega.direccion.calle} que tocan la esquina que
             elegiste. Si tu puerta está más lejos, revisá la esquina.
           </p>
         )}
@@ -552,29 +613,9 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
           punto={punto}
           zona={zona}
         />
-        {errors.ubicacionRetiro && (
-          <p className={errorClass}>{errors.ubicacionRetiro}</p>
+        {errors.ubicacionEntrega && (
+          <p className={errorClass}>{errors.ubicacionEntrega}</p>
         )}
-      </section>
-
-      <section className={sectionClass}>
-        <h2 className="text-base font-semibold text-slate-900">
-          ¿A dónde lo llevamos?
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          El lugar de entrega.
-        </p>
-        <BloqueDireccion
-          id="entrega"
-          modo="entrega"
-          valor={form.entrega}
-          onCambio={(estado) => update("entrega", estado)}
-          errors={{
-            calle: errors.entregaCalle,
-            esquina: errors.entregaEsquina,
-            numero: errors.entregaNumero,
-          }}
-        />
       </section>
 
       <section className={sectionClass}>

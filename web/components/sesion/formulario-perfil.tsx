@@ -263,6 +263,12 @@ export function FormularioPerfil() {
 
             <BloqueDireccion
               id="perfil-retiro"
+              // `exigente` y no `oportunista`, aunque sea la direccion de
+              // retiro: **es la unica pantalla donde alguien marca su direccion
+              // a mano, una vez**, y ese punto confirmado es el mejor dato de
+              // retiro que el sistema tiene (FR-016). El formulario de pedido
+              // usa el otro modo porque ahi el retiro se escribe al pasar.
+              modo="exigente"
               valor={retiro}
               errors={errores}
               onCambio={(estado) => {

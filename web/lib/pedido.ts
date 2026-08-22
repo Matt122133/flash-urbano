@@ -41,22 +41,27 @@ export type DatosDelPedido = {
 /** El cuerpo que espera POST /pedidos. Ver specs/007/contracts/pedidos.md. */
 export type CuerpoPedido = {
   remitente: { nombre: string; telefono: string };
+  // El punto del retiro es **opcional desde `011`**: se resuelve en silencio y
+  // puede faltar —una calle homonima o fuera del indice— sin que eso impida
+  // crear el pedido (FR-014, FR-015). El servicio lo acepta ausente.
   retiro: {
     calle: string;
     esquina: string;
     numero: string;
     apto: string;
     cooperativa: boolean;
-    punto: { lat: number; lng: number };
+    punto?: { lat: number; lng: number };
   };
-  // Sin `punto`, y no es un olvido: la entrega no lleva punto desde `003`, y el
-  // servicio rechaza el campo con un 400 en vez de descartarlo callado.
+  // **Con `punto`, y es el que cobra.** Hasta `010` este tipo no tenia el campo
+  // —la entrega era texto desde `003`— y mandarlo daba 400. Se invirtio en
+  // `011`: ver docs/decisions/pricing-from-delivery-zone.md.
   entrega: {
     calle: string;
     esquina: string;
     numero: string;
     apto: string;
     cooperativa: boolean;
+    punto: { lat: number; lng: number };
   };
   paquete: { tamano: TamanoPaquete; cantidad: number };
   retiroCuando: { fecha: string; hora: string };
@@ -90,7 +95,9 @@ export type ArmadoDelCuerpo =
  * no en un pedido con precio inventado.
  */
 export function armarCuerpoPedido(datos: DatosDelPedido): ArmadoDelCuerpo {
-  const punto = datos.retiro.punto;
+  // **El punto que decide todo es el de ENTREGA desde `011`.** Sin el no hay
+  // zona, sin zona no hay precio, y sin precio no hay pedido.
+  const punto = datos.entrega.punto;
   if (!punto) {
     return { ok: false, motivo: "sin-punto" };
   }
@@ -118,7 +125,17 @@ export function armarCuerpoPedido(datos: DatosDelPedido): ArmadoDelCuerpo {
         numero: datos.retiro.numero.trim(),
         apto: datos.retiro.apto.trim(),
         cooperativa: datos.retiro.cooperativa,
-        punto: { lat: punto.lat, lng: punto.lng },
+        // Se manda **solo si existe**: `punto: undefined` desaparece del JSON,
+        // que es exactamente lo que el servicio espera de un retiro que no se
+        // pudo ubicar.
+        ...(datos.retiro.punto
+          ? {
+              punto: {
+                lat: datos.retiro.punto.lat,
+                lng: datos.retiro.punto.lng,
+              },
+            }
+          : {}),
       },
       entrega: {
         calle: datos.entrega.calle.trim(),
@@ -126,6 +143,7 @@ export function armarCuerpoPedido(datos: DatosDelPedido): ArmadoDelCuerpo {
         numero: datos.entrega.numero.trim(),
         apto: datos.entrega.apto.trim(),
         cooperativa: datos.entrega.cooperativa,
+        punto: { lat: punto.lat, lng: punto.lng },
       },
       paquete: {
         tamano: datos.tamano,
