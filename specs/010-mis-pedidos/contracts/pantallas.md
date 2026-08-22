@@ -30,13 +30,22 @@ contrato es la URL que las une. Eso es lo que está acá.
 |---|---|
 | `?repetir=` con id propio y válido | Precarga entera desde el pedido; el perfil no interviene (FR-013b) |
 | `?repetir=` con id que no está en la lista | Avisa que no encontró ese pedido y **deja el formulario vacío y usable** |
-| `?repetir=` sin sesión | El mismo camino de siempre: se pide ingresar; al volver, se resuelve la precarga |
+| `?repetir=` sin sesión | Avisa que hay que ingresar para repetir y **deja el formulario vacío y usable**: cotizar sigue abierto |
 | `?repetir=` y el servicio no responde | Avisa que no pudo traer el pedido y deja el formulario vacío y usable |
 | Sin `?repetir=` | Todo igual que hoy: precarga del perfil (`007`), sin cambios |
 
 **Regla que atraviesa la tabla**: un `?repetir=` que falla **nunca** deja la
 pantalla a medio cargar ni bloqueada. Degrada a "formulario vacío", que es una
 pantalla que sirve.
+
+> **La fila de "sin sesión" decía otra cosa hasta que se implementó**, y la
+> corrección queda a la vista en vez de disimulada: decía *"se pide ingresar; al
+> volver, se resuelve la precarga"*. No se puede hoy — `/ingresar` vuelve
+> siempre a `/`, no acepta a dónde volver, y ese archivo está fuera del
+> `covers:` de este plan. Agregarle un parámetro de retorno es un feature aparte
+> y no una corrección de paso. Lo que hay es honesto: se dice qué falta hacer y
+> el formulario queda utilizable. Quien llega desde el historial —el camino
+> real— siempre tiene sesión, porque el historial vive detrás de ella.
 
 ## 2. Lo que la sección de *Mi cuenta* muestra
 
