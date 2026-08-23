@@ -107,6 +107,48 @@ func unPedido(usuarioID, clave string) Nuevo {
 // FR-011: el pedido se guarda y sobrevive. Y el punto sobrevive el viaje a
 // PostGIS, que es lo que mas facil se rompe: ST_MakePoint toma (X, Y) —longitud
 // primero—, y si se invierte no da error, da un punto en otro continente.
+// Un pedido ANTERIOR a `011`, o sea sin punto de entrega, se lee sin romperse.
+//
+// **Esta prueba existe porque su ausencia tumbo produccion el 2026-08-23.** La
+// migracion entro `entrega_punto` como `NOT NULL` apoyandose en que produccion
+// estaba vacia; no lo estaba, el servicio no arranco, y al volver la columna
+// nullable aparecio el defecto de al lado: el lector escaneaba ese punto en un
+// `float64` pelado y habria roto la lectura de esos mismos pedidos.
+//
+// Se produce el caso como se produce en la realidad —una fila que ya existia
+// antes de la columna— vaciando el punto de una creada normalmente.
+func TestUnPedidoSinPuntoDeEntregaSeLeeIgual(t *testing.T) {
+	repo, repoU, pool := repositorioDePrueba(t)
+	ctx := context.Background()
+	usuarioID := unUsuario(t, repoU, "vieja@example.com")
+
+	creado, _, err := repo.Crear(ctx, unPedido(usuarioID, "clave-vieja"))
+	if err != nil {
+		t.Fatalf("creando: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE pedidos SET entrega_punto = NULL WHERE id = $1`, creado.ID); err != nil {
+		t.Fatalf("vaciando el punto de entrega: %v", err)
+	}
+
+	lista, err := repo.PorUsuario(ctx, usuarioID)
+	if err != nil {
+		t.Fatalf("releyendo un pedido sin punto de entrega: %v", err)
+	}
+	if len(lista) != 1 {
+		t.Fatalf("quiero 1 pedido, hay %d", len(lista))
+	}
+	if lista[0].Entrega.Punto != nil {
+		t.Error("la entrega volvio con punto, y se lo vaciamos")
+	}
+	// Control positivo: el resto del pedido llega entero. Sin esto, un lector
+	// que devolviera un pedido vacio pasaria la prueba igual.
+	if lista[0].Codigo != creado.Codigo || lista[0].Precio != creado.Precio {
+		t.Errorf("el pedido volvio distinto: %+v", lista[0])
+	}
+}
+
 func TestCrearYReleerConservaTodo(t *testing.T) {
 	repo, repoU, _ := repositorioDePrueba(t)
 	ctx := context.Background()
