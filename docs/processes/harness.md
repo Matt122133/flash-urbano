@@ -115,6 +115,11 @@ consecuencias que no son obvias y que ya costaron una corrida fallada:
   relativa: `cd web && ... && cd ../backend && ...`.
 - **El comando corre en un proceso nuevo cada vez**, asi que el `cd` acumulado
   entre corridas no es un problema que haya que resolver.
+- **`./` no es sintaxis de `cmd`.** Un `verify:` que llame a un script del
+  repositorio tiene que escribirlo sin el prefijo: `gradlew.bat`, no
+  `./gradlew`. Es la misma trampa que los parentesis y aparece con cada
+  herramienta nueva que trae su lanzador — `012` la traia escrita mal y la
+  encontro el `/speckit-analyze` antes de que rompiera nada.
 
 Escrito el 2026-08-22, despues de "arreglar" un `verify:` que funcionaba y
 romperlo. El hallazgo venia de un `/speckit-analyze` que sonaba razonable: **la
