@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # Los dos modos del bloque de direccion, que dejan de nombrarse por la
   # direccion que ocupan y pasan a nombrarse por lo que hacen. Ver research D1.
@@ -290,3 +290,38 @@ contexto sería especulación y Principio III lo prohibiría. Se acepta porque e
 dato **no se puede reconstruir después**: una dirección que hoy resuelve puede no
 resolver mañana, y la persona que la escribió no vuelve. Guardar es barato;
 recuperar es imposible.
+
+## Cierre — 2026-08-22
+
+`011` cierra **con el quickstart corrido entero, en el mismo día**, y con las
+tres cosas que esa corrida encontró resueltas o anotadas.
+
+**Verificado**: M1 a M10 y H1, H3 y T038, sobre datos reales. `verify:` verde en
+las dos superficies, y **con la base de pruebas conectada** — sin
+`TEST_DATABASE_URL` el paquete `internal/pedidos` saltea 23 pruebas y el verde no
+significa nada.
+
+**Lo que la verificación encontró y el `verify:` no podía ver:**
+
+1. **H2 falló, y el defecto es real**: con el servicio caído, *Mi cuenta* invita
+   a ingresar a alguien que ya tiene sesión. Es de `006`/`007`, su archivo está
+   fuera del `covers:`, y quedó como fila `Medium` del 2026-08-22 en el tracker.
+   **Es la primera vez que ese paso se corría desde que se construyó `010`.**
+2. **Dos textos seguían diciendo que el precio sale del retiro**, uno de ellos en
+   la primera línea de `/pedido`. Obligó a extender `covers:` con
+   `web/app/pedido/page.tsx`, porque publicar una afirmación falsa sobre el
+   precio no se difiere.
+3. **Los marcadores de cruces candidatos sólo se distinguían por un tooltip de
+   hover**, que en un teléfono no existe — o sea, invisible justo donde el
+   producto se usa. Salió FR-018 y los marcadores quedaron numerados.
+
+**Y una corrección al propio análisis previo**: el hallazgo C7 de
+`/speckit-analyze` —cambiar el `cd` relativo del `verify:` por paréntesis— era
+**incorrecto**, y romper el gate fue la forma de descubrirlo: el harness ejecuta
+con `shell=True`, o sea `cmd.exe`, donde los paréntesis no crean subshell. Está
+revertido y explicado en el quickstart para que nadie lo "arregle" de nuevo.
+
+**Lo que este feature deja anotado y sin construir**, a propósito: el precio en
+avenida límite (despriorizado por el cliente), el retiro sin coordenadas cuando
+el texto no resuelve, y el estado de sesión indeterminado de H2. Los tres con su
+disparador escrito en el tracker.
