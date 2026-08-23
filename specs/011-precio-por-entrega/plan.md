@@ -21,6 +21,10 @@ covers:
   # cliente sobre el precio, en la primera linea de la pantalla mas importante
   # del producto, asi que no se difiere.
   - web/app/pedido/page.tsx
+  # AGREGADO el 2026-08-22 por FR-018: los marcadores de los cruces candidatos
+  # pasan a estar numerados. Su unico distintivo era un tooltip de hover, que en
+  # un telefono no existe.
+  - web/components/mapa-zonas.tsx
   # PedidoGuardado deja de tener punto solo en el retiro.
   - web/lib/api.ts
   # El mapeo y la decision del reajuste se mudan a la entrega. Con sus pruebas.

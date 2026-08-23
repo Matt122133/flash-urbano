@@ -262,6 +262,20 @@ rompiera, se pierde el motivo por el que alguien guarda su dirección.
     producción: prioriza no trancar el primer pedido real por encima de tener el
     dato completo. Queda anotado como deuda con su disparador.
 
+- **FR-018**: Cuando la pantalla ofrezca varios cruces candidatos, cada marcador
+  del mapa MUST mostrar **su número**, y ese número MUST coincidir con el de la
+  opción en la lista ("Opción 1" ↔ marcador 1). La correspondencia MUST verse
+  **sin ninguna interacción**.
+  - Enmienda del 2026-08-22, salida de la verificación manual: los marcadores
+    eran dos círculos idénticos y su único distintivo era un tooltip **de
+    hover**, así que en un teléfono —donde el producto se usa (Principio IV)— no
+    había forma de saber cuál era cuál. Quien probó tardó dos intentos en
+    encontrarlo **en la computadora**.
+  - El tooltip de hover **se conserva**: suma en escritorio y no estorba.
+  - Es la pantalla que decide el precio, así que elegir el cruce equivocado es
+    cobrar mal. La ambigüedad no es rara: el índice tiene **286 pares de calles
+    con más de un cruce** dentro de Montevideo.
+
 ### Key Entities
 
 - **Pedido**: gana un punto de entrega y **conserva** el de retiro. La zona y el

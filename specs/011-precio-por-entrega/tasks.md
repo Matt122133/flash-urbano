@@ -64,7 +64,7 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 - [x] T016 [US1] Agregar la comprobación del área para el retiro (FR-011): si el punto resolvió y cae fuera de toda zona, avisa y no deja confirmar. **Sólo actúa cuando hay punto** — si no resolvió, el pedido sigue en silencio (FR-015). Esa asimetría es deliberada y va comentada en el código
 - [x] T017 [US1] En `web/components/sesion/rehidratar-retiro.ts`, quitar del camino del **retiro** la rama que descarta el punto guardado y avisa cuando ya no cae en su cuadra (FR-017), y dejar esa revalidación donde ahora corresponde: el punto que cobra. **Citar research D6 en el commit** — quien vea una prueba de `007` en rojo sin este contexto va a revivir una guarda que dejó de tener sentido o borrar una que sí lo tiene
 - [x] T018 [US1] Ajustar la copia del formulario que hoy afirma que del retiro salen la zona y el precio (`pedido-form.tsx:468`, `:519`). Es texto de cara al cliente diciendo algo que pasa a ser falso
-- [ ] T019 [US1] Ejecutar M1 a M8 de [quickstart.md](quickstart.md) **en un teléfono**. M3, M4, M5 y M6 son ⚠. **M3 es el más importante del feature**: cotizar sin cuenta, con el servicio apagado, completando sólo la entrega
+- [x] T019 [US1] Ejecutar M1 a M8 de [quickstart.md](quickstart.md) **en un teléfono**. M3, M4, M5 y M6 son ⚠. **M3 es el más importante del feature**: cotizar sin cuenta, con el servicio apagado, completando sólo la entrega
 
 **Checkpoint**: US1 entregable sola. El precio ya es el correcto aunque repetir todavía no funcione.
 
@@ -80,7 +80,7 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 - [x] T021 [US2] En `web/lib/repetir.ts`, mudar a la entrega las dos mitades: el mapeo del punto al formulario, y la decisión del reajuste comparando la zona que resuelve el punto **de entrega** hoy contra el precio guardado. La mitad que hoy adapta el retiro a `rehidratarRetiro()` se achica: el retiro ya no tiene mapa
 - [x] T022 [US2] Actualizar `web/lib/repetir.test.ts` — las 24 pruebas existentes cambian de campo. **Agregar el caso de un pedido sin punto de entrega**, que es el que FR-013 protege y hoy no existe
 - [x] T023 [US2] En `web/components/pedido/crear-pedido.tsx`, resolver el caso del pedido anterior a `011`: precarga todo lo demás, la entrega queda por completar, con un aviso que lo explique. **Nunca una pantalla a medio cargar** (contrato §4)
-- [ ] T024 [US2] Ejecutar M9 y M10 de [quickstart.md](quickstart.md) con los cuatro casos de la tabla del contrato §4. **El tercero exige insertar a mano una fila con `entrega_punto` nulo**, porque la columna no lo admite — es la única forma de probar FR-013 y no se saltea por incómoda
+- [x] T024 [US2] Ejecutar M9 y M10 de [quickstart.md](quickstart.md) con los cuatro casos de la tabla del contrato §4. **El tercero exige insertar a mano una fila con `entrega_punto` nulo**, porque la columna no lo admite — es la única forma de probar FR-013 y no se saltea por incómoda
 
 ---
 
@@ -91,7 +91,7 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 **Independent Test**: con dirección guardada, el retiro viene precargado y la entrega vacía.
 
 - [x] T025 [US3] Comprobar que el retiro precargado del perfil usa el punto **guardado** —el que la persona marcó a mano— y no el resuelto en silencio del texto (FR-016). Es el mejor dato de retiro que el sistema tiene y sería absurdo descartarlo
-- [ ] T026 [US3] Ejecutar M8 de [quickstart.md](quickstart.md), con su paso ⚠: un punto guardado que ya no cae en su cuadra **se usa igual y no avisa**. Si el aviso viejo todavía aparece, quedó viva la guarda que T017 tenía que sacar
+- [x] T026 [US3] Ejecutar M8 de [quickstart.md](quickstart.md), con su paso ⚠: un punto guardado que ya no cae en su cuadra **se usa igual y no avisa**. Si el aviso viejo todavía aparece, quedó viva la guarda que T017 tenía que sacar
 
 ---
 
@@ -99,13 +99,16 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 
 - [x] T027 `verify:` verde: `cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./...`. **Mirar el conteo de skips de Go**: sin `TEST_DATABASE_URL` las pruebas que tocan Postgres se saltean solas y el verde no dice nada de la migración
 - [x] T028 Comprobar que `npx vitest run lib/cotizar-abierto.test.ts` pasa **sin haber tocado `ENTRADAS` ni `PROHIBIDOS`** (research D8). Si se puso en rojo, el defecto está en el cambio — sacar una entrada para calmarla es cómo se rompe la cotización pública sin que nadie se entere
-- [ ] T029 Ejecutar **H1** de [quickstart.md](quickstart.md): teclado y lector de pantalla sobre el historial y el conmutador de `010`. Deuda heredada
+- [x] T029 Ejecutar **H1** de [quickstart.md](quickstart.md): teclado y lector de pantalla sobre el historial y el conmutador de `010`. Deuda heredada
 - [ ] T030 Ejecutar **H2**: los tres estados que no son una lista, incluido el ⚠ del servicio caído con su reintento. Deuda heredada
-- [ ] T031 Ejecutar **H3**: ⚠ que nadie vea lo ajeno, con dos cuentas. **Es la única de las tres que cubre un agujero de seguridad (SC-004) y sigue sin verificarse desde que se construyó**
+- [x] T031 Ejecutar **H3**: ⚠ que nadie vea lo ajeno, con dos cuentas. **Es la única de las tres que cubre un agujero de seguridad (SC-004) y sigue sin verificarse desde que se construyó**
 - [ ] T032 [P] Anotar en `docs/tech-debt-tracker.md` **el número** que a la deuda del retiro sin punto le falta: cuántos pedidos quedaron con `retiro_punto IS NULL` sobre el total, contando los dos caminos (texto que no resuelve, y calle homónima)
 - [x] T033 [P] Actualizar `ARCHITECTURE.md`: de dónde sale el precio, los modos renombrados del bloque de dirección, y que el punto de retiro dejó de ser obligatorio
 - [x] T034 [P] Actualizar `docs/processes/dev-setup.md` si el procedimiento de vaciar la base local antes de migrar merece quedar escrito para la próxima
 - [x] T035 Comprobar que `git status` no muestra `web/lib/zonas.ts` ni `web/public/calles-mvd.json` modificados: son archivos generados y este feature no tiene por qué tocarlos
+- [x] T037 [FR-018] En `web/components/mapa-zonas.tsx`, numerar los marcadores de los cruces candidatos para que se correspondan con "Opción N" de la lista, **visible sin hover ni toque**. Conservar el tooltip que ya existe. Salio de la verificacion manual del 2026-08-22
+- [ ] T038 Rehacer **M6b** con los marcadores numerados, **en un teléfono**: que se vea cuál es cuál sin tocar nada
+
 - [ ] T036 Poner `specs/011-precio-por-entrega/plan.md` en `status: completed` **después** de commitear el resto: el sensor de cobertura rebota un commit cuyo plan ya está cerrado
 
 ---

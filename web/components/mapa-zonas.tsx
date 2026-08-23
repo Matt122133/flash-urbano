@@ -70,18 +70,33 @@ const ICONO = L.divIcon({
   iconAnchor: [11, 11],
 });
 
-// Marcador chico para los cruces candidatos: se distingue del pin elegido
-// porque todavia no hay nada elegido.
-const ICONO_CANDIDATO = L.divIcon({
-  className: "",
-  html: `<div style="
-    width:14px;height:14px;border-radius:9999px;
+/**
+ * Marcador de un cruce candidato, **con su numero adentro** (FR-018).
+ *
+ * Se distingue del pin elegido porque todavia no hay nada elegido, y se
+ * distingue **de los otros candidatos** por el numero, que es el mismo que
+ * muestra la lista de opciones. Esa correspondencia tiene que leerse **sin
+ * ninguna interaccion**: hay un tooltip de hover que dice lo mismo, pero en un
+ * telefono el hover no existe, y el telefono es donde este producto se usa
+ * (Principio IV). Costo dos intentos descubrirlo, en escritorio, el 2026-08-22.
+ *
+ * No es cosmetico: de este cruce sale el precio, asi que elegir el equivocado es
+ * cobrar mal. Y el caso es comun — el indice de calles tiene 286 pares con mas
+ * de un cruce dentro de Montevideo.
+ */
+const iconoCandidato = (numero: number) =>
+  L.divIcon({
+    className: "",
+    html: `<div style="
+    width:22px;height:22px;border-radius:9999px;
     background:#fff;border:3px solid #ea580c;
     box-shadow:0 1px 4px rgba(0,0,0,.35);
-  "></div>`,
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
-});
+    display:flex;align-items:center;justify-content:center;
+    font:700 12px/1 system-ui,sans-serif;color:#9a3412;
+  ">${numero}</div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
 
 export default function MapaZonas({
   interactivo = false,
@@ -298,7 +313,7 @@ export default function MapaZonas({
 
     const grupo = L.layerGroup(
       candidatos.map((p, i) =>
-        L.marker([p.lat, p.lng], { icon: ICONO_CANDIDATO, keyboard: false })
+        L.marker([p.lat, p.lng], { icon: iconoCandidato(i + 1), keyboard: false })
           .bindTooltip(`Opción ${i + 1}`, { permanent: false }),
       ),
     ).addTo(m);
