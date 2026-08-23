@@ -15,6 +15,12 @@ covers:
   - web/components/sesion/formulario-perfil.tsx
   # El camino de ?repetir= y sus avisos.
   - web/components/pedido/crear-pedido.tsx
+  # AGREGADO el 2026-08-22, durante la verificacion manual: el encabezado de la
+  # pantalla decia "la calle y la esquina de RETIRO: con eso ubicamos el punto y
+  # te mostramos el precio", que este feature volvio falso. Es texto de cara al
+  # cliente sobre el precio, en la primera linea de la pantalla mas importante
+  # del producto, asi que no se difiere.
+  - web/app/pedido/page.tsx
   # PedidoGuardado deja de tener punto solo en el retiro.
   - web/lib/api.ts
   # El mapeo y la decision del reajuste se mudan a la entrega. Con sus pruebas.

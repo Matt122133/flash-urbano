@@ -911,7 +911,7 @@ function ResultadoZona({
   if (!punto) {
     return (
       <p className="mt-4 text-sm text-slate-500">
-        Todavía no marcaste el punto de retiro.
+        Todavía no ubicamos la dirección de entrega.
       </p>
     );
   }

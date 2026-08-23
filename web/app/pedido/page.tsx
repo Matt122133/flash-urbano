@@ -44,7 +44,7 @@ const encabezado = (
         Es lo primero que lee quien llega desde un buscador, y el sitio es
         indexable desde `004`. */}
     <p className="mt-2 text-sm text-slate-600 sm:text-base">
-      Escribí la calle y la esquina de retiro: con eso ubicamos el punto y te
+      Escribí la calle y la esquina de entrega: con eso ubicamos el punto y te
       mostramos el precio al instante, sin necesidad de crear una cuenta. Para
       confirmar el pedido sí vas a tener que identificarte.
     </p>
