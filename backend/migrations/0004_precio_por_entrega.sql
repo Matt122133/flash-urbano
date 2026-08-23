@@ -12,20 +12,29 @@
 -- 1. El punto de entrega, que es el que ahora decide zona y precio.
 -- --------------------------------------------------------------------------
 --
--- NOT NULL, sin default y sin relleno. Eso EXIGE que la tabla este vacia, y es
--- deliberado: no hay con que rellenar las filas viejas —la entrega nunca tuvo
--- punto y no se puede inventar— y un default seria un punto falso, o sea un
--- precio falso, en filas que nadie reviso.
+-- **NULLABLE, y la primera version de esta migracion no lo era.**
 --
--- En produccion no hay ni un pedido. En desarrollo hay que vaciar la tabla
--- antes de correr esto (`TRUNCATE pedidos;`), y los pedidos que se pierden
--- tenian su precio calculado con la regla vieja: conservarlos seria conservar
--- numeros que ya no significan nada.
+-- Entraba como `NOT NULL` sin default, apoyandose en que produccion estaba
+-- vacia. **No lo estaba**: el 2026-08-23 el despliegue tumbo el servicio con
 --
--- Que esta migracion falle ruidosamente sobre una tabla con datos es la
--- proteccion, no el problema.
+--     ERROR: column "entrega_punto" of relation "pedidos" contains null values
+--
+-- y el backend quedo sin arrancar hasta que se corrigio esto. La migracion corre
+-- en una transaccion, asi que no dejo nada a medias, pero el servicio reintenta
+-- al arrancar y no puede pasar de aca.
+--
+-- Por que nullable y no un relleno: **los pedidos anteriores a `011` no tienen
+-- punto de entrega y no se puede inventar uno**. Un default seria un punto
+-- falso, o sea un precio falso, en filas que nadie reviso.
+--
+-- **La regla no se afloja donde importa.** Que un pedido NUEVO no pueda existir
+-- sin punto de entrega lo sostienen las dos guardas del servicio
+-- (`handlers.go` y `pedido.go`), no la columna; lo que se pierde es la garantia
+-- a nivel base sobre las filas viejas, que es justamente donde no puede haberla.
+-- Un `entrega_punto` nulo significa "pedido anterior al cambio de precios", y
+-- `web/components/pedido/crear-pedido.tsx` ya lo trata como tal (FR-013).
 ALTER TABLE pedidos
-    ADD COLUMN entrega_punto geography(Point, 4326) NOT NULL;
+    ADD COLUMN entrega_punto geography(Point, 4326);
 
 -- --------------------------------------------------------------------------
 -- 2. El punto de retiro deja de ser obligatorio.

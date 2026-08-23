@@ -176,13 +176,20 @@ const columnas = `
 // escanear arma un Pedido desde una fila con el orden de columnas.
 func escanear(fila pgx.Row) (*Pedido, error) {
 	var p Pedido
-	// El retiro sale en punteros y la entrega no, y esa asimetria ES el modelo
-	// desde 011: retiro_punto quedo nullable porque un retiro que no resuelve se
-	// guarda igual (FR-015), y entrega_punto es NOT NULL porque de el sale el
-	// precio. Escanear el retiro en un float64 pelado explota con las filas que
-	// el propio feature crea a proposito.
+	// **Las dos direcciones salen en punteros, y las dos por un motivo distinto.**
+	//
+	//   - `retiro_punto` es nullable porque un retiro que no resuelve se guarda
+	//     igual (FR-015): son filas que el propio feature crea a proposito.
+	//   - `entrega_punto` es nullable porque **los pedidos anteriores a `011` no
+	//     lo tienen**. Entro `NOT NULL` en la primera version de la migracion y
+	//     eso tumbo produccion el 2026-08-23; al volverla nullable, escanear en
+	//     un float64 pelado habria roto la lectura de esos mismos pedidos.
+	//
+	// Un pedido NUEVO no puede llegar sin punto de entrega —lo impiden las dos
+	// guardas del servicio—, pero **leer no es crear**, y esta funcion lee todo
+	// lo que hay en la tabla, incluido lo de antes.
 	var retiroLat, retiroLng *float64
-	var entregaLat, entregaLng float64
+	var entregaLat, entregaLng *float64
 
 	err := fila.Scan(
 		&p.ID, &p.UsuarioID, &p.Codigo, &p.Estado,
@@ -201,13 +208,16 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 		return nil, err
 	}
 
-	// La entrega SIEMPRE tiene punto: es NOT NULL en el esquema porque de el
-	// sale el precio. El retiro puede no tenerlo, y nil ahi no es un error —es
-	// un retiro que no se pudo ubicar y se guardo igual (FR-014, FR-015).
+	// Nil en cualquiera de las dos **no es un error**: en el retiro es una
+	// direccion que no se pudo ubicar (FR-014, FR-015), y en la entrega es un
+	// pedido anterior a `011`, que `crear-pedido.tsx` sabe precargar sin precio
+	// (FR-013).
 	if retiroLat != nil && retiroLng != nil {
 		p.Retiro.Punto = &Punto{Lat: *retiroLat, Lng: *retiroLng}
 	}
-	p.Entrega.Punto = &Punto{Lat: entregaLat, Lng: entregaLng}
+	if entregaLat != nil && entregaLng != nil {
+		p.Entrega.Punto = &Punto{Lat: *entregaLat, Lng: *entregaLng}
+	}
 	return &p, nil
 }
 
