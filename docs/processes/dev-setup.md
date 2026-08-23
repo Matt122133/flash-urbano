@@ -156,6 +156,29 @@ que sirve cualquier hosting estático sin reglas de reescritura.
 WhatsApp y el email reales. El sitio es indexable desde entonces — cosa que
 importa porque el formulario de pedido todavía no le llega a nadie.
 
+## El backend local no se muere cuando se cierra la terminal
+
+`backend/dev.sh` termina en `exec go run ./cmd/api`, que compila un binario
+temporal y lo corre como proceso hijo. Cerrar la terminal —o matar el comando en
+segundo plano— se lleva la shell y **deja el `api.exe` escuchando en el 8080**.
+
+El sintoma engaña: se edita `backend/.env`, se relanza `dev.sh`, y el servicio
+sigue con la configuracion vieja. Lo que paso es que el proceso nuevo no pudo
+tomar el puerto y murio con `bind: Only one usage of each socket address...`.
+Costo un rato el 2026-08-22 con `CORS_ORIGENES`, y el agravante fue relanzarlo
+con la salida a `/dev/null`, que tapo el unico mensaje que lo explicaba.
+
+Antes de dar por reiniciado el backend, comprobar quien escucha:
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen |
+  ForEach-Object { Get-Process -Id $_.OwningProcess | Select-Object Id, StartTime }
+```
+
+Si el `StartTime` es anterior al cambio, es el huerfano. **Y nunca relanzarlo con
+la salida silenciada**: el servicio imprime sus origenes permitidos al arrancar, y
+esa linea es la forma barata de saber si arranco el proceso que uno cree.
+
 ## Una migracion que exige la tabla vacia
 
 `0004` (feature `011`) agrega `pedidos.entrega_punto` como **`NOT NULL` sin
