@@ -106,8 +106,19 @@ Neither is a reason to charge the wrong price.
   measured.
 - **`pedidos.retiro_punto` stops being `NOT NULL`**, and its schema comment,
   which argues "no point means no zone, no zone means no price", stops being
-  true. A delivery point column arrives obligatory, which is only affordable
-  because production is empty.
+  true. A delivery point column is added — **nullable**.
+
+  It went in as `NOT NULL` first, on the belief that production held no orders.
+  **It did, and the deploy took the service down on 2026-08-23**: migrations run
+  at startup, so the backend could not boot until the column was relaxed. The
+  belief was stated by the repo owner and accepted without checking, for a
+  condition that gates whether the service starts. Corrected the same day; see
+  `docs/processes/dev-setup.md`.
+
+  **The rule itself did not weaken.** A new order still cannot exist without a
+  delivery point — that is enforced by the two service guards, which run on what
+  gets created. A `NULL` there means "order predating `011`", which the repeat
+  flow already handles (FR-013).
 - **The Android admin app must tolerate a pickup without coordinates.** It plans
   a route from the operator's position, and some orders will carry only written
   text. Whoever builds it needs to know before they design around a point that

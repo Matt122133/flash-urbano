@@ -179,23 +179,42 @@ Si el `StartTime` es anterior al cambio, es el huerfano. **Y nunca relanzarlo co
 la salida silenciada**: el servicio imprime sus origenes permitidos al arrancar, y
 esa linea es la forma barata de saber si arranco el proceso que uno cree.
 
-## Una migracion que exige la tabla vacia
+## Una migracion NO puede depender de que una tabla este vacia
 
-`0004` (feature `011`) agrega `pedidos.entrega_punto` como **`NOT NULL` sin
-default y sin relleno**, porque no hay con que rellenar: la entrega nunca tuvo
-punto y un default seria un punto falso, o sea un precio falso.
+`0004` (feature `011`) agrego `pedidos.entrega_punto`. Entro como **`NOT NULL`
+sin default**, con este argumento escrito: no hay con que rellenar las filas
+viejas —la entrega nunca tuvo punto y no se puede inventar—, produccion estaba
+vacia, y que la migracion fallara ruidosamente sobre una tabla con datos era "la
+proteccion".
 
-Contra produccion no hubo problema —estaba vacia— y **contra la base local
-falla, a proposito**. El procedimiento es vaciar y volver a crear los pedidos de
-prueba:
+**El 2026-08-23 eso tumbo produccion.** La tabla no estaba vacia:
 
-```bash
-docker exec flash-pg-dev psql -U postgres -d flash_dev -c "TRUNCATE pedidos;"
-```
+    ERROR: column "entrega_punto" of relation "pedidos" contains null values
 
-Que falle ruidosamente es la proteccion, no el problema: los pedidos viejos
-tienen su precio calculado con una regla que ya no existe, y conservarlos seria
-conservar numeros que no significan nada.
+Las migraciones se aplican **al arrancar el servicio**, asi que el backend no
+arranco y el sitio quedo sin servicio hasta que se corrigio la columna a
+nullable. La migracion corre en una transaccion (`internal/db/migrate.go`), asi
+que no dejo nada a medias — pero tampoco avanza nunca.
+
+Tres cosas que dejar aprendidas:
+
+1. **"La tabla esta vacia" es una suposicion sobre el estado de produccion, y el
+   estado de produccion cambia solo.** Aunque sea cierta cuando se escribe la
+   migracion, puede dejar de serlo entre el merge y el deploy. Una migracion que
+   depende de eso es un deploy que depende de la suerte.
+2. **Si una columna nueva no se puede rellenar, entra nullable.** La regla de
+   negocio —que un registro nuevo no pueda existir sin ese dato— la sostiene la
+   validacion del servicio, que corre sobre lo que se crea. La restriccion de la
+   base tendria que cubrir tambien las filas viejas, y ahi no puede.
+3. **Volver una columna nullable descubre al lector.** El mismo dia, al aflojar
+   la columna aparecio que `escanear()` leia ese punto en un `float64` pelado:
+   habria roto la lectura de esos mismos registros. **Cambiar la nulabilidad de
+   una columna es cambiar el codigo que la lee**, siempre.
+
+Para probar una migracion de verdad hace falta una base con datos parecidos a
+produccion. La de desarrollo se vacia con
+`docker exec flash-pg-dev psql -U postgres -d flash_dev -c "TRUNCATE pedidos;"`,
+pero **vaciarla es justamente lo que esconde este tipo de fallo**.
 
 ## Plan-coverage check
 
