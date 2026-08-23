@@ -100,14 +100,14 @@ prefijar con el `covers:` de [plan.md](plan.md)**.
 - [x] T027 `verify:` verde: `cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./...`. **Mirar el conteo de skips de Go**: sin `TEST_DATABASE_URL` las pruebas que tocan Postgres se saltean solas y el verde no dice nada de la migración
 - [x] T028 Comprobar que `npx vitest run lib/cotizar-abierto.test.ts` pasa **sin haber tocado `ENTRADAS` ni `PROHIBIDOS`** (research D8). Si se puso en rojo, el defecto está en el cambio — sacar una entrada para calmarla es cómo se rompe la cotización pública sin que nadie se entere
 - [x] T029 Ejecutar **H1** de [quickstart.md](quickstart.md): teclado y lector de pantalla sobre el historial y el conmutador de `010`. Deuda heredada
-- [ ] T030 Ejecutar **H2**: los tres estados que no son una lista, incluido el ⚠ del servicio caído con su reintento. Deuda heredada
+- [x] T030 **Corrido el 2026-08-22, y ENCONTRO UN DEFECTO**: con el servicio caido, `/perfil` muestra la rama de "sin sesion" —invita a ingresar— a alguien que **si** tiene sesion, porque `GET /yo` no contesta y `usuario` queda en `null`. La credencial no se pierde (eso esta bien resuelto en `proveedor-sesion.tsx:110`), pero la pantalla miente y **tapa el estado de error del historial**, que nunca llega a verse. Es de `006`/`007`, **no de `011`**, y su archivo esta fuera del `covers:`: anotado como fila `Medium` del 2026-08-22 en el tracker. ~~Ejecutar **H2**: los tres estados que no son una lista, incluido el ⚠ del servicio caído con su reintento. Deuda heredada~~
 - [x] T031 Ejecutar **H3**: ⚠ que nadie vea lo ajeno, con dos cuentas. **Es la única de las tres que cubre un agujero de seguridad (SC-004) y sigue sin verificarse desde que se construyó**
 - [x] T032 [P] Anotar en `docs/tech-debt-tracker.md` **el número** que a la deuda del retiro sin punto le falta: cuántos pedidos quedaron con `retiro_punto IS NULL` sobre el total, contando los dos caminos (texto que no resuelve, y calle homónima)
 - [x] T033 [P] Actualizar `ARCHITECTURE.md`: de dónde sale el precio, los modos renombrados del bloque de dirección, y que el punto de retiro dejó de ser obligatorio
 - [x] T034 [P] Actualizar `docs/processes/dev-setup.md` si el procedimiento de vaciar la base local antes de migrar merece quedar escrito para la próxima
 - [x] T035 Comprobar que `git status` no muestra `web/lib/zonas.ts` ni `web/public/calles-mvd.json` modificados: son archivos generados y este feature no tiene por qué tocarlos
 - [x] T037 [FR-018] En `web/components/mapa-zonas.tsx`, numerar los marcadores de los cruces candidatos para que se correspondan con "Opción N" de la lista, **visible sin hover ni toque**. Conservar el tooltip que ya existe. Salio de la verificacion manual del 2026-08-22
-- [ ] T038 Rehacer **M6b** con los marcadores numerados, **en un teléfono**: que se vea cuál es cuál sin tocar nada
+- [x] T038 Rehacer **M6b** con los marcadores numerados, **en un teléfono**: que se vea cuál es cuál sin tocar nada
 
 - [ ] T036 Poner `specs/011-precio-por-entrega/plan.md` en `status: completed` **después** de commitear el resto: el sensor de cobertura rebota un commit cuyo plan ya está cerrado
 
