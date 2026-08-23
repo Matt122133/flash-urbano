@@ -142,13 +142,22 @@ cuando más molesta — parado en la calle, con un paquete en la mano.
   del remitente (FR-012). No es la selección de la mañana. La consecuencia
   directa: **sin selección múltiple**, un toque por pedido, botones de calle.
 
+- **¿Se guarda el historial de cambios de estado?** → **Sí, y no se muestra en
+  ningún lado todavía** (FR-014). El motivo no es una pantalla sino que el dato
+  no se puede reconstruir hacia atrás: con FR-004 permitiendo revertir, el estado
+  actual **no cuenta lo que pasó**.
+
+- **¿Y si le roban el teléfono?** → **Se acepta el riesgo y se escribe cómo
+  cortarlo** (FR-016). No se construye revocación remota ni bloqueo por huella:
+  lo segundo pelearía de frente con US3, que es abrir y trabajar.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: La app MUST mostrar los pedidos que el servicio le devuelve, con
-  código, dirección de retiro, dirección de entrega, tamaño y cantidad, y nombre
-  y teléfono de quien recibe.
+  código, dirección de retiro, dirección de entrega, tamaño y cantidad, y el
+  nombre y teléfono de **las dos personas**: quien envía y quien recibe.
 - **FR-002**: La app MUST tolerar un pedido **sin coordenadas de retiro** y un
   pedido **sin punto de entrega**, mostrando lo que sí tiene.
 - **FR-003**: Diego MUST poder mover un pedido a **aceptación** y a **entrega**.
@@ -193,12 +202,42 @@ cuando más molesta — parado en la calle, con un paquete en la mano.
   - Es lo que hace que la app siga sirviendo con cuarenta pedidos viejos adentro:
     **lo que se ve al abrir es lo que falta hacer**.
 
+- **FR-014**: Cada cambio de estado MUST quedar registrado con **cuándo** ocurrió
+  y **a qué estado pasó**, incluidas las reversiones (decisión del 2026-08-23).
+  - **MUST NOT** mostrarse todavía, ni en la app ni en la web. No es una
+    pantalla: es un dato que **no se puede reconstruir después**.
+  - Lo vuelve necesario FR-004: si un pedido se marca entregado y se revierte,
+    el estado actual dice "aceptación" y **nadie sabe que hubo una entrega
+    marcada**. El día que Diego diga "yo lo entregué" y el cliente diga que no,
+    esto es lo único que queda.
+  - `rastro` **no sirve** para esto: registra intentos de ingreso, no acciones
+    sobre pedidos, y se purga a los 90 días.
+- **FR-015**: La app MUST mostrar también el **teléfono de quien envía**, no sólo
+  el de quien recibe. Diego lo necesita para coordinar el retiro, que es la mitad
+  del viaje — el spec original lo había omitido.
+
+- **FR-016**: El procedimiento para **cortarle la sesión a un teléfono perdido**
+  MUST estar escrito en el repo (decisión del 2026-08-23). **No se construye
+  revocación remota**: la sesión es una fila y borrarla la corta.
+  - **El riesgo se acepta a la vista, no se ignora**: quien tenga el teléfono
+    desbloqueado ve el nombre, la dirección y el teléfono de todos los clientes y
+    destinatarios. Es dato de terceros, el mismo que `010` cuidó al punto de no
+    escribirlo en el disco del navegador.
+  - Lo que lo hace aceptable: es **un solo** teléfono, con bloqueo de pantalla y
+    almacenamiento cifrado por el sistema, y el corte está a un minuto de
+    distancia para quien tenga acceso a la base.
+  - **Lo que lo volvería inaceptable**: más de un repartidor con la app. Ahí la
+    revocación remota deja de ser opcional, y conviene saberlo antes de sumar al
+    segundo.
+
 ### Key Entities
 
 - **Pedido**: no cambia de forma. Lo que cambia es que su **estado** deja de ser
   un campo que nadie escribe.
 - **Estado**: creación, aceptación, entrega. Ya existen en la base y en el
   servicio. El cliente descartó un cuarto ("confirmación") el 2026-08-06.
+- **Cambio de estado**: entidad **nueva**. Cuándo pasó y a qué estado. Es lo
+  único que este feature agrega al modelo de datos.
 - **Sesión**: la misma que la web. Lo que se agrega es que se renueva al usarse.
 
 ## Success Criteria *(mandatory)*

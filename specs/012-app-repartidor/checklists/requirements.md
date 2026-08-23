@@ -41,6 +41,11 @@
 - **Sin bloqueo de gobernanza.** A diferencia de `011`, este feature *cumple* la
   constitución en vez de contradecirla: entrega una parte de la segunda
   superficie que ella ya describe.
+- **El `/speckit-clarify` del 2026-08-23 agregó tres requisitos que el spec no
+  tenía**: el historial de cambios de estado (FR-014), el teléfono de quien envía
+  —que se había omitido, y Diego lo necesita para coordinar el retiro, que es la
+  mitad del viaje (FR-015)—, y el procedimiento para cortarle la sesión a un
+  teléfono perdido (FR-016).
 - **La respuesta a FR-012 tiene una consecuencia que conviene no perder**: al ser
   "lo tengo en la mano", la app es una herramienta de calle y **no lleva
   selección múltiple**. Y deja algo afuera a sabiendas — elegir qué pedidos lleva
