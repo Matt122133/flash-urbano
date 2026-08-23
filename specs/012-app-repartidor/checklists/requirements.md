@@ -13,10 +13,10 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — **quedan 2, y las dos son del
-      cliente**: FR-012 (qué significa "aceptación" para Diego) y FR-013 (qué
-      pedidos muestra la app). La primera es la más cara: las dos lecturas dan
-      aplicaciones distintas.
+- [x] No [NEEDS CLARIFICATION] markers remain — las dos se cerraron el
+      2026-08-23: la app organiza por estado y la pantalla principal muestra
+      pendientes y tomados (FR-013), y "tomado" significa "lo tengo en la mano",
+      marcado en la puerta del remitente (FR-012).
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -41,7 +41,9 @@
 - **Sin bloqueo de gobernanza.** A diferencia de `011`, este feature *cumple* la
   constitución en vez de contradecirla: entrega una parte de la segunda
   superficie que ella ya describe.
-- Las dos preguntas abiertas se resuelven en `/speckit-clarify`, y **las dos las
-  contesta Diego**, no el equipo. FR-012 es la que conviene preguntar primero:
-  determina si la app es una lista para marcar a la mañana o una herramienta que
-  se usa parado en una puerta.
+- **La respuesta a FR-012 tiene una consecuencia que conviene no perder**: al ser
+  "lo tengo en la mano", la app es una herramienta de calle y **no lleva
+  selección múltiple**. Y deja algo afuera a sabiendas — elegir qué pedidos lleva
+  cada día, que la constitución nombra, **no queda registrado en ningún lado**.
+  Es aceptable porque hoy nadie necesita ese dato, pero si mañana se quiere un
+  panel de "lo que planeó vs lo que hizo", ese dato no existe hacia atrás.

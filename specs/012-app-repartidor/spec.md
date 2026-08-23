@@ -75,7 +75,8 @@ no pueda mover nada todavía: hoy no tiene el dato en el teléfono.
 
 ### User Story 2 - Diego mueve el pedido por su ciclo (Priority: P1)
 
-Diego marca lo que va pasando: que toma el pedido, y que lo entregó.
+Diego marca lo que va pasando, **en el momento en que pasa**: cuando levanta el
+paquete del remitente, y cuando lo deja en el destino.
 
 **Why this priority**: es la mitad que le devuelve algo a quien envía. También es
 P1 porque US1 sin esto deja el problema original intacto — todo seguiría diciendo
@@ -86,8 +87,9 @@ muestra el estado nuevo.
 
 **Acceptance Scenarios**:
 
-1. **Given** un pedido en creación, **When** Diego lo marca como aceptado,
-   **Then** el cambio queda guardado y se ve en *Mis pedidos* de quien envió.
+1. **Given** un pedido en creación, **When** Diego marca que ya lo tiene en la
+   mano, **Then** el cambio queda guardado y se ve en *Mis pedidos* de quien
+   envió.
 2. **Given** un pedido aceptado, **When** Diego lo marca como entregado,
    **Then** queda en su estado final.
 3. **Given** un pedido que Diego marcó por error, **When** lo revierte, **Then**
@@ -129,6 +131,17 @@ cuando más molesta — parado en la calle, con un paquete en la mano.
   texto justamente porque la lista puede crecer. Un valor nuevo se muestra crudo
   antes que romper la pantalla, igual que decidió `010` (FR-006).
 
+## Clarifications
+
+### Sesión 2026-08-23
+
+- **¿Qué pedidos muestra la app?** → **Secciones por estado**, y la pantalla
+  principal muestra **pendientes y tomados**: lo que falta hacer. Los entregados
+  tienen su propia sección (FR-013).
+- **¿Qué significa "tomado"?** → **"Lo tengo en la mano"**, marcado en la puerta
+  del remitente (FR-012). No es la selección de la mañana. La consecuencia
+  directa: **sin selección múltiple**, un toque por pedido, botones de calle.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -158,17 +171,27 @@ cuando más molesta — parado en la calle, con un paquete en la mano.
   volver a abrir.
 - **FR-011**: La app MUST distribuirse como un archivo instalable a mano, sin
   tienda, y el proceso de generarlo MUST estar escrito en el repo.
-- **FR-012**: "Aceptación" MUST [NEEDS CLARIFICATION: ¿qué significa exactamente
-  para Diego? Las dos lecturas dan apps distintas: (a) "me hago cargo de este
-  pedido hoy", que es una selección que hace en su casa a la mañana y que la
-  constitución describe como "filter/select which to carry each day"; o (b) "ya
-  lo retiré y lo tengo conmigo", que es algo que marca en la puerta del
-  remitente. El relevamiento original decía "Aceptación/Recepción", que son
-  justamente esas dos cosas distintas.]
-- **FR-013**: La app MUST [NEEDS CLARIFICATION: ¿qué pedidos muestra? ¿Todos los
-  que existen, sólo los que no están entregados, o los del día? Hoy hay pocos y
-  cualquier respuesta funciona; la pregunta es qué le sirve a Diego cuando abra
-  la app con cuarenta pedidos viejos adentro.]
+- **FR-012**: "Aceptación" significa **"ya lo retiré, el paquete está conmigo"**
+  (decisión del 2026-08-23). Diego lo marca **parado en la puerta del remitente**,
+  con el paquete en la mano.
+  - **Es trabajo de calle, y eso manda sobre la pantalla**: un toque por pedido,
+    el botón grande y alcanzable con una mano. **MUST NOT** haber selección
+    múltiple — los paquetes se retiran de a uno, así que marcar de a varios
+    describiría algo que no pasa.
+  - El relevamiento original decía "Aceptación/**Recepción**", y esta decisión se
+    queda con la segunda mitad. **Elegir qué lleva cada día —lo que la
+    constitución llama "filter/select which to carry"— queda sin registrar**, y
+    es correcto para esta entrega: hoy Diego elige mirando la lista, y no hay
+    ningún requisito de que esa elección quede guardada.
+- **FR-013**: La app MUST organizar los pedidos **en secciones por estado**, y
+  la pantalla principal MUST mostrar **los pendientes y los tomados** — o sea el
+  trabajo que todavía tiene por delante (decisión del 2026-08-23).
+  - **Los entregados MUST NOT ocupar la pantalla principal.** Tienen su propia
+    sección: sirven para consultar, no para trabajar, y son los únicos que crecen
+    sin límite. Dejarlos en el medio convierte la pantalla en un archivo en vez
+    de una lista de tareas.
+  - Es lo que hace que la app siga sirviendo con cuarenta pedidos viejos adentro:
+    **lo que se ve al abrir es lo que falta hacer**.
 
 ### Key Entities
 
