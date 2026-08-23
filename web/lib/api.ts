@@ -171,9 +171,21 @@ export type PuntoGuardado = { lat: number; lng: number };
  * `numero` y `apto` son NULABLES en la base y llegan como `null`, no como `""`.
  * La diferencia importa al mostrarlos: "no lo dijo" no es "dijo que no".
  *
- * **El punto solo lo tiene el retiro.** La entrega quedo como texto en `003`
- * (FR-007a de aquel feature): no incide en el precio y la ubica la app Android.
- * Por eso es opcional aca y no un campo que a veces viene en cero.
+ * **El punto es opcional en las dos, y las dos razones son distintas.** Hasta
+ * `010` solo lo tenia el retiro —la entrega era texto desde `003`—; en `011` se
+ * invirtio y el que cobra es el de la entrega
+ * (docs/decisions/pricing-from-delivery-zone.md).
+ *
+ * Un pedido que llega hoy puede tener **cualquiera de estas tres formas**, y
+ * quien consuma este tipo tiene que tolerar las tres:
+ *
+ *   1. Con los dos puntos — el caso comun desde `011`.
+ *   2. Con el de entrega y **sin** el de retiro — el retiro no se pudo ubicar
+ *      (calle homonima o fuera del indice) y se guardo igual, a proposito.
+ *   3. Con el de retiro y **sin** el de entrega — un pedido anterior a `011`.
+ *
+ * Opcional y no "a veces en cero": un punto ausente es ausente, y un cero seria
+ * un lugar en el Golfo de Guinea.
  */
 export type DireccionGuardada = {
   calle: string;

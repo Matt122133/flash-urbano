@@ -45,7 +45,12 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
   slugs as the canonical identifier.
 - [`decisions/zone-based-automatic-pricing.md`](decisions/zone-based-automatic-pricing.md)
   — the site quotes the price itself from the pickup zone; reverses the
-  constitution's Principle V (1.0.0 → 2.0.0).
+  constitution's Principle V (1.0.0 → 2.0.0). **Superseded on which end of the
+  trip is measured** by the ADR below.
+- [`decisions/pricing-from-delivery-zone.md`](decisions/pricing-from-delivery-zone.md)
+  — the price comes from the **delivery** zone, on the client's own correction;
+  reverses Principle V a second time (3.0.0 → 4.0.0). The pickup keeps a
+  silently resolved point that stops being required.
 - [`decisions/backend-persistence-stack.md`](decisions/backend-persistence-stack.md)
   — where the backend goes when it is built: the site stays static on GitHub
   Pages, a separate Go service and Postgres with PostGIS run on Railway.

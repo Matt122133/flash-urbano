@@ -92,6 +92,8 @@ func cuerpoValido(cambios ...func(map[string]any)) string {
 		"entrega": map[string]any{
 			"calle": "Rivera", "esquina": "Comercio",
 			"numero": "4567", "apto": "", "cooperativa": false,
+			// Desde 011 la entrega SI lleva punto, y es el que cobra.
+			"punto": map[string]any{"lat": -34.872, "lng": -56.16},
 		},
 		"paquete":      map[string]any{"tamano": "chico", "cantidad": 1},
 		"retiroCuando": map[string]any{"fecha": "2026-08-13", "hora": "10:30"},
@@ -269,17 +271,72 @@ func TestNoSePuedeCrearAppNombreDeOtroDesdeElCuerpo(t *testing.T) {
 	}
 }
 
-// La entrega NO lleva punto (FR-007a de `003`). Mandarlo es 400, no un dato que
-// se descarta callado.
-func TestLaEntregaNoAceptaPunto(t *testing.T) {
-	srv, _, _ := escenario(t, relojFijo)
+// Los tres casos del contrato de 011: que punto se exige y cual no.
+//
+// **El del medio es el que importa y el que se puede romper sin querer.** Hasta
+// `010` el servicio rechazaba un pedido sin punto de retiro; desde `011` eso es
+// VALIDO —una calle que no resuelve o una homonima se guardan como texto, sin
+// coordenadas y sin avisar (FR-014, FR-015)— y un 400 ahi seria rechazar lo que
+// el feature decidio aceptar.
+func TestQuePuntoSeExigeYCualNo(t *testing.T) {
+	casos := []struct {
+		nombre string
+		ajuste func(map[string]any)
+		estado int
+		porQue string
+	}{
+		{
+			nombre: "con los dos puntos",
+			ajuste: func(c map[string]any) {},
+			estado: http.StatusCreated,
+			porQue: "el caso comun",
+		},
+		{
+			nombre: "sin punto de retiro",
+			ajuste: func(c map[string]any) {
+				delete(c["retiro"].(map[string]any), "punto")
+			},
+			estado: http.StatusCreated,
+			porQue: "FR-015: el retiro que no resuelve se guarda igual",
+		},
+		{
+			nombre: "sin punto de entrega",
+			ajuste: func(c map[string]any) {
+				delete(c["entrega"].(map[string]any), "punto")
+			},
+			estado: http.StatusBadRequest,
+			porQue: "de ese punto sale el precio: sin el no hay pedido",
+		},
+	}
 
-	conPunto := cuerpoValido(func(c map[string]any) {
-		e := c["entrega"].(map[string]any)
-		e["punto"] = map[string]any{"lat": -34.9, "lng": -56.2}
-	})
-	if estado, _ := pedir(t, srv, "POST", "/pedidos", "tok-ana", "k1", conPunto); estado != http.StatusBadRequest {
-		t.Errorf("quiero 400, dio %d", estado)
+	for i, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			srv, repo, ids := escenario(t, relojFijo)
+			clave := fmt.Sprintf("clave-%d", i)
+
+			estado, _ := pedir(t, srv, "POST", "/pedidos", "tok-ana", clave, cuerpoValido(caso.ajuste))
+			if estado != caso.estado {
+				t.Errorf("quiero %d, dio %d (%s)", caso.estado, estado, caso.porQue)
+			}
+
+			// Control positivo del caso del medio: no alcanza con que conteste
+			// 201, la fila tiene que estar y con el punto de retiro en nulo.
+			if caso.nombre == "sin punto de retiro" {
+				lista, err := repo.PorUsuario(context.Background(), ids["ana"])
+				if err != nil {
+					t.Fatalf("releyendo: %v", err)
+				}
+				if len(lista) != 1 {
+					t.Fatalf("quiero 1 pedido guardado, hay %d", len(lista))
+				}
+				if lista[0].Retiro.Punto != nil {
+					t.Error("el retiro volvio con punto, y se mando sin ninguno")
+				}
+				if lista[0].Entrega.Punto == nil {
+					t.Error("la entrega volvio sin punto, y es el que cobra")
+				}
+			}
+		})
 	}
 }
 
@@ -298,8 +355,8 @@ func TestLasValidacionesRechazanLoQueTienenQueRechazar(t *testing.T) {
 		{"sin nombre de quien envia", func(c map[string]any) {
 			c["remitente"].(map[string]any)["nombre"] = "  "
 		}},
-		{"sin punto de retiro", func(c map[string]any) {
-			delete(c["retiro"].(map[string]any), "punto")
+		{"sin punto de entrega", func(c map[string]any) {
+			delete(c["entrega"].(map[string]any), "punto")
 		}},
 		{"tamano invalido", func(c map[string]any) {
 			c["paquete"].(map[string]any)["tamano"] = "enorme"

@@ -102,6 +102,39 @@ When the user signals "we're done" / "close out" / "ttyl", before responding:
    chat into the repo: rejected options → Decision Log; surprises or follow-up
    work → `docs/tech-debt-tracker.md`; a cross-plan principle → a new ADR.
 
+## Como se ejecuta el `verify:`
+
+`scripts/harness/speckit_gate.py` corre el `verify:` del plan con
+`subprocess.run(..., shell=True)`. En Windows eso es **`cmd.exe`**, y hay dos
+consecuencias que no son obvias y que ya costaron una corrida fallada:
+
+- **Los parentesis NO crean un subshell.** `(cd web && ...) && (cd backend && ...)`
+  se ve portable y no lo es: en `cmd` el `cd` persiste fuera del grupo, asi que
+  la segunda mitad busca `web/backend` y falla con *"El sistema no puede
+  encontrar la ruta especificada"*. La forma que funciona en las dos shells es la
+  relativa: `cd web && ... && cd ../backend && ...`.
+- **El comando corre en un proceso nuevo cada vez**, asi que el `cd` acumulado
+  entre corridas no es un problema que haya que resolver.
+
+Escrito el 2026-08-22, despues de "arreglar" un `verify:` que funcionaba y
+romperlo. El hallazgo venia de un `/speckit-analyze` que sonaba razonable: **la
+correccion se cayo al ejecutarla, no al razonarla**.
+
+## Un `verify:` verde puede no haber probado nada
+
+Las pruebas de Go que necesitan Postgres **se saltean solas** sin
+`TEST_DATABASE_URL` (ver `backend/README.md`). El paquete `internal/pedidos`
+tiene 23 asi. Un `verify:` que las incluya va a decir `ok` igual habiendolas
+salteado todas.
+
+Ya mordio dos veces: `010` lo dejo anotado y `011` lo vivio — el `go test ./...`
+daba verde con 23 salteadas **sobre el paquete que el feature estaba cambiando**,
+y al conectar la base aparecieron cuatro fallas reales.
+
+**Antes de creerle a un `verify:` verde que incluya Go, mirar el conteo de
+skips**, o correrlo con la base de pruebas levantada. Es un **sensor faltante**
+del harness, no una distraccion de quien lo corre.
+
 ## Steering Loop
 
 The harness is maintained, not built once. Whenever the agent gets something

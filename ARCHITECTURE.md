@@ -127,6 +127,15 @@ default; components that need interactivity (forms, nav toggle) are marked
   constitution's Principle II. Client-side validation and the field set live
   here; if the client's brief changes, this is usually the file to touch.
 
+  **The delivery section is the one that locates and prices; the pickup is
+  written.** That is the inversion `011` made: the map, the mandatory crossing
+  resolution and the candidate list hang off *a dónde llevamos el paquete*,
+  while the pickup resolves a point silently, never shows it, and may end up
+  without one. The two behaviours are the two modes of
+  `components/bloque-direccion.tsx` — `exigente` and `oportunista` — **named
+  after what they do and not after which address uses them**, precisely because
+  that mapping has already flipped once.
+
   **It does not, and must not, import `lib/api.ts` or `lib/sesion.ts`.** Since
   `007` the form confirms an order against the service, but it does so through
   an `onConfirmar` prop — the composition in
@@ -184,7 +193,10 @@ default; components that need interactivity (forms, nav toggle) are marked
   declared price. That second one is a deliberate, recorded tradeoff — see the
   `Medium` row of 2026-08-12 in `docs/tech-debt-tracker.md` before "fixing" it.
 - `web/lib/zona-lookup.ts` — resolves which delivery zone a marked point falls
-  in, and therefore what the customer is charged. The only module in the repo
+  in, and therefore what the customer is charged. **Since `011` the point it is
+  asked about is the DELIVERY point, not the pickup one**
+  (`docs/decisions/pricing-from-delivery-zone.md`); the module itself did not
+  change, only who calls it with what. The only module in the repo
   with unit tests (`zona-lookup.test.ts`), because it is the only one where a
   bug costs money rather than looks. Its tie-break on shared borders is
   deliberate and documented; do not "improve" it into a nearest-zone fallback.

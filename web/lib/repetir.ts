@@ -10,7 +10,7 @@
 // `FormState`, porque necesita `EstadoDireccion` y llamar a `rehidratarRetiro()`.
 // Ver `components/pedido/crear-pedido.tsx`.
 
-import type { DireccionGuardada, PedidoGuardado } from "./api";
+import type { PedidoGuardado } from "./api";
 import type { Punto } from "./direccion";
 import type { TamanoPaquete } from "./pedido";
 import { resolverZona } from "./zona-lookup";
@@ -22,7 +22,7 @@ import { resolverZona } from "./zona-lookup";
  * estructuralmente en vez de importarla: ese tipo vive en `components/` y este
  * modulo no puede mirar para alla. TypeScript las hace compatibles igual.
  */
-export type RetiroParaRehidratar = {
+export type DireccionParaRehidratar = {
   calle: string;
   esquina: string;
   numero: string;
@@ -51,12 +51,15 @@ export type CamposRepetidos = {
   quantity: string;
   receiverName: string;
   receiverPhone: string;
-  entrega: {
+  // El RETIRO, como texto y con el punto tal cual se guardo. Hasta `010` este
+  // campo era la entrega; se invirtieron los roles en `011`.
+  retiro: {
     calle: string;
     esquina: string;
     numero: string;
     apto: string;
     cooperativa: boolean;
+    punto: Punto | null;
   };
 };
 
@@ -71,8 +74,10 @@ const TAMANOS: readonly TamanoPaquete[] = ["chico", "mediano", "grande"];
  * `apto` y `cooperativa` se dejan nulables porque `rehidratarRetiro()` ya
  * distingue esos dos casos y lo hace bien.
  */
-export function retiroDelPedido(pedido: PedidoGuardado): RetiroParaRehidratar {
-  const d = pedido.retiro;
+export function entregaParaRehidratar(
+  pedido: PedidoGuardado,
+): DireccionParaRehidratar {
+  const d = pedido.entrega;
   return {
     calle: d.calle,
     esquina: d.esquina,
@@ -80,6 +85,32 @@ export function retiroDelPedido(pedido: PedidoGuardado): RetiroParaRehidratar {
     punto: d.punto ?? null,
     apto: d.apto,
     cooperativa: d.cooperativa,
+  };
+}
+
+/**
+ * El retiro del pedido, como TEXTO y con su punto tal cual quedo guardado.
+ *
+ * **No pasa por `rehidratarRetiro()` desde `011`, y eso es la mitad de FR-017.**
+ * Aquella funcion existe para revalidar el punto ANTES de cobrar sobre el; el
+ * retiro dejo de cobrar, asi que revalidarlo seria descartar un dato bueno por
+ * una regla que ya no aplica. Se copia y listo.
+ *
+ * Si el pedido viejo no tiene punto de retiro —una calle homonima o fuera del
+ * indice cuando se creo— llega `null`, que es exactamente lo que el formulario
+ * espera de un retiro sin ubicar.
+ */
+export function retiroDelPedido(
+  pedido: PedidoGuardado,
+): CamposRepetidos["retiro"] {
+  const d = pedido.retiro;
+  return {
+    calle: d.calle,
+    esquina: d.esquina,
+    numero: d.numero ?? "",
+    apto: d.apto ?? "",
+    cooperativa: d.cooperativa,
+    punto: d.punto ?? null,
   };
 }
 
@@ -103,7 +134,10 @@ export function camposDelPedido(pedido: PedidoGuardado): CamposRepetidos {
     quantity: String(pedido.cantidad),
     receiverName: pedido.destinatarioNombre,
     receiverPhone: pedido.destinatarioTelefono,
-    entrega: entregaDelPedido(pedido.entrega),
+    // **La entrega ya no sale de aca desde `011`**: ubica, asi que se rehidrata
+    // con `entregaParaRehidratar()` y su punto decide el precio. Lo que sale de
+    // aca es el RETIRO, que paso a ser el texto que antes era la entrega.
+    retiro: retiroDelPedido(pedido),
   };
 }
 
@@ -125,25 +159,6 @@ export function tamanoDelPedido(tamano: string): TamanoPaquete | "" {
     : "";
 }
 
-/**
- * La entrega, como texto.
- *
- * **No se intenta resolver el cruce contra el indice de calles**, y es
- * deliberado: la entrega no tiene punto guardado —`003` la dejo como texto a
- * proposito— y sin punto no hay con que desempatar entre las ~50 parejas de
- * calles homonimas de Montevideo. Elegir la primera coincidencia seria
- * exactamente el valor aproximado que FR-017 prohibe. El texto guardado, en
- * cambio, es exacto: es lo que la persona escribio.
- */
-function entregaDelPedido(d: DireccionGuardada): CamposRepetidos["entrega"] {
-  return {
-    calle: d.calle,
-    esquina: d.esquina,
-    numero: d.numero ?? "",
-    apto: d.apto ?? "",
-    cooperativa: d.cooperativa,
-  };
-}
 
 /**
  * El precio que corresponde HOY a un punto, o `null` si no cae en ninguna zona.

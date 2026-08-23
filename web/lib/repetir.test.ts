@@ -7,6 +7,7 @@ import {
   camposDelPedido,
   huboReajuste,
   precioDeHoy,
+  entregaParaRehidratar,
   retiroDelPedido,
   tamanoDelPedido,
 } from "./repetir";
@@ -35,6 +36,8 @@ function unPedido(cambios: Partial<PedidoGuardado> = {}): PedidoGuardado {
       numero: null,
       apto: null,
       cooperativa: false,
+      // El punto que cobra desde `011`.
+      punto: { lat: -34.872, lng: -56.16 },
     },
     paqueteTamano: "mediano",
     cantidad: 2,
@@ -50,44 +53,72 @@ function unPedido(cambios: Partial<PedidoGuardado> = {}): PedidoGuardado {
   };
 }
 
-describe("retiroDelPedido", () => {
+describe("entregaParaRehidratar", () => {
   it("pasa los campos tal como se guardaron", () => {
-    expect(retiroDelPedido(unPedido())).toEqual({
-      calle: "Comercio",
-      esquina: "Monte Caseros",
-      numero: "1234",
+    expect(entregaParaRehidratar(unPedido())).toEqual({
+      calle: "Bulevar Artigas",
+      esquina: "Rivera",
+      numero: "",
       punto: { lat: -34.872, lng: -56.16 },
-      apto: "301",
-      cooperativa: true,
+      apto: null,
+      cooperativa: false,
     });
   });
 
   it("convierte el numero nulo en texto vacio", () => {
     // `rehidratarRetiro()` espera texto. Nulo llega desde la base y significa
     // "no lo dijo"; el formulario lo representa con el campo en blanco.
-    const r = retiroDelPedido(
-      unPedido({ retiro: { ...unPedido().retiro, numero: null } }),
-    );
-    expect(r.numero).toBe("");
+    expect(entregaParaRehidratar(unPedido()).numero).toBe("");
   });
 
   it("deja apto y cooperativa nulables", () => {
     // No se aplanan a "" ni a false: `rehidratarRetiro()` ya distingue "no lo
     // dijo" de "dijo que no", y aplanarlos aca le sacaria esa informacion.
-    const r = retiroDelPedido(
-      unPedido({
-        retiro: { ...unPedido().retiro, apto: null, cooperativa: false },
-      }),
-    );
+    const r = entregaParaRehidratar(unPedido());
     expect(r.apto).toBeNull();
     expect(r.cooperativa).toBe(false);
   });
 
   it("sin punto guardado devuelve null y no rompe", () => {
+    // **Es el pedido anterior a `011`** (FR-013): la entrega nunca tuvo punto.
+    // Tiene que llegar `null` y no romper, porque de ahi cuelga la precarga que
+    // deja el formulario usable en vez de a medio cargar.
+    const r = entregaParaRehidratar(
+      unPedido({ entrega: { ...unPedido().entrega, punto: undefined } }),
+    );
+    expect(r.punto).toBeNull();
+  });
+});
+
+describe("retiroDelPedido", () => {
+  it("pasa los campos tal como se guardaron, con los nulos en blanco", () => {
+    expect(retiroDelPedido(unPedido())).toEqual({
+      calle: "Comercio",
+      esquina: "Monte Caseros",
+      numero: "1234",
+      apto: "301",
+      cooperativa: true,
+      punto: { lat: -34.872, lng: -56.16 },
+    });
+  });
+
+  it("sin punto de retiro devuelve null y no rompe", () => {
+    // El pedido se creo con una calle homonima o fuera del indice (FR-014,
+    // FR-015). Repetirlo tiene que funcionar igual.
     const r = retiroDelPedido(
       unPedido({ retiro: { ...unPedido().retiro, punto: undefined } }),
     );
     expect(r.punto).toBeNull();
+    expect(r.calle).toBe("Comercio");
+  });
+
+  it("aplana apto nulo a texto vacio", () => {
+    // A diferencia de la entrega, este NO pasa por `rehidratarRetiro()`: va
+    // derecho a los campos del formulario, que son texto.
+    const r = retiroDelPedido(
+      unPedido({ retiro: { ...unPedido().retiro, apto: null } }),
+    );
+    expect(r.apto).toBe("");
   });
 });
 
@@ -113,13 +144,14 @@ describe("camposDelPedido", () => {
     expect(c.zonaId).toBeUndefined();
   });
 
-  it("la entrega viaja como texto, con los nulos en blanco", () => {
-    expect(camposDelPedido(unPedido()).entrega).toEqual({
-      calle: "Bulevar Artigas",
-      esquina: "Rivera",
-      numero: "",
-      apto: "",
-      cooperativa: false,
+  it("el retiro viaja como texto, con los nulos en blanco", () => {
+    expect(camposDelPedido(unPedido()).retiro).toEqual({
+      calle: "Comercio",
+      esquina: "Monte Caseros",
+      numero: "1234",
+      apto: "301",
+      cooperativa: true,
+      punto: { lat: -34.872, lng: -56.16 },
     });
   });
 });

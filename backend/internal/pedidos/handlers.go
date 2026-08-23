@@ -55,7 +55,7 @@ func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool) *Handlers {
 type peticionCrear struct {
 	Remitente    persona           `json:"remitente"`
 	Retiro       direccionConPunto `json:"retiro"`
-	Entrega      direccionSinPunto `json:"entrega"`
+	Entrega      direccionConPunto `json:"entrega"`
 	Paquete      paquete           `json:"paquete"`
 	RetiroCuando cuando            `json:"retiroCuando"`
 	Destinatario persona           `json:"destinatario"`
@@ -67,6 +67,18 @@ type persona struct {
 	Telefono string `json:"telefono"`
 }
 
+// direccionConPunto la usan LAS DOS direcciones desde 011, y el punto es
+// opcional en el tipo aunque no lo sea en la regla.
+//
+// Hasta 010 habia dos tipos: este para el retiro y un `direccionSinPunto` para
+// la entrega, que **no tenia campo de punto** — con DisallowUnknownFields,
+// mandar `entrega.punto` era un 400. Eso implementaba la decision de `003` de
+// dejar la entrega como texto, cuando el precio salia del retiro.
+//
+// Al invertirse (ver docs/decisions/pricing-from-delivery-zone.md) ese tipo
+// perdio su razon de ser: la entrega **necesita** mandar el punto, porque de el
+// sale el precio. Quien exige cada cosa es la validacion, no la forma:
+// `entrega.punto` es obligatorio y `retiro.punto` puede faltar (FR-014, FR-015).
 type direccionConPunto struct {
 	Calle       string `json:"calle"`
 	Esquina     string `json:"esquina"`
@@ -74,18 +86,6 @@ type direccionConPunto struct {
 	Apto        string `json:"apto"`
 	Cooperativa bool   `json:"cooperativa"`
 	Punto       *Punto `json:"punto"`
-}
-
-// direccionSinPunto es la entrega. **No tiene campo de punto**, y por
-// DisallowUnknownFields mandarlo es un 400 en vez de un dato que se descarta
-// callado. La entrega quedo como texto en `003`: no incide en el precio y la
-// ubica la app Android.
-type direccionSinPunto struct {
-	Calle       string `json:"calle"`
-	Esquina     string `json:"esquina"`
-	Numero      string `json:"numero"`
-	Apto        string `json:"apto"`
-	Cooperativa bool   `json:"cooperativa"`
 }
 
 type paquete struct {
@@ -206,8 +206,12 @@ func (h *Handlers) aNuevo(usuarioID, clave string, p peticionCrear) (*Nuevo, str
 		}
 	}
 
-	if p.Retiro.Punto == nil {
-		return nil, "falta el punto de retiro"
+	// **El punto que se exige es el de ENTREGA, no el de retiro** (011): de el
+	// sale la zona y el precio. Un pedido sin punto de retiro es valido y se
+	// guarda igual — es el caso de una direccion que no resolvio (FR-015) o de
+	// una calle homonima (FR-014), y rechazarlo seria rechazar lo valido.
+	if p.Entrega.Punto == nil {
+		return nil, "falta el punto de entrega"
 	}
 
 	switch p.Paquete.Tamano {
@@ -255,6 +259,7 @@ func (h *Handlers) aNuevo(usuarioID, clave string, p peticionCrear) (*Nuevo, str
 			Numero:      opcional(p.Entrega.Numero),
 			Apto:        opcional(p.Entrega.Apto),
 			Cooperativa: p.Entrega.Cooperativa,
+			Punto:       p.Entrega.Punto,
 		},
 		PaqueteTamano:        p.Paquete.Tamano,
 		Cantidad:             p.Paquete.Cantidad,

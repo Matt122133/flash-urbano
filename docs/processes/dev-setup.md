@@ -156,6 +156,47 @@ que sirve cualquier hosting estático sin reglas de reescritura.
 WhatsApp y el email reales. El sitio es indexable desde entonces — cosa que
 importa porque el formulario de pedido todavía no le llega a nadie.
 
+## El backend local no se muere cuando se cierra la terminal
+
+`backend/dev.sh` termina en `exec go run ./cmd/api`, que compila un binario
+temporal y lo corre como proceso hijo. Cerrar la terminal —o matar el comando en
+segundo plano— se lleva la shell y **deja el `api.exe` escuchando en el 8080**.
+
+El sintoma engaña: se edita `backend/.env`, se relanza `dev.sh`, y el servicio
+sigue con la configuracion vieja. Lo que paso es que el proceso nuevo no pudo
+tomar el puerto y murio con `bind: Only one usage of each socket address...`.
+Costo un rato el 2026-08-22 con `CORS_ORIGENES`, y el agravante fue relanzarlo
+con la salida a `/dev/null`, que tapo el unico mensaje que lo explicaba.
+
+Antes de dar por reiniciado el backend, comprobar quien escucha:
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen |
+  ForEach-Object { Get-Process -Id $_.OwningProcess | Select-Object Id, StartTime }
+```
+
+Si el `StartTime` es anterior al cambio, es el huerfano. **Y nunca relanzarlo con
+la salida silenciada**: el servicio imprime sus origenes permitidos al arrancar, y
+esa linea es la forma barata de saber si arranco el proceso que uno cree.
+
+## Una migracion que exige la tabla vacia
+
+`0004` (feature `011`) agrega `pedidos.entrega_punto` como **`NOT NULL` sin
+default y sin relleno**, porque no hay con que rellenar: la entrega nunca tuvo
+punto y un default seria un punto falso, o sea un precio falso.
+
+Contra produccion no hubo problema —estaba vacia— y **contra la base local
+falla, a proposito**. El procedimiento es vaciar y volver a crear los pedidos de
+prueba:
+
+```bash
+docker exec flash-pg-dev psql -U postgres -d flash_dev -c "TRUNCATE pedidos;"
+```
+
+Que falle ruidosamente es la proteccion, no el problema: los pedidos viejos
+tienen su precio calculado con una regla que ya no existe, y conservarlos seria
+conservar numeros que no significan nada.
+
 ## Plan-coverage check
 
 The one mechanical sensor in this harness. It enforces the hard constraint

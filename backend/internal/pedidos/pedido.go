@@ -166,6 +166,7 @@ const columnas = `
 	retiro_calle, retiro_esquina, retiro_numero, retiro_apto, retiro_cooperativa,
 	ST_Y(retiro_punto::geometry), ST_X(retiro_punto::geometry),
 	entrega_calle, entrega_esquina, entrega_numero, entrega_apto, entrega_cooperativa,
+	ST_Y(entrega_punto::geometry), ST_X(entrega_punto::geometry),
 	paquete_tamano, cantidad,
 	to_char(retiro_fecha, 'YYYY-MM-DD'), to_char(retiro_hora, 'HH24:MI'),
 	destinatario_nombre, destinatario_telefono,
@@ -175,14 +176,21 @@ const columnas = `
 // escanear arma un Pedido desde una fila con el orden de columnas.
 func escanear(fila pgx.Row) (*Pedido, error) {
 	var p Pedido
-	var lat, lng float64
+	// El retiro sale en punteros y la entrega no, y esa asimetria ES el modelo
+	// desde 011: retiro_punto quedo nullable porque un retiro que no resuelve se
+	// guarda igual (FR-015), y entrega_punto es NOT NULL porque de el sale el
+	// precio. Escanear el retiro en un float64 pelado explota con las filas que
+	// el propio feature crea a proposito.
+	var retiroLat, retiroLng *float64
+	var entregaLat, entregaLng float64
 
 	err := fila.Scan(
 		&p.ID, &p.UsuarioID, &p.Codigo, &p.Estado,
 		&p.RemitenteNombre, &p.RemitenteTelefono,
 		&p.Retiro.Calle, &p.Retiro.Esquina, &p.Retiro.Numero, &p.Retiro.Apto, &p.Retiro.Cooperativa,
-		&lat, &lng,
+		&retiroLat, &retiroLng,
 		&p.Entrega.Calle, &p.Entrega.Esquina, &p.Entrega.Numero, &p.Entrega.Apto, &p.Entrega.Cooperativa,
+		&entregaLat, &entregaLng,
 		&p.PaqueteTamano, &p.Cantidad,
 		&p.RetiroFecha, &p.RetiroHora,
 		&p.DestinatarioNombre, &p.DestinatarioTelefono,
@@ -193,9 +201,13 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 		return nil, err
 	}
 
-	// El punto del retiro es NOT NULL en el esquema, asi que siempre hay algo
-	// que rearmar. La entrega no lleva punto y queda en nil.
-	p.Retiro.Punto = &Punto{Lat: lat, Lng: lng}
+	// La entrega SIEMPRE tiene punto: es NOT NULL en el esquema porque de el
+	// sale el precio. El retiro puede no tenerlo, y nil ahi no es un error —es
+	// un retiro que no se pudo ubicar y se guardo igual (FR-014, FR-015).
+	if retiroLat != nil && retiroLng != nil {
+		p.Retiro.Punto = &Punto{Lat: *retiroLat, Lng: *retiroLng}
+	}
+	p.Entrega.Punto = &Punto{Lat: entregaLat, Lng: entregaLng}
 	return &p, nil
 }
 
@@ -209,11 +221,23 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 // el pedido que ya existe. Si el segundo intento trajera datos distintos con la
 // misma clave, gana el primero — es un reintento, no una edicion.
 func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error) {
-	if n.Retiro.Punto == nil {
+	if n.Entrega.Punto == nil {
 		// No deberia llegar aca: el handler valida antes. Se comprueba igual
 		// porque un punto nil produciria un NOT NULL violation con un mensaje
 		// que no menciona el punto.
-		return nil, false, fmt.Errorf("el pedido no trae punto de retiro")
+		//
+		// **Es el punto de ENTREGA desde 011**, no el de retiro: es el que
+		// decide la zona y el precio, y el unico que la tabla exige. Un pedido
+		// sin punto de retiro es valido y no se rechaza.
+		return nil, false, fmt.Errorf("el pedido no trae punto de entrega")
+	}
+
+	// El retiro viaja en punteros para que un punto ausente llegue como NULL:
+	// ST_MakePoint con argumentos NULL devuelve NULL, y la columna lo acepta.
+	var retiroLat, retiroLng *float64
+	if n.Retiro.Punto != nil {
+		retiroLat = &n.Retiro.Punto.Lat
+		retiroLng = &n.Retiro.Punto.Lng
 	}
 
 	// ST_MakePoint recibe (X, Y), o sea **longitud primero**. Invertirlo no da
@@ -225,6 +249,7 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 			retiro_calle, retiro_esquina, retiro_numero, retiro_apto, retiro_cooperativa,
 			retiro_punto,
 			entrega_calle, entrega_esquina, entrega_numero, entrega_apto, entrega_cooperativa,
+			entrega_punto,
 			paquete_tamano, cantidad,
 			retiro_fecha, retiro_hora,
 			destinatario_nombre, destinatario_telefono,
@@ -235,6 +260,7 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 			$5, $6, $7, $8, $9,
 			ST_SetSRID(ST_MakePoint($11::float8, $10::float8), 4326)::geography,
 			$12, $13, $14, $15, $16,
+			ST_SetSRID(ST_MakePoint($26::float8, $25::float8), 4326)::geography,
 			$17, $18,
 			$19::date, $20::time,
 			$21, $22,
@@ -247,12 +273,13 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 		n.UsuarioID, n.ClaveIdempotencia,
 		n.RemitenteNombre, n.RemitenteTelefono,
 		n.Retiro.Calle, n.Retiro.Esquina, n.Retiro.Numero, n.Retiro.Apto, n.Retiro.Cooperativa,
-		n.Retiro.Punto.Lat, n.Retiro.Punto.Lng,
+		retiroLat, retiroLng,
 		n.Entrega.Calle, n.Entrega.Esquina, n.Entrega.Numero, n.Entrega.Apto, n.Entrega.Cooperativa,
 		n.PaqueteTamano, n.Cantidad,
 		n.RetiroFecha, n.RetiroHora,
 		n.DestinatarioNombre, n.DestinatarioTelefono,
 		n.Precio, n.ZonaID,
+		n.Entrega.Punto.Lat, n.Entrega.Punto.Lng,
 	)
 
 	p, err := escanear(fila)

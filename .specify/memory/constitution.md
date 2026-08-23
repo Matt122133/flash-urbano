@@ -34,10 +34,11 @@ composition fields (calle, número, apto, esquina, cooperativa) must work
 cleanly on small screens with minimal typing and clear validation.
 
 ### V. The site quotes; logistics stay manual
-Pricing is a function of the pickup zone, and the site resolves it without
-human intervention: the customer marks the pickup point, the site determines
-which of the five delivery zones it falls in, and shows the price of that
-zone — as the price, not an estimate. The amount is flat per zone; it is not
+Pricing is a function of the **delivery** zone, and the site resolves it without
+human intervention: the customer resolves the delivery address to a point, the
+site determines which of the five zones it falls in, and shows the price of that
+zone — as the price, not an estimate. The pickup address is written, not marked:
+its point is resolved silently, decides nothing about money, and may be absent. The amount is flat per zone; it is not
 multiplied by package count or adjusted by size. A point outside every zone
 yields no price and no order; it routes to direct contact. Never guess a zone,
 and never fall back to the nearest one — guessing a zone means guessing a
@@ -53,10 +54,13 @@ no automatic acceptance, no route generation. There is no cap on daily
 deliveries — Diego accepts jobs and plans routes himself. Only pricing is
 automated.
 
-Amended by [ADR zone-based-automatic-pricing](../../docs/decisions/zone-based-automatic-pricing.md),
-which reverses this principle's original form ("price and logistics stay
-manual") on the evidence of the client's own zone map, and records the
-alternative that was rejected.
+Amended twice. [ADR zone-based-automatic-pricing](../../docs/decisions/zone-based-automatic-pricing.md)
+reversed this principle's original form ("price and logistics stay manual") on
+the evidence of the client's own zone map, and records the alternative that was
+rejected. [ADR pricing-from-delivery-zone](../../docs/decisions/pricing-from-delivery-zone.md)
+then moved the measured end of the trip from pickup to delivery, on the client's
+own correction — his zones were always about where the package goes. The first
+ADR anticipated this exact reversal and named its trigger.
 
 ## Scope boundaries
 
@@ -75,8 +79,9 @@ Two surfaces, built in this order:
 
 1. **Customer web app** — **identified order creation** (see the rule below);
    pickup address
-   (written plus a point marked on the map) and delivery address; the zone
-   price shown from that point; package type/description, quantity; the pickup
+   (written; its point resolved silently and never shown) and delivery address
+   (written plus a point marked on the map); the zone price shown from the
+   **delivery** point; package type/description, quantity; the pickup
    window; the name and phone number of whoever receives the package; Sobre
    Nosotros (hours, delivery zone map, historical volume); Contacto (WhatsApp,
    email); Reseñas (last, deferred).
@@ -118,9 +123,36 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 3.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-11
+**Version**: 4.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-22
 
 ### Amendment history
+
+- **4.0.0** (2026-08-22) — **The price comes from the delivery zone, not the
+  pickup zone.** The client said on 2026-08-22 that his zones and prices were
+  always about where the package goes; the site had been charging by pickup
+  since 2.0.0. Both sides describe it as a communication failure, not a defect
+  introduced by anyone.
+
+  **MAJOR: a principle is redefined, not narrowed.** Every order whose pickup
+  and delivery fall in different zones was charged the wrong amount — an order
+  leaving Zone 1 for Zone 5 cost $150 instead of $350 — so code written against
+  the old text becomes non-compliant, not merely incomplete. The exposure is
+  zero only because nothing has been ordered in production yet.
+
+  **What does not change**: the site still quotes by itself, from a zone, as a
+  firm price and not an estimate; the amount is still flat per zone; a point
+  outside every zone still yields no price and no order; guessing a zone or
+  falling back to the nearest one is still forbidden. **What changes is which
+  end of the trip is measured**, and with it which address gets the map.
+
+  **What this obliges**: `011` moves the map and the crossing resolution to the
+  delivery section; the pickup keeps a silently resolved point that checks the
+  service area and feeds the future route planner, but stops being required —
+  so **the Android app must tolerate a pickup without coordinates**. `010`'s
+  repeat-an-order flow changes with it.
+
+  See [ADR pricing-from-delivery-zone](../../docs/decisions/pricing-from-delivery-zone.md),
+  which also records why the prior ADR anticipated this and named its trigger.
 
 - **3.0.0** (2026-08-11) — **No package is created without an identified
   customer.** The scope boundaries said "guest **or** Google-login order
