@@ -18,7 +18,7 @@ covers:
   - backend/cmd/api/
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
-verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... && cd ../android && ./gradlew assembleDebug testDebugUnitTest
+verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... && cd ../android && gradlew.bat assembleDebug testDebugUnitTest
 analyzed:
 ---
 
@@ -159,10 +159,22 @@ dependencia que no existe. **El sitio no aparece**, y es deliberado.
 
 ## Cómo se ejecuta
 
-Cinco tramos. Los tres primeros son del servicio y **se pueden verificar
-enteros**; los dos últimos son la app.
+Cinco tramos. **El esqueleto de la app va primero**, y no por gusto: el
+`verify:` de este plan incluye `android/`, así que **hasta que ese directorio
+exista el comando no corre**. Construir el servicio primero dejaría dos fases
+enteras sin poder verificar nada — lo encontró el analyze del 2026-08-23.
 
-### Tramo 1 — El servicio sabe escribir un estado
+### Tramo 1 — El esqueleto de la app compila
+
+Crear `android/` con la distribución de Gradle local (research D1), el wrapper,
+Compose, y la URL por tipo de compilación — **con la excepción de texto plano
+limitada a `debug`** (research D5).
+
+**Resultado observable**: `gradlew.bat assembleDebug` produce un APK, y el
+`verify:` de las tres superficies queda verde con una app que todavía no hace
+nada. **Desde acá el `verify:` sirve**, que es el motivo de que esto vaya primero.
+
+### Tramo 2 — El servicio sabe escribir un estado
 
 Migración `0005` con `pedidos_estados`, y `PATCH /admin/pedidos/{id}/estado` con
 la forma del [contrato](contracts/servicio-y-pantallas.md) §1: acepta los tres
@@ -176,7 +188,7 @@ Cada cambio escribe su fila en el historial — **salvo cuando el estado no camb
 entera del contrato, incluido el caso de "el mismo estado dos veces" con su
 control positivo sobre el historial.
 
-### Tramo 2 — La sesión se renueva sola
+### Tramo 3 — La sesión se renueva sola
 
 En `internal/auth`, al validar una sesión: si le queda menos de la mitad de vida,
 se extiende (research D7). **Con umbral, no en cada petición.**
@@ -186,16 +198,6 @@ Vale también para la web, y es correcto que valga: es la misma sesión.
 **Resultado observable**: una prueba que usa una sesión vieja y comprueba que
 `expira_en` se movió, y otra que usa una recién creada y comprueba que **no** se
 escribió.
-
-### Tramo 3 — El esqueleto de la app compila
-
-Crear `android/` con la distribución de Gradle local (research D1), el wrapper,
-Compose, y la URL por tipo de compilación — **con la excepción de texto plano
-limitada a `debug`** (research D5).
-
-**Resultado observable**: `./gradlew assembleDebug` produce un APK, y el
-`verify:` de las tres superficies queda verde con una app que todavía no hace
-nada.
 
 ### Tramo 4 — Ingreso y lista (US1, US3)
 
