@@ -76,9 +76,9 @@ enteras sin poder verificar nada. Lo encontró el analyze del 2026-08-23.
 
 **Independent Test**: una sesión vieja que se usa mueve su vencimiento hacia adelante.
 
-- [ ] T016 [US3] En `backend/internal/auth/sesion.go`, renovar el vencimiento al validar una sesión **si le queda menos de la mitad de vida** (research D7). **Con umbral, no en cada petición**: renovar siempre sería un `UPDATE` por request sobre la tabla más caliente para no ganar nada
-- [ ] T017 [US3] Probar las dos mitades del umbral: una sesión vieja **mueve** su `expira_en`, y una recién creada **no lo mueve**. La segunda es el control positivo — sin ella, una implementación que renueva siempre pasa igual
-- [ ] T018 [US3] Comprobar que esto **no rompe la web**, que usa la misma sesión: `go test ./...` verde y el sitio sigue entrando normal
+- [x] T016 [US3] En `backend/internal/auth/sesion.go`, renovar el vencimiento al validar una sesión **si le queda menos de la mitad de vida** (research D7). **Con umbral, no en cada petición**: renovar siempre sería un `UPDATE` por request sobre la tabla más caliente para no ganar nada
+- [x] T017 [US3] Probar las dos mitades del umbral: una sesión vieja **mueve** su `expira_en`, y una recién creada **no lo mueve**. La segunda es el control positivo — sin ella, una implementación que renueva siempre pasa igual
+- [ ] T018 [US3] Comprobar que esto **no rompe la web**, que usa la misma sesión: `go test ./...` verde y el sitio sigue entrando normal. **Mitad hecha al 2026-08-26**: `go test ./...` verde, 164 pruebas y 0 skips. **Falta la mitad manual** —entrar al sitio contra el backend local— porque exige levantar los dos servidores
 
 ---
 

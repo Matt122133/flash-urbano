@@ -158,7 +158,65 @@ func (s *Sesiones) Resolver(ctx context.Context, token string) (*Sesion, error) 
 		return nil, ErrSesionInvalida
 	}
 
+	// **Renovacion deslizante** (research D7 de `012`). Hasta aca resolver era
+	// solo lectura; desde aca puede escribir, y conviene saberlo al leer.
+	//
+	// Es lo que hace que Diego no vea nunca una pantalla de ingreso (US3): la
+	// sesion se emitia con sus cuatro semanas y se moria ahi, usada o no.
+	//
+	// **Vale tambien para la web**, y es correcto que valga: es la misma sesion
+	// y el mismo problema. No se construye una renovacion "para la app".
+	s.renovarSiHaceFalta(ctx, &ses)
+
 	return &ses, nil
+}
+
+// renovarSiHaceFalta corre el vencimiento hacia adelante si le queda menos de
+// la mitad de vida.
+//
+// **Con umbral, y no en cada peticion.** Renovar siempre seria un UPDATE por
+// request sobre la tabla mas caliente del servicio para no ganar nada: la
+// diferencia entre renovar hoy y renovar en dos semanas es invisible para quien
+// la usa. Con el umbral, quien entra todos los dias nunca ve un ingreso y la
+// base escribe una vez cada media duracion.
+//
+// **Un fallo aca NO invalida la sesion.** La credencial ya se comprobo buena; si
+// el UPDATE falla, lo que se pierde es la extension, no el acceso. Echar a
+// alguien porque la base no pudo escribir es el mismo error que devolver 401
+// ante un fallo de base, y este repo ya tiene una prueba que lo prohibe
+// (httpx.TestUnFalloDeBaseNoEchaAlUsuario).
+func (s *Sesiones) renovarSiHaceFalta(ctx context.Context, ses *Sesion) {
+	if s.duracion <= 0 {
+		// Duracion no positiva es como las pruebas fabrican una sesion nacida
+		// vencida. No hay nada que extender.
+		return
+	}
+
+	// **Toda la aritmetica de tiempo ocurre en la base, con su now().** Comparar
+	// el `expira_en` que vino de Postgres contra el reloj del proceso mete la
+	// diferencia entre los dos relojes en la decision, y en Railway no son la
+	// misma maquina.
+	//
+	// La condicion `expira_en < now() + mitad` es "le queda menos de la mitad".
+	const sql = `
+		UPDATE sesiones
+		SET expira_en = now() + make_interval(secs => $2::double precision)
+		WHERE id = $1
+		  AND revocada_en IS NULL
+		  AND expira_en > now()
+		  AND expira_en < now() + make_interval(secs => $3::double precision)
+		RETURNING expira_en`
+
+	var nuevo time.Time
+	err := s.pool.QueryRow(ctx, sql, ses.ID,
+		s.duracion.Seconds(), (s.duracion / 2).Seconds()).Scan(&nuevo)
+	if err != nil {
+		// Sin filas significa que no hacia falta renovar, que es el caso normal
+		// y no un error. Cualquier otro fallo se ignora a proposito: ver arriba.
+		return
+	}
+
+	ses.ExpiraEn = nuevo
 }
 
 // Revocar cierra UNA sesion, la del token que se presenta (FR-018).
