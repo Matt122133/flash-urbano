@@ -42,7 +42,7 @@ datos sin problema — **a diferencia de `0004`, no exige nada** (research D9).
 ## El `verify:` del plan
 
 ```bash
-cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... && cd ../android && gradlew.bat assembleDebug testDebugUnitTest
+cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... && cd ../android && .\gradlew.bat assembleDebug testDebugUnitTest
 ```
 
 **Las tres mitades.** Dos trampas conocidas:
@@ -51,8 +51,8 @@ cd web && npm run lint && npm test && npm run build && cd ../backend && go vet .
   y el verde no significa nada. Ver `docs/processes/harness.md`.
 - **La primera corrida de Gradle descarga dependencias** y tarda varios minutos.
   Eso no es que esté colgado.
-- **`gradlew.bat` y no `./gradlew`**, aunque todos los tutoriales digan lo
-  segundo: el harness corre el `verify:` con `shell=True`, o sea **`cmd.exe`**, y
+- **`.\gradlew.bat`, y ni `./gradlew` ni `gradlew.bat` a secas**, aunque todos los
+  tutoriales digan lo primero: el harness corre el `verify:` con `shell=True`, o sea **`cmd.exe`**, y
   ahí `./` no es sintaxis válida. Es el mismo tropiezo que rompió el gate el
   2026-08-22 con los paréntesis; ver `docs/processes/harness.md`.
 

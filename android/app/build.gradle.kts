@@ -76,8 +76,16 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     implementation(libs.okhttp)
+    // Explicito y no heredado de lifecycle: las dependencias `implementation`
+    // no viajan al classpath de compilacion, asi que apoyarse en la
+    // transitiva compila hoy y se rompe cuando lifecycle cambie la suya.
+    implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    // MockWebServer: el cliente se prueba contra un servidor de verdad en
+    // JVM, no contra un doble de OkHttp. Ver ServicioTest.
+    testImplementation(libs.okhttp.mockwebserver)
 }
