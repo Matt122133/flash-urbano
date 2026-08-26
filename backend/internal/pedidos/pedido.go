@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/Matt122133/flash-urbano/backend/internal/db"
 )
@@ -37,13 +38,21 @@ import (
 // Los dos son un error; solo uno es culpa de quien pregunta.
 var ErrNoExiste = errors.New("pedido inexistente")
 
+// ErrEstadoInvalido lo devuelve quien pide mover un pedido a un estado que no
+// existe.
+//
+// Separado de ErrNoExiste porque el llamador los traduce distinto: uno es 400
+// —lo que pediste no es un estado— y el otro 404 —el pedido no esta—. Ver
+// specs/012-app-repartidor/contracts/servicio-y-pantallas.md seccion 1.
+var ErrEstadoInvalido = errors.New("estado inexistente")
+
 // Estados del ciclo de vida. Son la respuesta del cliente del 2026-08-06, que
 // ademas descarto un cuarto ("confirmacion") que traia el relevamiento
 // original.
 //
-// **Este feature solo escribe EstadoCreacion.** Los otros dos los mueve la app
-// Android, y no hay endpoint que los escriba: construir el camino sin quien lo
-// use deja codigo sin ejercitar que envejece mal.
+// `007` solo escribia EstadoCreacion y dejo dicho que los otros dos los moveria
+// la app Android. **Desde `012` los mueve**, por CambiarEstado, a pedido de
+// PATCH /admin/pedidos/{id}/estado.
 const (
 	EstadoCreacion   = "creacion"
 	EstadoAceptacion = "aceptacion"
@@ -370,4 +379,113 @@ func (r *Repositorio) consultar(ctx context.Context, sql string, args ...any) ([
 		pedidos = append(pedidos, p)
 	}
 	return pedidos, filas.Err()
+}
+
+// EstadoValido dice si un texto es uno de los tres estados del ciclo de vida.
+//
+// Existe como funcion y no como comparacion suelta porque la comprueban dos
+// capas: el handler, para contestar 400 con un mensaje legible, y el
+// repositorio, para no confiar en que lo hicieron. El CHECK de la base es la
+// tercera, y es la unica que no se puede saltear — pero su mensaje de error no
+// se le puede mostrar a nadie.
+func EstadoValido(estado string) bool {
+	switch estado {
+	case EstadoCreacion, EstadoAceptacion, EstadoEntrega:
+		return true
+	default:
+		return false
+	}
+}
+
+// CambiarEstado mueve un pedido a un estado y deja la fila de historial.
+//
+// **Recibe el estado DESTINO, no una transicion** (contrato seccion 1). Es lo
+// que hace la operacion idempotente sin llevar la cuenta de donde venia: tocar
+// "entregado" dos veces —cosa que pasa con guantes y sol de frente— deja el
+// mismo resultado que tocarlo una.
+//
+// **Acepta cualquiera de los tres estados en cualquier direccion** (FR-004).
+// No hay maquina de estados que impida volver atras: deshacer es un requisito,
+// no un accidente, porque quien marca "entregado" de mas necesita corregirlo
+// desde la calle y no llamando a alguien.
+//
+// **Las dos escrituras van en la MISMA transaccion** (FR-014). Si el historial
+// se escribiera aparte, un fallo entre las dos dejaria un pedido movido sin
+// rastro, que es exactamente lo que el historial existe para impedir.
+func (r *Repositorio) CambiarEstado(ctx context.Context, id, estado string) (*Pedido, error) {
+	if !EstadoValido(estado) {
+		return nil, ErrEstadoInvalido
+	}
+
+	var p *Pedido
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		// FOR UPDATE, y no un SELECT pelado. Entre leer el estado actual y
+		// escribir el nuevo hay una ventana; sin el bloqueo, dos toques
+		// simultaneos pueden leer los dos "creacion" y escribir los dos su fila
+		// de historial, que es justo el duplicado que FR-009 evita.
+		//
+		// Hoy hay un solo repartidor y la carrera es improbable. Cuesta una
+		// palabra y deja de depender de que siga habiendo uno solo.
+		var actual string
+		err := tx.QueryRow(ctx,
+			`SELECT estado FROM pedidos WHERE id = $1 FOR UPDATE`, id).Scan(&actual)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return ErrNoExiste
+		case esIDMalFormado(err):
+			// Un id que no es un uuid no puede nombrar ningun pedido, asi que
+			// "no existe" es la respuesta verdadera y 404 el codigo correcto.
+			// Dejarlo escapar daria 500, o sea le echaria la culpa al servicio
+			// por una URL mal escrita.
+			return ErrNoExiste
+		case err != nil:
+			return fmt.Errorf("no se pudo leer el estado actual: %w", err)
+		}
+
+		if actual == estado {
+			// **FR-009: el mismo estado NO agrega una fila al historial.** Se
+			// relee y se devuelve el pedido tal cual, sin tocar
+			// `actualizado_en`: no paso nada, y registrar que no paso nada
+			// ensucia el unico registro que este feature agrega.
+			p, err = escanear(tx.QueryRow(ctx,
+				`SELECT `+columnas+` FROM pedidos WHERE id = $1`, id))
+			if err != nil {
+				return fmt.Errorf("no se pudo releer el pedido: %w", err)
+			}
+			return nil
+		}
+
+		p, err = escanear(tx.QueryRow(ctx,
+			`UPDATE pedidos SET estado = $2, actualizado_en = now()
+			 WHERE id = $1
+			 RETURNING `+columnas, id, estado))
+		if err != nil {
+			return fmt.Errorf("no se pudo mover el estado: %w", err)
+		}
+
+		// `ocurrido_en` lo pone la base con su now(), que dentro de una
+		// transaccion es el instante en que la transaccion empezo. No se manda
+		// desde Go a proposito: la hora del proceso y la de la base pueden
+		// diferir, y el orden del historial tiene que ser el de una sola de las
+		// dos.
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO pedidos_estados (pedido_id, estado) VALUES ($1, $2)`,
+			id, estado); err != nil {
+			return fmt.Errorf("no se pudo escribir el historial: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// esIDMalFormado reconoce el error de Postgres para un texto que no es un uuid.
+//
+// 22P02 es `invalid_text_representation`. Se mira el SQLSTATE y no el texto del
+// mensaje porque el texto cambia con la version y con el idioma del servidor.
+func esIDMalFormado(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "22P02"
 }

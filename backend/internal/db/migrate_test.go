@@ -61,8 +61,8 @@ func baseDePrueba(t *testing.T) *Pool {
 func vaciar(t *testing.T, ctx context.Context, pool *Pool) {
 	t.Helper()
 	const sql = `
-		DROP TABLE IF EXISTS pedidos, rastro_ingresos, codigos_acceso, sesiones,
-			usuarios, migraciones_aplicadas CASCADE`
+		DROP TABLE IF EXISTS pedidos_estados, pedidos, rastro_ingresos,
+			codigos_acceso, sesiones, usuarios, migraciones_aplicadas CASCADE`
 	if _, err := pool.Exec(ctx, sql); err != nil {
 		t.Fatalf("no se pudo vaciar la base de prueba: %v", err)
 	}

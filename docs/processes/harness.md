@@ -115,6 +115,22 @@ consecuencias que no son obvias y que ya costaron una corrida fallada:
   relativa: `cd web && ... && cd ../backend && ...`.
 - **El comando corre en un proceso nuevo cada vez**, asi que el `cd` acumulado
   entre corridas no es un problema que haya que resolver.
+- **`./` no es sintaxis de `cmd`, y el nombre pelado tampoco alcanza.** Un
+  `verify:` que llame a un script del repositorio tiene que escribirlo
+  **`.\gradlew.bat`**. Los tres intentos, en el orden en que fallaron durante
+  `012`:
+  - `./gradlew` — `./` no existe en `cmd`. Lo encontro el `/speckit-analyze`
+    antes de que rompiera nada.
+  - `gradlew.bat` — parece la correccion obvia y **falla igual** cuando el `cmd`
+    lo lanza un shell tipo MSYS (Git Bash), porque hereda
+    `NoDefaultCurrentDirectoryInExePath` y `cmd` deja de buscar en el directorio
+    actual. En una consola `cmd` de verdad anda, que es lo que hace que el
+    defecto aparezca en unas maquinas y en otras no.
+  - `.\gradlew.bat` — funciona en los dos casos. Es la forma que hay que
+    escribir.
+
+  Aparece con cada herramienta nueva que trae su lanzador. La regla corta:
+  **prefijo `.\`, extension explicita**.
 
 Escrito el 2026-08-22, despues de "arreglar" un `verify:` que funcionaba y
 romperlo. El hallazgo venia de un `/speckit-analyze` que sonaba razonable: **la

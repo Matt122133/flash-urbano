@@ -35,12 +35,18 @@ func sesionesDePrueba(t *testing.T, duracion time.Duration) (*Sesiones, *db.Pool
 	if err := db.Migrar(ctx, pool); err != nil {
 		t.Fatalf("migrando: %v", err)
 	}
-	// El borrado de usuarios arrastra sus sesiones por la cascada.
-	// Los pedidos primero: desde la migracion 0003 tienen una clave foranea
-	// hacia usuarios con ON DELETE RESTRICT, asi que borrar usuarios con
-	// pedidos vivos FALLA. Este paquete corre antes que `pedidos` en el orden
-	// alfabetico de `go test ./...`, de modo que sin esto un pedido que quedo
-	// dando vueltas pone en rojo a un paquete que no tiene nada que ver.
+	// El borrado de usuarios arrastra sus sesiones por la cascada. Lo demas se
+	// borra a mano y **en este orden**, que lo fija una cadena de ON DELETE
+	// RESTRICT: `pedidos_estados` -> `pedidos` -> `usuarios`. Cada eslabon hace
+	// fallar el borrado del siguiente si queda algo vivo, y que el orden importe
+	// es la prueba de que los RESTRICT estan puestos.
+	//
+	// Este paquete corre antes que `pedidos` en el orden alfabetico de
+	// `go test ./...`, de modo que sin esto algo que quedo dando vueltas pone en
+	// rojo a un paquete que no tiene nada que ver.
+	if _, err := pool.Exec(ctx, `DELETE FROM pedidos_estados`); err != nil {
+		t.Fatalf("limpiando el historial de estados: %v", err)
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM pedidos`); err != nil {
 		t.Fatalf("limpiando pedidos: %v", err)
 	}
@@ -309,5 +315,131 @@ func TestElResolvedorDevuelveAlDuenoDeLaCredencial(t *testing.T) {
 	}
 	if u.ID == otro.ID {
 		t.Error("la credencial resolvio a un usuario ajeno")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Renovacion deslizante — research D7 de `012`, US3.
+// ---------------------------------------------------------------------------
+
+// Una sesion a la que le queda menos de la mitad de vida MUEVE su vencimiento
+// al usarse. Es lo que hace que Diego no vea nunca una pantalla de ingreso.
+func TestUnaSesionGastadaMueveSuVencimientoAlUsarse(t *testing.T) {
+	// Se emite con diez minutos y se resuelve con un emisor de una hora: al
+	// resolver le quedan diez de sesenta, o sea menos de la mitad. Es la forma
+	// de probar el umbral sin manipular el reloj ni esperar dos semanas.
+	corta, pool, usuarioID := sesionesDePrueba(t, 10*time.Minute)
+	ctx := context.Background()
+
+	creada, token, err := corta.Crear(ctx, usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	larga := NuevasSesiones(pool, time.Hour)
+	resuelta, err := larga.Resolver(ctx, token)
+	if err != nil {
+		t.Fatalf("resolviendo: %v", err)
+	}
+
+	if !resuelta.ExpiraEn.After(creada.ExpiraEn) {
+		t.Errorf("el vencimiento no se movio: era %s y sigue en %s",
+			creada.ExpiraEn, resuelta.ExpiraEn)
+	}
+
+	// Y quedo guardado, no solo devuelto. Sin esto pasaria una implementacion
+	// que mueve el campo en memoria y no escribe una fila.
+	var enLaBase time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT expira_en FROM sesiones WHERE id = $1`, creada.ID).Scan(&enLaBase); err != nil {
+		t.Fatalf("releyendo el vencimiento: %v", err)
+	}
+	if !enLaBase.After(creada.ExpiraEn) {
+		t.Errorf("la base sigue diciendo %s, se esperaba algo posterior a %s",
+			enLaBase, creada.ExpiraEn)
+	}
+}
+
+// **El control positivo del umbral.** Una sesion recien creada NO mueve su
+// vencimiento.
+//
+// Sin esta prueba, una implementacion que renueva en CADA peticion —o sea la
+// que el umbral existe para evitar, un UPDATE por request sobre la tabla mas
+// caliente— pasaria la prueba de arriba sin problema.
+func TestUnaSesionRecienCreadaNoMueveSuVencimiento(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+	ctx := context.Background()
+
+	creada, token, err := ses.Crear(ctx, usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	// Le queda una hora entera de una hora: muy por encima de la mitad.
+	resuelta, err := ses.Resolver(ctx, token)
+	if err != nil {
+		t.Fatalf("resolviendo: %v", err)
+	}
+	if !resuelta.ExpiraEn.Equal(creada.ExpiraEn) {
+		t.Errorf("una sesion nueva movio su vencimiento de %s a %s",
+			creada.ExpiraEn, resuelta.ExpiraEn)
+	}
+
+	var enLaBase time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT expira_en FROM sesiones WHERE id = $1`, creada.ID).Scan(&enLaBase); err != nil {
+		t.Fatalf("releyendo el vencimiento: %v", err)
+	}
+	if !enLaBase.Equal(creada.ExpiraEn) {
+		t.Errorf("se escribio una fila que no hacia falta: %s, se esperaba %s",
+			enLaBase, creada.ExpiraEn)
+	}
+}
+
+// Una sesion REVOCADA no mueve su vencimiento.
+//
+// **Llama a renovarSiHaceFalta directamente, y no via Resolver, a proposito.**
+// Por Resolver esta prueba pasaria sola: el SELECT ya filtra `revocada_en IS
+// NULL` y corta con ErrSesionInvalida antes de llegar a la renovacion. O sea
+// que probandola por arriba, el `revocada_en IS NULL` del UPDATE se puede
+// borrar entero y nada se pone en rojo — se comprobo, y quedaba en verde.
+//
+// Lo que la guarda protege es el dia que alguien reordene Resolver, o que otro
+// camino llame a la renovacion. Sin ella, un UPDATE le correria el vencimiento
+// a una credencial cerrada: no la volveria valida, pero la dejaria caminando
+// hacia adelante para siempre y le sacaria el trabajo a la purga.
+func TestLaRenovacionNoTocaUnaSesionRevocada(t *testing.T) {
+	corta, pool, usuarioID := sesionesDePrueba(t, 10*time.Minute)
+	ctx := context.Background()
+
+	creada, token, err := corta.Crear(ctx, usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+	if err := corta.Revocar(ctx, token); err != nil {
+		t.Fatalf("revocando: %v", err)
+	}
+
+	// Por arriba sigue sin resolver, que es lo que le importa a quien la usa.
+	larga := NuevasSesiones(pool, time.Hour)
+	if _, err := larga.Resolver(ctx, token); !errors.Is(err, ErrSesionInvalida) {
+		t.Fatalf("una sesion revocada resolvio: %v", err)
+	}
+
+	// Y por abajo, con la renovacion llamada a mano sobre la fila revocada.
+	copia := *creada
+	larga.renovarSiHaceFalta(ctx, &copia)
+	if !copia.ExpiraEn.Equal(creada.ExpiraEn) {
+		t.Errorf("la renovacion movio en memoria el vencimiento de una revocada: %s -> %s",
+			creada.ExpiraEn, copia.ExpiraEn)
+	}
+
+	var enLaBase time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT expira_en FROM sesiones WHERE id = $1`, creada.ID).Scan(&enLaBase); err != nil {
+		t.Fatalf("releyendo el vencimiento: %v", err)
+	}
+	if !enLaBase.Equal(creada.ExpiraEn) {
+		t.Errorf("la revocada movio su vencimiento de %s a %s", creada.ExpiraEn, enLaBase)
 	}
 }

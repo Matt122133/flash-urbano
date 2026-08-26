@@ -32,20 +32,30 @@ The harness is the *process* layer beneath the constitution: it adds the
 `covers:`/`verify:` controls and the human draft→active plan gate that spec-kit
 lacks. It does not author, override, or delete the constitution.
 
-## Two surfaces, one repo
+## Three surfaces, one repo
 
-Since `006` this repo deploys **two artefacts**, and most of the risk lives in
-the seam between them:
+Since `012` this repo deploys **three artefacts**, and most of the risk lives in
+the seams between them:
 
 - **`web/`** — Next.js, exported static, served at `https://flashurbano.uy`.
 - **`backend/`** — Go service on Railway, with Postgres + PostGIS.
+- **`android/`** — Diego's app, Kotlin + Compose. **No store**: the APK is built
+  here and installed by hand. See `docs/processes/app-repartidor.md`.
 
 Consequences an agent has to hold in working context:
 
-- A feature that touches both needs **both** halves of the `verify:` green. The
+- A feature that touches several needs **every** leg of the `verify:` green. The
   Go tests that hit Postgres **skip themselves silently** without
   `TEST_DATABASE_URL`, so "all green" says nothing about the database unless you
   checked the skip count. See `backend/README.md`.
+- **The Android leg is `.\gradlew.bat`, not `./gradlew` and not `gradlew.bat`.**
+  `verify:` runs in `cmd.exe`, where `./` is invalid; and a `cmd` launched from
+  an MSYS-style shell inherits `NoDefaultCurrentDirectoryInExePath`, so the bare
+  name does not resolve either. `.\` works in both.
+- **`android/` compiling proves almost nothing about the app.** The `verify:`
+  only builds it and runs JVM tests; that it is usable is the quickstart's job,
+  on an emulator or on the phone. Two real defects in `012` — clipped button
+  text and a raw OkHttp error shown to the user — compiled perfectly.
 - `web/AGENTS.md` governs the Next version in this repo: read the guide under
   `node_modules/next/dist/docs/` before writing web code.
 - **Pricing must keep working with the service down.** `web/lib/api.ts` must

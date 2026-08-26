@@ -40,6 +40,13 @@ func repositorioDePrueba(t *testing.T) (*Repositorio, *usuarios.Repositorio, *db
 	// Los pedidos primero: tienen FK hacia usuarios con ON DELETE RESTRICT, asi
 	// que borrar usuarios con pedidos vivos falla. Que el orden importe es la
 	// prueba de que el RESTRICT esta puesto.
+	// **`pedidos_estados` PRIMERO, y por lo mismo que los pedidos van antes que
+	// los usuarios**: su FK hacia `pedidos` es ON DELETE RESTRICT, asi que
+	// borrar un pedido con historial falla. Que el orden importe es la prueba
+	// de que el RESTRICT esta puesto (012, migracion 0005).
+	if _, err := pool.Exec(ctx, `DELETE FROM pedidos_estados`); err != nil {
+		t.Fatalf("limpiando el historial de estados: %v", err)
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM pedidos`); err != nil {
 		t.Fatalf("limpiando pedidos: %v", err)
 	}

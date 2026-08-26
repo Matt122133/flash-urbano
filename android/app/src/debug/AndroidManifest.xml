@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SOLO `debug`. Este archivo es lo que impide que la excepcion de texto plano
+     llegue al APK que se instala en el telefono de Diego (research D5, T036). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/network_security_config" />
+</manifest>

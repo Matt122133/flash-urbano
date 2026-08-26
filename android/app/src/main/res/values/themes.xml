@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema de plataforma, no de `com.google.android.material`: la interfaz es
+         Compose entera y Material 3 llega por `androidx.compose.material3`.
+         Traer la biblioteca de temas XML seria una dependencia para nada. -->
+    <style name="Theme.FlashUrbanoRepartidor" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
