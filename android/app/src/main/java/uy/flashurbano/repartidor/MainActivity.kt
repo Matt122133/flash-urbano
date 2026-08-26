@@ -56,6 +56,8 @@ fun AppRepartidor(vm: RepartidorViewModel = viewModel()) {
     val destino by vm.destino.collectAsState()
     val pantalla by vm.pantalla.collectAsState()
     val ingreso by vm.ingreso.collectAsState()
+    val moviendo by vm.moviendo.collectAsState()
+    val aviso by vm.aviso.collectAsState()
 
     var viendoEntregados by remember { mutableStateOf(false) }
 
@@ -82,12 +84,21 @@ fun AppRepartidor(vm: RepartidorViewModel = viewModel()) {
                 // espera cualquiera. Sin esto, "atras" cierra la app desde una
                 // pantalla de consulta.
                 BackHandler { viendoEntregados = false }
-                PantallaEntregados(entregados) { viendoEntregados = false }
+                PantallaEntregados(
+                    pedidos = entregados,
+                    moviendo = moviendo,
+                    alVolver = { viendoEntregados = false },
+                    alMover = vm::mover,
+                )
             } else {
                 PantallaPedidos(
                     estado = pantalla,
+                    moviendo = moviendo,
+                    aviso = aviso,
                     alReintentar = vm::cargar,
                     alVerEntregados = { viendoEntregados = true },
+                    alMover = vm::mover,
+                    alDescartarAviso = vm::descartarAviso,
                 )
             }
         }

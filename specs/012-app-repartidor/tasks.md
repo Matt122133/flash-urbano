@@ -105,12 +105,12 @@ enteras sin poder verificar nada. Lo encontró el analyze del 2026-08-23.
 
 **Independent Test**: se mueve un pedido desde la app y *Mis pedidos* de la web muestra el estado nuevo.
 
-- [ ] T027 [US2] Agregar al cliente la llamada de `PATCH .../estado`, mandando el estado **destino** y no una transición (contrato §1)
-- [ ] T028 [US2] Un botón grande por sección: *Ya lo tengo* en Pendientes, *Entregado* en Tomados. **Un toque por pedido y SIN selección múltiple** (FR-012) — los paquetes se levantan de a uno
-- [ ] T029 [US2] El deshacer como **acción secundaria**, no como botón principal (contrato §4.4). Lo que avanza tiene que ser lo fácil de tocar; volver atrás no puede tocarse sin querer justo cuando se quería evitar
-- [ ] T030 [US2] **No mostrar el cambio como hecho hasta que el servicio conteste** (FR-008). Un pedido que "se movió" en la pantalla y no en la base es peor que un error visible: Diego sigue su día creyendo que quedó registrado
-- [ ] T031 [US2] La lista se puede actualizar sin cerrar y volver a abrir la app (FR-010)
-- [ ] T032 [US2] Ejecutar **E3 a E7** en el emulador. **E3 es el feature entero** —la primera vez que las dos superficies se hablan— y E5, E6 y E7 son ⚠
+- [x] T027 [US2] Agregar al cliente la llamada de `PATCH .../estado`, mandando el estado **destino** y no una transición (contrato §1)
+- [x] T028 [US2] Un botón grande por sección: *Ya lo tengo* en Pendientes, *Entregado* en Tomados. **Un toque por pedido y SIN selección múltiple** (FR-012) — los paquetes se levantan de a uno
+- [x] T029 [US2] El deshacer como **acción secundaria**, no como botón principal (contrato §4.4). Lo que avanza tiene que ser lo fácil de tocar; volver atrás no puede tocarse sin querer justo cuando se quería evitar
+- [x] T030 [US2] **No mostrar el cambio como hecho hasta que el servicio conteste** (FR-008). Un pedido que "se movió" en la pantalla y no en la base es peor que un error visible: Diego sigue su día creyendo que quedó registrado
+- [x] T031 [US2] La lista se puede actualizar sin cerrar y volver a abrir la app (FR-010)
+- [x] T032 [US2] Ejecutar **E3 a E7** en el emulador. **HECHO el 2026-08-26.** E3: se movio FU-0014 desde la app y `GET /pedidos` —lo que lee *Mis pedidos*— paso de `creacion` a `aceptacion` para la cuenta que lo creo. E4: una fila por toque, sin pantalla que la muestre. E5: se deshizo un entregado y el historial conserva LAS DOS filas. E6: dos toques seguidos dejaron UNA sola fila —lo frena la guarda `moviendo` de la app, antes incluso de la idempotencia del servicio—. E7: sin red, el pedido quedo donde estaba y la base no cambio; al abrir sin red dice que no pudo y ofrece reintentar, nunca una lista vacia; con la senal de vuelta, reintentar funciona. **Encontro dos defectos mas**: el error crudo de OkHttp —"Failed to connect to /10.0.2.2:8080"— mostrado a Diego, y todo el texto de cara al usuario sin acentos. Los dos corregidos. **E3 es el feature entero** —la primera vez que las dos superficies se hablan— y E5, E6 y E7 son ⚠
 
 ---
 

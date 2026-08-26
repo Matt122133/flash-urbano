@@ -74,3 +74,21 @@ fun agrupar(pedidos: List<Pedido>): EstadoPantalla {
         entregados = por[Seccion.ENTREGADOS].orEmpty(),
     )
 }
+
+/**
+ * Un fallo, dicho como se lo dice a una persona parada en la calle.
+ *
+ * **El detalle crudo del error NO se muestra cuando es de red.** OkHttp devuelve
+ * cosas como "Failed to connect to /10.0.2.2:8080": ingles, una IP, y ninguna
+ * accion posible. A Diego no le sirve y lo asusta. Lo que sirve es que mire la
+ * senal y vuelva a tocar.
+ *
+ * Cuando el fallo lo manda el SERVICIO si se muestra: ese texto lo escribio el
+ * backend para ser leido —"esta direccion no tiene permiso para ver los
+ * pedidos"— y esconderlo dejaria a alguien sin saber que arreglar.
+ */
+fun mensajeDe(motivo: Motivo, detalle: String): String = when (motivo) {
+    Motivo.SIN_RED -> "Fijate la señal y volvé a probar."
+    Motivo.SESION_VENCIDA -> "La sesión venció. Ingresá de nuevo."
+    Motivo.DEL_SERVICIO -> detalle.ifBlank { "El servicio no pudo responder." }
+}

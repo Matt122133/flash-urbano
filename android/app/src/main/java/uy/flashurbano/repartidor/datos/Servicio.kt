@@ -49,6 +49,12 @@ private data class PeticionVerificar(val email: String, val codigo: String)
 @Serializable
 private data class RespuestaSesion(val credencial: String)
 
+@Serializable
+private data class PeticionEstado(val estado: String)
+
+@Serializable
+private data class RespuestaPedido(val pedido: Pedido)
+
 /**
  * Habla con el servicio. **Dos llamadas y el ingreso**, que es por lo que aca no
  * hay Retrofit (research D4).
@@ -81,6 +87,30 @@ class Servicio(
                 .header("Authorization", "Bearer $credencial")
                 .get(),
         ) { cuerpo -> json.decodeFromString<RespuestaPedidos>(cuerpo).pedidos }
+
+    /**
+     * Mueve un pedido a un estado.
+     *
+     * **Manda el estado DESTINO, no una transicion** (contrato seccion 1). Es lo
+     * que hace que tocar dos veces sea inofensivo: repetir "entrega" deja el
+     * pedido igual y no agrega una fila al historial. Mandar una transicion
+     * obligaria a la app a llevar la cuenta de donde venia, y esa cuenta se
+     * desincroniza en cuanto haya dos pantallas abiertas.
+     *
+     * Devuelve **el pedido como quedo en el servicio**, no como la app cree que
+     * quedo. Es lo que permite cumplir FR-008 sin adivinar.
+     */
+    suspend fun cambiarEstado(
+        credencial: String,
+        id: String,
+        estado: String,
+    ): Resultado<Pedido> =
+        llamar(
+            Request.Builder()
+                .url("$baseUrl/admin/pedidos/$id/estado")
+                .header("Authorization", "Bearer $credencial")
+                .patch(json.encodeToString(PeticionEstado(estado)).comoJson()),
+        ) { cuerpo -> json.decodeFromString<RespuestaPedido>(cuerpo).pedido }
 
     /**
      * Ejecuta la llamada y traduce todo lo que puede salir mal.

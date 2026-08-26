@@ -37,7 +37,7 @@ fun PantallaIngreso(
         verticalArrangement = Arrangement.Center,
     ) {
         Text("Flash Urbano", style = MaterialTheme.typography.headlineLarge)
-        Text("Pedidos del dia", style = MaterialTheme.typography.titleMedium)
+        Text("Pedidos del día", style = MaterialTheme.typography.titleMedium)
 
         // El motivo por el que se volvio al ingreso, cuando lo hay. Sin esto,
         // una sesion vencida se ve como si la app se hubiera reiniciado sola.
@@ -62,14 +62,14 @@ fun PantallaIngreso(
 
         if (estado.codigoPedido) {
             Text(
-                "Te mandamos un codigo por mail.",
+                "Te mandamos un código por mail.",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 16.dp),
             )
             OutlinedTextField(
                 value = estado.codigo,
                 onValueChange = alEscribirCodigo,
-                label = { Text("Codigo") },
+                label = { Text("Código") },
                 singleLine = true,
                 enabled = !estado.trabajando,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -98,7 +98,7 @@ fun PantallaIngreso(
             if (estado.trabajando) {
                 CircularProgressIndicator(modifier = Modifier.height(24.dp))
             } else {
-                Text(if (estado.codigoPedido) "Entrar" else "Mandame el codigo")
+                Text(if (estado.codigoPedido) "Entrar" else "Mandame el código")
             }
         }
     }

@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
 
 /**
@@ -30,7 +31,12 @@ import uy.flashurbano.repartidor.datos.Pedido
  * lo dejé el martes".
  */
 @Composable
-fun PantallaEntregados(pedidos: List<Pedido>, alVolver: () -> Unit) {
+fun PantallaEntregados(
+    pedidos: List<Pedido>,
+    moviendo: Set<String>,
+    alVolver: () -> Unit,
+    alMover: (Pedido, String) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -47,7 +53,7 @@ fun PantallaEntregados(pedidos: List<Pedido>, alVolver: () -> Unit) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Todavia no entregaste ninguno", style = MaterialTheme.typography.titleLarge)
+                Text("Todavía no entregaste ninguno", style = MaterialTheme.typography.titleLarge)
             }
             return@Column
         }
@@ -56,7 +62,18 @@ fun PantallaEntregados(pedidos: List<Pedido>, alVolver: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
         ) {
-            items(pedidos, key = { it.id }) { TarjetaPedido(it) }
+            items(pedidos, key = { it.id }) { pedido ->
+                TarjetaPedido(pedido) {
+                    // **Solo deshacer, y como accion secundaria.** Un
+                    // entregado no tiene para donde avanzar; lo unico que
+                    // puede hacer falta es corregir un toque de mas.
+                    TextButton(
+                        onClick = { alMover(pedido, Estados.ACEPTACION) },
+                        enabled = !moviendo.contains(pedido.id),
+                        modifier = Modifier.padding(top = 8.dp),
+                    ) { Text("Deshacer") }
+                }
+            }
         }
     }
 }

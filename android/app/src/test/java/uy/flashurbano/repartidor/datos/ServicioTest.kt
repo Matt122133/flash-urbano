@@ -144,4 +144,65 @@ class ServicioTest {
         assertEquals(Motivo.DEL_SERVICIO, r.motivo)
         assertEquals("codigo invalido", r.detalle)
     }
+    // ----------------------------------------------------- PATCH .../estado
+
+    private val unPedido = """
+        {"pedido":{"id":"1","codigo":"FU-0001","estado":"aceptacion",
+        "retiro":{"calle":"18 de Julio","esquina":"Ejido"},
+        "entrega":{"calle":"Rivera","esquina":"Propios"}}}
+    """.trimIndent()
+
+    /**
+     * **Manda el estado DESTINO, no una transicion** (contrato seccion 1). Es lo
+     * que hace que tocar dos veces sea inofensivo sin que la app lleve la cuenta
+     * de donde venia.
+     */
+    @Test
+    fun `mover manda el estado destino con PATCH y credencial`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(200).setBody(unPedido))
+
+        val r = servicio.cambiarEstado("cred", "abc-123", "aceptacion")
+
+        assertTrue("dio " + r, r is Resultado.Ok)
+        val enviado = servidor.takeRequest()
+        assertEquals("PATCH", enviado.method)
+        assertEquals("/admin/pedidos/abc-123/estado", enviado.path)
+        assertEquals("Bearer cred", enviado.getHeader("Authorization"))
+        assertEquals("""{"estado":"aceptacion"}""", enviado.body.readUtf8())
+    }
+
+    /**
+     * Devuelve **el pedido como quedo en el servicio**, no como la app pidio.
+     * Es lo que permite cumplir FR-008 sin adivinar.
+     */
+    @Test
+    fun `mover devuelve el pedido que contesto el servicio`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(200).setBody(unPedido))
+
+        val r = servicio.cambiarEstado("cred", "1", "aceptacion") as Resultado.Ok
+        assertEquals("aceptacion", r.valor.estado)
+        assertEquals("FU-0001", r.valor.codigo)
+    }
+
+    /**
+     * Sin senal al mover, el llamador se entera **y no recibe un pedido movido**.
+     * Es la mitad de FR-008 que vive en esta capa: si aca saliera un Ok, la
+     * pantalla dibujaria como hecho algo que no llego a la base.
+     */
+    @Test
+    fun `mover sin senal no devuelve un pedido movido`() = runTest {
+        servidor.shutdown()
+
+        val r = servicio.cambiarEstado("cred", "1", "entrega")
+        assertEquals(Motivo.SIN_RED, (r as Resultado.Fallo).motivo)
+    }
+
+    @Test
+    fun `mover un pedido que no existe es del servicio`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":"no hay tal pedido"}"""))
+
+        val r = servicio.cambiarEstado("cred", "no-existe", "entrega") as Resultado.Fallo
+        assertEquals(Motivo.DEL_SERVICIO, r.motivo)
+        assertEquals("no hay tal pedido", r.detalle)
+    }
 }

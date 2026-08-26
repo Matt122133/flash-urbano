@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import uy.flashurbano.repartidor.datos.Direccion
+import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
 
 /**
@@ -41,8 +42,12 @@ import uy.flashurbano.repartidor.datos.Pedido
 @Composable
 fun PantallaPedidos(
     estado: EstadoPantalla,
+    moviendo: Set<String>,
+    aviso: String,
     alReintentar: () -> Unit,
     alVerEntregados: () -> Unit,
+    alMover: (Pedido, String) -> Unit,
+    alDescartarAviso: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -53,6 +58,24 @@ fun PantallaPedidos(
             Text("Pedidos", style = MaterialTheme.typography.headlineMedium)
             // FR-010: la lista se actualiza sin cerrar y volver a abrir la app.
             TextButton(onClick = alReintentar) { Text("Actualizar") }
+        }
+
+        // Lo que no se pudo mover se dice ACA y no con un cartel que se va
+        // solo: en la calle, un aviso de dos segundos es un aviso que nadie vio.
+        if (aviso.isNotBlank()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    aviso,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = alDescartarAviso) { Text("Ok") }
+            }
         }
 
         when (estado) {
@@ -68,13 +91,11 @@ fun PantallaPedidos(
                     "No se pudieron traer los pedidos",
                     style = MaterialTheme.typography.titleLarge,
                 )
-                if (estado.detalle.isNotBlank()) {
-                    Text(
-                        estado.detalle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
+                Text(
+                    mensajeDe(estado.motivo, estado.detalle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
                 Button(
                     onClick = alReintentar,
                     modifier = Modifier.padding(top = 24.dp).height(56.dp),
@@ -85,14 +106,14 @@ fun PantallaPedidos(
             is EstadoPantalla.Vacia -> Centrado {
                 Text("No hay pedidos", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "Cuando entre uno nuevo aparece aca.",
+                    "Cuando entre uno nuevo aparece acá.",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
 
             is EstadoPantalla.HayQueIngresar -> Centrado {
-                Text("La sesion vencio", style = MaterialTheme.typography.titleLarge)
+                Text("La sesión venció", style = MaterialTheme.typography.titleLarge)
             }
 
             is EstadoPantalla.Hay -> LazyColumn(
@@ -103,13 +124,35 @@ fun PantallaPedidos(
                 if (estado.pendientes.isEmpty()) {
                     item { Aviso("Nada pendiente.") }
                 }
-                items(estado.pendientes, key = { it.id }) { TarjetaPedido(it) }
+                items(estado.pendientes, key = { it.id }) { pedido ->
+                    TarjetaPedido(pedido) {
+                        Acciones(
+                            pedido = pedido,
+                            yendo = moviendo.contains(pedido.id),
+                            avanzar = "Ya lo tengo" to Estados.ACEPTACION,
+                            // Desde Pendientes no hay para donde volver: es el
+                            // estado en el que nace el pedido.
+                            deshacer = null,
+                            alMover = alMover,
+                        )
+                    }
+                }
 
                 item { Encabezado("Tomados", estado.tomados.size) }
                 if (estado.tomados.isEmpty()) {
-                    item { Aviso("No tenes nada en la mano.") }
+                    item { Aviso("No tenés nada en la mano.") }
                 }
-                items(estado.tomados, key = { it.id }) { TarjetaPedido(it) }
+                items(estado.tomados, key = { it.id }) { pedido ->
+                    TarjetaPedido(pedido) {
+                        Acciones(
+                            pedido = pedido,
+                            yendo = moviendo.contains(pedido.id),
+                            avanzar = "Entregado" to Estados.ENTREGA,
+                            deshacer = "Deshacer" to Estados.CREACION,
+                            alMover = alMover,
+                        )
+                    }
+                }
 
                 item {
                     TextButton(
@@ -232,7 +275,7 @@ private fun Telefono(rotulo: String, nombre: String, numero: String) {
     Column(modifier = Modifier.padding(top = 8.dp)) {
         Text(titulo, style = MaterialTheme.typography.labelMedium)
         Text(
-            if (numero.isBlank()) "sin telefono" else numero,
+            if (numero.isBlank()) "sin teléfono" else numero,
             style = MaterialTheme.typography.bodyLarge,
             textDecoration = if (numero.isBlank()) null else TextDecoration.Underline,
             modifier = Modifier
@@ -247,5 +290,55 @@ private fun Telefono(rotulo: String, nombre: String, numero: String) {
                     )
                 },
         )
+    }
+}
+
+/**
+ * Lo que se puede hacer con un pedido desde su tarjeta.
+ *
+ * **Un boton grande que avanza, y nada mas** (FR-012). Sin seleccion multiple:
+ * los paquetes se levantan de a uno, y una casilla por pedido invita a marcar
+ * cinco de una y equivocarse en tres.
+ *
+ * **Deshacer es una accion SECUNDARIA** (contrato 4.4). Lo que avanza tiene que
+ * ser lo facil de tocar; volver atras no puede tocarse sin querer justo cuando
+ * se queria evitar. Por eso uno es un `Button` de 56dp de alto y el otro un
+ * `TextButton` chico y corrido a un costado.
+ */
+@Composable
+private fun Acciones(
+    pedido: Pedido,
+    yendo: Boolean,
+    avanzar: Pair<String, String>,
+    deshacer: Pair<String, String>?,
+    alMover: (Pedido, String) -> Unit,
+) {
+    Column(modifier = Modifier.padding(top = 16.dp)) {
+        Button(
+            onClick = { alMover(pedido, avanzar.second) },
+            // **Apagado mientras viaja.** Es la mitad visible de FR-008: hasta
+            // que el servicio conteste no hay nada hecho, y volver a tocar
+            // manda una segunda peticion que puede llegar despues de un
+            // deshacer y pisarlo.
+            enabled = !yendo,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+        ) {
+            if (yendo) {
+                CircularProgressIndicator(
+                    modifier = Modifier.height(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+            } else {
+                Text(avanzar.first, style = MaterialTheme.typography.titleMedium)
+            }
+        }
+
+        if (deshacer != null) {
+            TextButton(
+                onClick = { alMover(pedido, deshacer.second) },
+                enabled = !yendo,
+                modifier = Modifier.padding(top = 4.dp),
+            ) { Text(deshacer.first) }
+        }
     }
 }
