@@ -70,6 +70,9 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
 - [`processes/google-oauth.md`](processes/google-oauth.md) — cómo está dado de
   alta el cliente OAuth del *Ingresar con Google*, dónde vive el Client ID, las
   cuatro trampas, y cómo verificar sin abrir un navegador.
+- [`processes/app-repartidor.md`](processes/app-repartidor.md) — cómo se genera
+  e instala el APK de la app de Diego, qué comprobar antes de pasárselo, y cómo
+  se le corta la sesión a un teléfono perdido.
 - [`processes/railway-despliegue.md`](processes/railway-despliegue.md) — cómo
   está armado el backend en Railway, qué variables tiene y cuáles son relleno,
   y las cuatro trampas del despliegue.

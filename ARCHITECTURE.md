@@ -16,13 +16,26 @@ For agent guidance and the workflow, see [`AGENTS.md`](AGENTS.md) and
 ## Overview
 
 Flash Urbano is a package pickup/delivery business run by a single operator
-(Diego). This repo holds **two deployed surfaces**:
+(Diego). This repo holds **three deployed surfaces**:
 
 - **`web/`** — the customer-facing web app (Next.js, static export) at
   `https://flashurbano.uy`, where clients price and create pickup/delivery
   orders themselves instead of coordinating by WhatsApp.
 - **`backend/`** — a Go HTTP service on Railway, with Postgres + PostGIS. It
   holds identity: who is asking, and what they saved.
+- **`android/`** — since `012`, the Kotlin/Compose app Diego uses in the street
+  to see the day's orders and move them along. **Not published to any store**:
+  the APK is built here and installed by hand, one phone. See
+  [`docs/processes/app-repartidor.md`](docs/processes/app-repartidor.md).
+
+**`android/` shares no code with the other two.** It talks to the service over
+HTTP with the same session credential the site uses — same `Authorization`
+header, same `sesiones` table — and that is the whole coupling. It is a separate
+Gradle build that the root `verify:` invokes as its third leg; nothing in `web/`
+or `backend/` imports from it, and it imports nothing from them. What it does
+depend on is the **shape of the JSON** `GET /admin/pedidos` returns, which is
+why its model tolerates missing fields and ignores unknown ones: a field added
+to the Go struct must not require reinstalling an APK on somebody else's phone.
 
 **They are separate origins, and that is the source of most of the risk here.**
 Every authenticated call crosses CORS; the session credential travels in an
@@ -32,8 +45,7 @@ not depend on cross-origin cookie behaviour (notably Safari's). See
 
 Since `006`, the repo **does** talk to external systems: Google Identity
 Services (sign-in), Resend (the access-code email), OpenStreetMap tiles, and
-its own database. A planned third surface, the Android admin app for Diego,
-is out of scope until its own spec/plan.
+its own database.
 
 **One boundary worth stating up front, because it constrains everything:**
 pricing a shipment must keep working with the service down. The quote is
@@ -46,6 +58,7 @@ guards it (`web/lib/cotizar-abierto.test.ts`).
 ```text
 web/                  # Customer web app (Next.js 16, App Router)
 backend/              # Go HTTP service: identity, sessions, profile
+android/              # Diego's app (Kotlin + Compose); installed by hand, no store
 specs/                # Spec-kit feature specs and plans (001-web-mvp, ...)
 docs/                 # Harness docs: decisions, processes, trackers
 scripts/harness/       # Plan-coverage sensor + gate/loop engine (Python)

@@ -41,6 +41,16 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+
+            // **Firmado con la clave de DEPURACION, y es deliberado** (research
+            // D11). Sin esto `assembleRelease` produce un APK sin firmar, que
+            // Android **no instala**: el paso se descubriria con el telefono de
+            // Diego en la mano (T037), que es el peor momento.
+            //
+            // Una clave propia hace falta el dia que esto se publique en una
+            // tienda, y ese dia no esta en el horizonte. La clave de depuracion
+            // alcanza para instalar a mano, que es como llega este APK.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
