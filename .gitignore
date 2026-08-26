@@ -30,3 +30,15 @@ specs/**/.loop-state.json
 .env.*
 !.env.example
 !*.env.example
+
+# Salidas de compilacion de Gradle, de la tercera superficie (`android/`, ver
+# research D2 de 012). Van nombradas en el `covers:` de ese plan porque este
+# archivo NO esta entre los caminos exentos del sensor de cobertura.
+android/build/
+android/app/build/
+android/.gradle/
+android/.kotlin/
+
+# La ruta del SDK de Android de CADA maquina. No se versiona: en otra maquina el
+# valor es distinto y versionarlo rompe el build de quien clone.
+android/local.properties

@@ -206,7 +206,7 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 	mux.Handle("GET /yo", conSesion(dep.usuarios.Yo))
 	mux.Handle("PUT /yo", conSesion(dep.usuarios.ActualizarYo))
 
-	// Pedidos. Las tres con credencial, y ninguna abierta: **no hay pedido
+	// Pedidos. Las cuatro con credencial, y ninguna abierta: **no hay pedido
 	// anonimo** (FR-005 de `007`, y la constitucion v3.0.0 — "No package is
 	// created without an identified customer"). Que se vea leyendo esta funcion
 	// es el punto de tenerlas todas juntas aca.
@@ -217,6 +217,13 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 	mux.Handle("POST /pedidos", conSesion(dep.pedidos.Crear))
 	mux.Handle("GET /pedidos", conSesion(dep.pedidos.Mios))
 	mux.Handle("GET /admin/pedidos", conSesion(dep.pedidos.Todos))
+
+	// El camino que mueve el estado, de `012`. **Con el MISMO `conSesion` que
+	// la linea de arriba, y eso no es cosmetico**: devuelve el pedido entero,
+	// con el nombre, la direccion y el telefono de quien recibe. Montarla sin
+	// el middleware publicaria esos datos de todos los destinatarios y dejaria
+	// que cualquiera moviera pedidos ajenos.
+	mux.Handle("PATCH /admin/pedidos/{id}/estado", conSesion(dep.pedidos.CambiarEstado))
 
 	return mux
 }

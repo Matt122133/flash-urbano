@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # La app. TODAVIA NO EXISTE: este feature crea el directorio, y con el la
   # tercera superficie del repo. Ver research D2.
@@ -14,12 +14,25 @@ covers:
   - backend/internal/pedidos/
   # La renovacion deslizante de la sesion. Ver research D7.
   - backend/internal/auth/
+  # EXTENDIDO EL 2026-08-26, durante la ejecucion, con aprobacion explicita.
+  #
+  # `vaciar()` lleva una lista ESTATICA de tablas a dropear. La migracion 0005
+  # agrega `pedidos_estados` y esa lista no la conoce, asi que la deja viva; el
+  # CASCADE no salva —se lleva las FK que APUNTAN a las tablas listadas, no las
+  # tablas que las contienen— y el siguiente `Migrar` choca contra
+  # "relation already exists". Deja CINCO paquetes en rojo, y sin esto el
+  # `verify:` de este plan no puede dar verde.
+  #
+  # Que la lista sea estatica ya estaba anotado como deuda en el propio archivo
+  # y en docs/tech-debt-tracker.md. Aca se le agrega la tabla que falta y NADA
+  # mas: arreglar la deuda es otro trabajo y otro plan.
+  - backend/internal/db/migrate_test.go
   # Donde se registra la ruta nueva.
   - backend/cmd/api/
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
-verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... && cd ../android && gradlew.bat assembleDebug testDebugUnitTest
-analyzed:
+verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... && cd ../android && .\gradlew.bat assembleDebug testDebugUnitTest
+analyzed: 2026-08-23
 ---
 
 # Implementation Plan: La app de Diego — ver los pedidos y moverlos

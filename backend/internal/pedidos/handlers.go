@@ -116,6 +116,14 @@ type respuestaLista struct {
 	Pedidos []*Pedido `json:"pedidos"`
 }
 
+// peticionEstado es el cuerpo de PATCH /admin/pedidos/{id}/estado.
+//
+// Un solo campo, y es el estado DESTINO. No se manda una transicion: ver
+// specs/012-app-repartidor/contracts/servicio-y-pantallas.md seccion 1.
+type peticionEstado struct {
+	Estado string `json:"estado"`
+}
+
 // Crear guarda un pedido. Es el endpoint del feature.
 //
 // Responde 201 con un pedido nuevo y **200 con el que ya existia** cuando la
@@ -366,4 +374,65 @@ func (h *Handlers) Todos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, respuestaLista{Pedidos: lista})
+}
+
+// CambiarEstado mueve un pedido de estado. Solo para una direccion
+// administradora.
+//
+// Es el camino que `012` agrega, y lo que arregla es concreto: hasta hoy **todo
+// pedido decia "Pendiente" para siempre** porque el ciclo de vida existia en la
+// base y no habia una linea que lo moviera.
+//
+// La autorizacion es **la misma que GET /admin/pedidos**, y tiene que serlo: el
+// pedido que devuelve trae el nombre, la direccion y el telefono de quien recibe.
+// Montarlo sin esta guarda publicaria esos datos de todos los destinatarios y
+// dejaria que cualquiera moviera pedidos ajenos.
+func (h *Handlers) CambiarEstado(w http.ResponseWriter, r *http.Request) {
+	u, hay := usuarios.DeContexto(r.Context())
+	if !hay {
+		httpx.ErrorInterno(w, "PATCH /admin/pedidos/{id}/estado sin middleware de sesion",
+			errors.New("no hay usuario en el contexto"))
+		return
+	}
+
+	// 403 y no 404, por lo mismo que Todos: que exista una ruta de
+	// administracion no es secreto.
+	if !h.esAdmin(u.Email) {
+		httpx.Error(w, http.StatusForbidden, "no autorizado")
+		return
+	}
+
+	var p peticionEstado
+	if err := httpx.LeerJSON(w, r, &p); err != nil {
+		httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+		return
+	}
+
+	estado := strings.TrimSpace(p.Estado)
+	if !EstadoValido(estado) {
+		// El mensaje NOMBRA los tres estados. Quien lo lee es quien escribe la
+		// app, y "ese estado no existe" a secas obliga a ir a buscar cuales si.
+		httpx.Error(w, http.StatusBadRequest,
+			"ese estado no existe: los estados son "+
+				EstadoCreacion+", "+EstadoAceptacion+" y "+EstadoEntrega)
+		return
+	}
+
+	pedido, err := h.repo.CambiarEstado(r.Context(), r.PathValue("id"), estado)
+	switch {
+	case errors.Is(err, ErrNoExiste):
+		httpx.Error(w, http.StatusNotFound, "no hay tal pedido")
+		return
+	case errors.Is(err, ErrEstadoInvalido):
+		// Inalcanzable: EstadoValido ya filtro arriba. Se contempla igual para
+		// que agregar un camino que llame al repositorio sin validar no se
+		// convierta en un 500.
+		httpx.Error(w, http.StatusBadRequest, "ese estado no existe")
+		return
+	case err != nil:
+		httpx.ErrorInterno(w, "cambiando el estado de un pedido", err)
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, respuestaCrear{Pedido: pedido})
 }

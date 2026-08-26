@@ -41,6 +41,13 @@ func sesionesDePrueba(t *testing.T, duracion time.Duration) (*Sesiones, *db.Pool
 	// pedidos vivos FALLA. Este paquete corre antes que `pedidos` en el orden
 	// alfabetico de `go test ./...`, de modo que sin esto un pedido que quedo
 	// dando vueltas pone en rojo a un paquete que no tiene nada que ver.
+	// **`pedidos_estados` PRIMERO, y por lo mismo que los pedidos van antes que
+	// los usuarios**: su FK hacia `pedidos` es ON DELETE RESTRICT, asi que
+	// borrar un pedido con historial falla. Que el orden importe es la prueba
+	// de que el RESTRICT esta puesto (012, migracion 0005).
+	if _, err := pool.Exec(ctx, `DELETE FROM pedidos_estados`); err != nil {
+		t.Fatalf("limpiando el historial de estados: %v", err)
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM pedidos`); err != nil {
 		t.Fatalf("limpiando pedidos: %v", err)
 	}

@@ -15,10 +15,10 @@ import (
 	"github.com/Matt122133/flash-urbano/backend/internal/usuarios"
 )
 
-// monta un servidor con las tres rutas y el middleware de sesion, resolviendo
-// credenciales contra un mapa.
+// monta un servidor con las cuatro rutas y el middleware de sesion,
+// resolviendo credenciales contra un mapa.
 //
-// Se montan las tres juntas y con el mismo `conSesion` que usa main.go: si
+// Se montan las cuatro juntas y con el mismo `conSesion` que usa main.go: si
 // alguna quedara abierta, se veria aca igual que se ve alla.
 func monta(t *testing.T, h *Handlers, credenciales map[string]*usuarios.Usuario) *httptest.Server {
 	t.Helper()
@@ -44,6 +44,7 @@ func monta(t *testing.T, h *Handlers, credenciales map[string]*usuarios.Usuario)
 	mux.Handle("POST /pedidos", conSesion(h.Crear))
 	mux.Handle("GET /pedidos", conSesion(h.Mios))
 	mux.Handle("GET /admin/pedidos", conSesion(h.Todos))
+	mux.Handle("PATCH /admin/pedidos/{id}/estado", conSesion(h.CambiarEstado))
 
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -572,5 +573,197 @@ func TestLaCabeceraDeIdempotenciaEstaAutorizadaPorElCORS(t *testing.T) {
 			"el endpoint exige %q y el CORS autoriza %q: el navegador no puede mandarla",
 			CabeceraIdempotencia, httpx.CabecerasPermitidas,
 		)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /admin/pedidos/{id}/estado — la tabla del contrato, seccion 1.
+//
+// specs/012-app-repartidor/contracts/servicio-y-pantallas.md. Hasta `012` todo
+// pedido decia "Pendiente" para siempre: el ciclo de vida existia en la base y
+// no habia una linea que lo moviera.
+// ---------------------------------------------------------------------------
+
+// unPedidoCreado crea un pedido por HTTP y devuelve su id y su estado inicial.
+//
+// El nombre lleva sufijo porque `unPedido` ya existe en pedido_test.go, del
+// mismo paquete, y arma un `Nuevo` para el repositorio en vez de llamar al
+// endpoint.
+func unPedidoCreado(t *testing.T, srv *httptest.Server, token, clave string) (string, string) {
+	t.Helper()
+	estado, cuerpo := pedir(t, srv, "POST", "/pedidos", token, clave, cuerpoValido())
+	if estado != http.StatusCreated {
+		t.Fatalf("creando el pedido: quiero 201, dio %d — %s", estado, cuerpo)
+	}
+	var r respuestaCrear
+	if err := json.Unmarshal(cuerpo, &r); err != nil {
+		t.Fatalf("leyendo el pedido creado: %v", err)
+	}
+	return r.Pedido.ID, r.Pedido.Estado
+}
+
+// mover pide el cambio de estado y devuelve el codigo y el cuerpo.
+func mover(t *testing.T, srv *httptest.Server, token, id, estado string) (int, []byte) {
+	t.Helper()
+	return pedir(t, srv, "PATCH", "/admin/pedidos/"+id+"/estado", token, "",
+		`{"estado":"`+estado+`"}`)
+}
+
+// contarHistorial cuenta las filas de `pedidos_estados` de un pedido.
+//
+// Va contra la tabla y no contra un endpoint porque **no hay endpoint**: el
+// historial se escribe y se guarda, no se muestra (FR-014). Se llega al pool
+// por `repo.pool` — la prueba vive en el mismo paquete.
+func contarHistorial(t *testing.T, repo *Repositorio, id string) int {
+	t.Helper()
+	var n int
+	if err := repo.pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM pedidos_estados WHERE pedido_id = $1`, id).Scan(&n); err != nil {
+		t.Fatalf("contando el historial: %v", err)
+	}
+	return n
+}
+
+// El estado se mueve en las DOS direcciones (FR-004), y cada movimiento deja su
+// fila.
+//
+// **Es tambien el control positivo de TestElMismoEstadoDosVecesNoAgregaHistorial**:
+// aquella prueba afirma que el contador NO crece, y sin esta no habria nada que
+// demuestre que sabria notarlo si creciera.
+func TestElEstadoSeMueveEnLasDosDireccionesYDejaHistorial(t *testing.T) {
+	srv, repo, _ := escenario(t, relojFijo)
+	id, inicial := unPedidoCreado(t, srv, "tok-ana", "a1")
+
+	if inicial != EstadoCreacion {
+		t.Fatalf("un pedido nuevo nace en %q, quiero %q", inicial, EstadoCreacion)
+	}
+	if n := contarHistorial(t, repo, id); n != 0 {
+		t.Fatalf("un pedido recien creado tiene %d filas de historial, quiero 0 — el historial empieza cuando empieza, no se rellena hacia atras", n)
+	}
+
+	// Hacia adelante, y de vuelta hacia atras. La reversion es un requisito
+	// (FR-004): quien marca "entregado" de mas tiene que poder corregirlo desde
+	// la calle, no llamando a alguien.
+	pasos := []struct {
+		estado string
+		filas  int
+	}{
+		{EstadoAceptacion, 1},
+		{EstadoEntrega, 2},
+		{EstadoAceptacion, 3},
+		{EstadoCreacion, 4},
+	}
+	for _, paso := range pasos {
+		estado, cuerpo := mover(t, srv, "tok-diego", id, paso.estado)
+		if estado != http.StatusOK {
+			t.Fatalf("moviendo a %q: quiero 200, dio %d — %s", paso.estado, estado, cuerpo)
+		}
+		var r respuestaCrear
+		if err := json.Unmarshal(cuerpo, &r); err != nil {
+			t.Fatalf("leyendo la respuesta: %v", err)
+		}
+		if r.Pedido.Estado != paso.estado {
+			t.Errorf("el pedido devuelto dice %q, quiero %q", r.Pedido.Estado, paso.estado)
+		}
+		if n := contarHistorial(t, repo, id); n != paso.filas {
+			t.Errorf("tras mover a %q el historial tiene %d filas, quiero %d", paso.estado, n, paso.filas)
+		}
+	}
+}
+
+// FR-009: pedir el estado que el pedido YA tiene contesta 200 y **no agrega una
+// fila**. Es lo que hace que tocar dos veces con guantes no ensucie el registro.
+func TestElMismoEstadoDosVecesNoAgregaHistorial(t *testing.T) {
+	srv, repo, _ := escenario(t, relojFijo)
+	id, _ := unPedidoCreado(t, srv, "tok-ana", "a1")
+
+	if estado, cuerpo := mover(t, srv, "tok-diego", id, EstadoAceptacion); estado != http.StatusOK {
+		t.Fatalf("el primer movimiento: quiero 200, dio %d — %s", estado, cuerpo)
+	}
+	antes := contarHistorial(t, repo, id)
+	if antes != 1 {
+		t.Fatalf("tras el primer movimiento hay %d filas, quiero 1", antes)
+	}
+
+	// El segundo toque, identico. 200 igual: no es un error, es el caso normal.
+	estado, cuerpo := mover(t, srv, "tok-diego", id, EstadoAceptacion)
+	if estado != http.StatusOK {
+		t.Fatalf("el segundo toque: quiero 200, dio %d — %s", estado, cuerpo)
+	}
+	if n := contarHistorial(t, repo, id); n != antes {
+		t.Errorf("el segundo toque dejo el historial en %d filas, quiero %d — repetir un estado no es un cambio", n, antes)
+	}
+}
+
+// Un valor que no es uno de los tres se rechaza con 400 y un mensaje legible.
+// El CHECK de la base tambien lo pararia, pero su mensaje no se le puede
+// mostrar a nadie.
+func TestUnEstadoQueNoExisteEs400(t *testing.T) {
+	srv, repo, _ := escenario(t, relojFijo)
+	id, _ := unPedidoCreado(t, srv, "tok-ana", "a1")
+
+	for _, invalido := range []string{"entregado", "confirmacion", "", "ENTREGA", "creacion; DROP TABLE pedidos"} {
+		estado, cuerpo := mover(t, srv, "tok-diego", id, invalido)
+		if estado != http.StatusBadRequest {
+			t.Errorf("estado %q: quiero 400, dio %d — %s", invalido, estado, cuerpo)
+		}
+	}
+	if n := contarHistorial(t, repo, id); n != 0 {
+		t.Errorf("un rechazo dejo %d filas de historial, quiero 0", n)
+	}
+}
+
+// Un id que no nombra ningun pedido es 404 — y **un id que ni siquiera es un
+// uuid tambien**. Ese es 404 y no 500: una URL mal escrita no es una falla del
+// servicio.
+func TestUnPedidoQueNoExisteEs404(t *testing.T) {
+	srv, _, _ := escenario(t, relojFijo)
+
+	for _, id := range []string{
+		"3f2504e0-4f89-11d3-9a0c-0305e82c3301", // uuid bien formado, inexistente
+		"no-soy-un-uuid",
+	} {
+		estado, cuerpo := mover(t, srv, "tok-diego", id, EstadoAceptacion)
+		if estado != http.StatusNotFound {
+			t.Errorf("id %q: quiero 404, dio %d — %s", id, estado, cuerpo)
+		}
+	}
+}
+
+// SC-006: **sin credencial no se mueve nada, y con una credencial que no es
+// administradora tampoco.**
+//
+// Es la prueba que importa de todo el archivo: el pedido que este camino
+// devuelve trae el nombre, la direccion y el telefono de quien recibe.
+func TestSinCredencialAdministradoraNoSeMueveNada(t *testing.T) {
+	srv, repo, _ := escenario(t, relojFijo)
+	id, _ := unPedidoCreado(t, srv, "tok-ana", "a1")
+
+	// Sin credencial: 401, y lo contesta el middleware antes de tocar la base.
+	if estado, cuerpo := mover(t, srv, "", id, EstadoEntrega); estado != http.StatusUnauthorized {
+		t.Errorf("sin credencial: quiero 401, dio %d — %s", estado, cuerpo)
+	}
+	// Con una credencial inventada: 401 tambien.
+	if estado, cuerpo := mover(t, srv, "tok-inventado", id, EstadoEntrega); estado != http.StatusUnauthorized {
+		t.Errorf("con una credencial inventada: quiero 401, dio %d — %s", estado, cuerpo)
+	}
+	// Identificada pero NO administradora: 403. Es el caso peligroso — una
+	// clienta cualquiera moviendo el pedido de otra.
+	if estado, cuerpo := mover(t, srv, "tok-ana", id, EstadoEntrega); estado != http.StatusForbidden {
+		t.Errorf("una clienta cualquiera: quiero 403, dio %d — %s", estado, cuerpo)
+	}
+
+	// Y el pedido no se movio ni una vez.
+	if n := contarHistorial(t, repo, id); n != 0 {
+		t.Errorf("el historial tiene %d filas tras tres rechazos, quiero 0", n)
+	}
+	estado, cuerpo := pedir(t, srv, "GET", "/pedidos", "tok-ana", "", "")
+	if estado != http.StatusOK {
+		t.Fatalf("releyendo: %d — %s", estado, cuerpo)
+	}
+	var lista respuestaLista
+	json.Unmarshal(cuerpo, &lista)
+	if len(lista.Pedidos) != 1 || lista.Pedidos[0].Estado != EstadoCreacion {
+		t.Errorf("el pedido quedo en %v, quiero uno solo en %q", lista.Pedidos, EstadoCreacion)
 	}
 }

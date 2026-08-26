@@ -36,9 +36,9 @@ enteras sin poder verificar nada. Lo encontró el analyze del 2026-08-23.
 
 ## Phase 1: Setup
 
-- [ ] T001 Leer [research.md](research.md) entero. **D3, D5 y D7 no son contexto opcional**: D3 es un dato que falta y puede impedir instalar la app, D5 es una trampa de seguridad que se cuela sola, y D7 es un cambio que afecta también a la web
-- [ ] T002 Confirmar el entorno de Android, que ya se comprobó y conviene no dar por sentado: JDK de Android Studio en `C:\Program Files\Android\Android Studio\jbr`, SDK en `%LOCALAPPDATA%\Android\Sdk` con `android-36`, y la distribución de Gradle 8.13 en `~/.gradle/wrapper/dists`
-- [ ] T003 **Averiguar qué versión de Android tiene el teléfono de Diego** (research D3). El APK va a exigir 8.0 o superior. **Es una pregunta para una persona, no una tarea de código**, y si la respuesta fuera menor a 8 hay que volver al plan antes de escribir nada. La respuesta se anota acá mismo cuando llegue
+- [x] T001 Leer [research.md](research.md) entero. **D3, D5 y D7 no son contexto opcional**: D3 es un dato que falta y puede impedir instalar la app, D5 es una trampa de seguridad que se cuela sola, y D7 es un cambio que afecta también a la web
+- [x] T002 Confirmar el entorno de Android, que ya se comprobó y conviene no dar por sentado: JDK de Android Studio en `C:\Program Files\Android\Android Studio\jbr`, SDK en `%LOCALAPPDATA%\Android\Sdk` con `android-36`, y la distribución de Gradle 8.13 en `~/.gradle/wrapper/dists`
+- [ ] T003 **Averiguar qué versión de Android tiene el teléfono de Diego** (research D3). El APK va a exigir 8.0 o superior. **Es una pregunta para una persona, no una tarea de código**, y si la respuesta fuera menor a 8 hay que volver al plan antes de escribir nada. La respuesta se anota acá mismo cuando llegue. **RESPONDIDA al 2026-08-26, y como suposicion**: no sabe la version, dice que el telefono es nuevo y que soporta. `minSdk 26` es Android 8.0, de 2017, asi que la suposicion es razonable y se sigue adelante con ella. **Queda sin comprobar**: si fallara, falla al instalar en T037, no antes, y se comprueba en dos toques en Ajustes -> Acerca del telefono
 
 ---
 
@@ -46,25 +46,25 @@ enteras sin poder verificar nada. Lo encontró el analyze del 2026-08-23.
 
 **Va primero porque desbloquea el `verify:`.** Hasta que `android/` exista, el comando del plan no se puede correr.
 
-- [ ] T004 Generar `android/` con la distribución de Gradle local (research D1): `settings.gradle.kts`, el módulo `app`, y **el wrapper** con `gradle wrapper`. El `gradle-wrapper.jar` es un binario y **se commitea**, como en cualquier proyecto Android
-- [ ] T005 Configurar `android/app/build.gradle.kts`: `minSdk 26`, `targetSdk 36`, Compose con Material 3, OkHttp y `kotlinx.serialization` (research D4). **Sin Retrofit**
-- [ ] T006 Definir la URL del servicio **por tipo de compilación** (research D5): `debug` a `http://10.0.2.2:8080`, `release` a producción. **La excepción de texto plano va SÓLO en `debug`** — si se cuela en `release`, la app de Diego acepta conexiones sin cifrar contra producción, que es lo que el bloqueo de Android existe para impedir
-- [ ] T007 Agregar al `.gitignore` de la raíz las salidas de Gradle (`android/build/`, `android/app/build/`, `.gradle/`, `local.properties`). **`local.properties` lleva la ruta del SDK de cada máquina y no se versiona**
-- [ ] T008 Comprobar que `gradlew.bat assembleDebug` produce un APK y que el `verify:` de las tres superficies queda verde **con una app que todavía no hace nada**. **`gradlew.bat` y no `./gradlew`**: el harness corre el `verify:` en `cmd.exe`, donde `./` no existe
+- [x] T004 Generar `android/` con la distribución de Gradle local (research D1): `settings.gradle.kts`, el módulo `app`, y **el wrapper** con `gradle wrapper`. El `gradle-wrapper.jar` es un binario y **se commitea**, como en cualquier proyecto Android
+- [x] T005 Configurar `android/app/build.gradle.kts`: `minSdk 26`, `targetSdk 36`, Compose con Material 3, OkHttp y `kotlinx.serialization` (research D4). **Sin Retrofit**
+- [x] T006 Definir la URL del servicio **por tipo de compilación** (research D5): `debug` a `http://10.0.2.2:8080`, `release` a producción. **La excepción de texto plano va SÓLO en `debug`** — si se cuela en `release`, la app de Diego acepta conexiones sin cifrar contra producción, que es lo que el bloqueo de Android existe para impedir
+- [x] T007 Agregar al `.gitignore` de la raíz las salidas de Gradle (`android/build/`, `android/app/build/`, `.gradle/`, `local.properties`). **`local.properties` lleva la ruta del SDK de cada máquina y no se versiona**
+- [x] T008 Comprobar que `gradlew.bat assembleDebug` produce un APK y que el `verify:` de las tres superficies queda verde **con una app que todavía no hace nada**. **`.\gradlew.bat`, y ni `./gradlew` ni `gradlew.bat` a secas**: el `verify:` corre en `cmd.exe`, donde `./` no existe — y cuando ese `cmd` lo lanza un shell tipo MSYS hereda `NoDefaultCurrentDirectoryInExePath`, con lo cual el nombre pelado tampoco resuelve. `.\` funciona en los dos casos. Corregido en el `verify:` del plan el 2026-08-26
 
-**Checkpoint**: el `verify:` del plan sirve. Desde acá, todo lo demás se puede verificar.
+**Checkpoint**: el `verify:` del plan sirve. Desde acá, todo lo demás se puede verificar. **Alcanzado el 2026-08-26.**
 
 ---
 
 ## Phase 3: El servicio sabe escribir un estado (Blocking Prerequisite)
 
-- [ ] T009 Crear `backend/migrations/0005_historial_de_estados.sql` con la tabla `pedidos_estados` según [data-model.md](data-model.md) §2: `pedido_id` referenciando `pedidos`, `estado` con el mismo `CHECK` que la columna original, y `ocurrido_en`. **Sin `estado_anterior`, sin quién lo hizo y sin ubicación**, cada omisión con su motivo escrito en el archivo. **No se rellena hacia atrás**: el historial empieza cuando empieza
-- [ ] T010 Comprobar que `0005` corre **sobre la base local con datos adentro**. A diferencia de `0004`, no exige nada — y comprobarlo es barato después de lo que pasó el 2026-08-23
-- [ ] T011 Agregar en `backend/internal/pedidos/pedido.go` la operación que cambia el estado y escribe su fila de historial **en la misma transacción**. Si el historial se escribiera aparte, un fallo entre las dos deja un pedido movido sin rastro, que es exactamente lo que FR-014 quiere evitar
-- [ ] T012 **Cuando el estado pedido es el que el pedido ya tiene, MUST NOT escribirse una fila** (FR-009, contrato §1). Es lo que hace que tocar dos veces con guantes no ensucie el registro
-- [ ] T013 Agregar el handler de `PATCH /admin/pedidos/{id}/estado` en `backend/internal/pedidos/handlers.go`: acepta los tres estados **en cualquier dirección** (FR-004), rechaza cualquier otro valor con un mensaje legible, y devuelve `404` si el pedido no existe
-- [ ] T014 Registrar la ruta en `backend/cmd/api/main.go` **con el mismo middleware que `GET /admin/pedidos`**. Si se registra sin él, el feature publica el nombre, la dirección y el teléfono de todos los destinatarios y deja que cualquiera mueva pedidos
-- [ ] T015 Cubrir en `backend/internal/pedidos/handlers_test.go` la tabla entera del [contrato](contracts/servicio-y-pantallas.md) §1: hacia adelante, hacia atrás, el mismo estado dos veces —**comprobando que el historial NO crece**—, un valor inválido, un id inexistente, y **sin credencial**. El último es el que verifica SC-006
+- [x] T009 Crear `backend/migrations/0005_historial_de_estados.sql` con la tabla `pedidos_estados` según [data-model.md](data-model.md) §2: `pedido_id` referenciando `pedidos`, `estado` con el mismo `CHECK` que la columna original, y `ocurrido_en`. **Sin `estado_anterior`, sin quién lo hizo y sin ubicación**, cada omisión con su motivo escrito en el archivo. **No se rellena hacia atrás**: el historial empieza cuando empieza
+- [x] T010 Comprobar que `0005` corre **sobre la base local con datos adentro**. A diferencia de `0004`, no exige nada — y comprobarlo es barato después de lo que pasó el 2026-08-23
+- [x] T011 Agregar en `backend/internal/pedidos/pedido.go` la operación que cambia el estado y escribe su fila de historial **en la misma transacción**. Si el historial se escribiera aparte, un fallo entre las dos deja un pedido movido sin rastro, que es exactamente lo que FR-014 quiere evitar
+- [x] T012 **Cuando el estado pedido es el que el pedido ya tiene, MUST NOT escribirse una fila** (FR-009, contrato §1). Es lo que hace que tocar dos veces con guantes no ensucie el registro
+- [x] T013 Agregar el handler de `PATCH /admin/pedidos/{id}/estado` en `backend/internal/pedidos/handlers.go`: acepta los tres estados **en cualquier dirección** (FR-004), rechaza cualquier otro valor con un mensaje legible, y devuelve `404` si el pedido no existe
+- [x] T014 Registrar la ruta en `backend/cmd/api/main.go` **con el mismo middleware que `GET /admin/pedidos`**. Si se registra sin él, el feature publica el nombre, la dirección y el teléfono de todos los destinatarios y deja que cualquiera mueva pedidos
+- [x] T015 Cubrir en `backend/internal/pedidos/handlers_test.go` la tabla entera del [contrato](contracts/servicio-y-pantallas.md) §1: hacia adelante, hacia atrás, el mismo estado dos veces —**comprobando que el historial NO crece**—, un valor inválido, un id inexistente, y **sin credencial**. El último es el que verifica SC-006
 
 ---
 
