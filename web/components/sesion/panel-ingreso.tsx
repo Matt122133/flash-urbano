@@ -34,11 +34,16 @@ export type PanelIngresoProps = {
   bajada?: string;
 
   /**
-   * Si se muestra el pie con "podés ver cuánto sale un envío sin ingresar".
+   * Si se muestra el pie con "podés empezar a cargar un pedido sin ingresar".
    *
    * Se oculta en el dialogo de `/pedido`: quien ya esta ahi no necesita que lo
    * inviten a la pantalla en la que esta, y un enlace que navega fuera seria
    * justo lo que hace perder el formulario cargado.
+   *
+   * **El nombre quedo de cuando el premio de afuera era ver el precio.** Desde
+   * `013` no hay precio que ver; lo que sigue abierto sin cuenta es el
+   * formulario entero, hasta el momento de confirmar (constitucion 5.0.0,
+   * Scope boundaries).
    */
   conSalidaACotizar?: boolean;
 };
@@ -117,12 +122,13 @@ export function PanelIngreso({
       />
 
       {conSalidaACotizar && (
-        // Cotizar no pide nada, y quien llego aca de mas tiene que poder salir
-        // sin sentir que choco contra una puerta (FR-001, Principio II).
+        // Cargar el pedido no pide nada, y quien llego aca de mas tiene que
+        // poder salir sin sentir que choco contra una puerta (FR-001,
+        // Principio II).
         <p className="border-t border-slate-100 pt-4 text-center text-sm text-slate-500">
           Podés{" "}
           <Link href="/pedido" className="font-medium text-brand hover:underline">
-            ver cuánto sale un envío
+            empezar a cargar un pedido
           </Link>{" "}
           sin ingresar.
         </p>

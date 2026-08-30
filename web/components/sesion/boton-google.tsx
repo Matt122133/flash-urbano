@@ -167,7 +167,7 @@ export function BotonGoogle({
           callback: (r) => void manejarToken?.(r),
           // Nada de ingreso automático: que alguien quede identificado sin haberlo
           // pedido es exactamente el tipo de sorpresa que no queremos en un sitio
-          // donde identificarse es opcional para mirar precios.
+          // donde identificarse es opcional para cargar el pedido.
           auto_select: false,
           cancel_on_tap_outside: true,
         });

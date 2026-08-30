@@ -18,6 +18,15 @@ redefined rather than clarified.
 Authorizes `specs/002-mapa-zonas-precio/`. That spec must not be planned until
 this ADR and the constitution amendment are both in place.
 
+**Superseded twice, on two different points.**
+[ADR pricing-from-delivery-zone](pricing-from-delivery-zone.md) moved the
+measured end of the trip from pickup to delivery (2026-08-22).
+[ADR price-not-shown](price-not-shown.md) then removed the price from every
+surface of the product (2026-08-30), which retires the conclusion this ADR
+exists for. **What still stands is the machinery**: five polygons resolved from
+a point, no guessing, no nearest-zone fallback. What is gone is putting the
+number on the screen.
+
 ## Context
 
 Principle V ("Price and logistics stay manual for now") was written on

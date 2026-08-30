@@ -15,6 +15,10 @@ Las calles están transcritas a texto en
 § Límites de zona. **Esa lista es la definición autoritativa**: si un polígono
 se aparta de su calle, el defecto está en el polígono.
 
+Esa regla se ejerció por primera vez el 2026-08-30: el cliente reajustó el
+trazado de la **Zona 5**, que se había apartado por el este, y las calles no
+cambiaron. O sea que se corrigió el polígono contra la lista, no al revés.
+
 `zonas-flash-urbano.kml` son esos límites trazados sobre Google My Maps y
 exportados. El cliente validó el resultado.
 
@@ -32,16 +36,36 @@ duro), le asigna a cada zona su precio y emite un módulo TypeScript tipado que
 **se commitea**.
 
 Se emite código y no un `.geojson` servido desde `public/` a propósito:
-importando el módulo, los polígonos viajan en el bundle y el cálculo del precio
-no depende de que salga bien una request. El precio es en firme, así que no
-conviene atarlo a la red.
+importando el módulo, los polígonos viajan en el bundle y decidir si una
+dirección entra no depende de que salga bien una request. Sin esa respuesta no
+hay pedido, así que no conviene atarla a la red.
 
 El script **falla ruidosamente** si un anillo no cierra, si falta una zona o si
 un nombre no mapea a un precio conocido. Un archivo generado a medias es peor
-que ninguno cuando de él depende cuánto se le cobra a alguien.
+que ninguno cuando de él depende si a alguien se le toma el envío.
 
 **Los precios viven en una tabla dentro de `build-zonas.js` y en ningún otro
 lado.** Para cambiar uno, se edita ahí y se regenera.
+
+### El precio ya no se muestra, pero el dato sigue acá
+
+Desde el 2026-08-30 (`013`) **ninguna pantalla muestra un monto**: el cliente
+acuerda el precio por su cuenta. Ver
+[ADR price-not-shown](../../docs/decisions/price-not-shown.md) y el Principio V,
+versión 5.0.0.
+
+Lo que eso cambia acá: **nada**. El generador sigue teniendo su tabla de precios
+y el módulo generado los sigue emitiendo, a propósito, para que volver atrás
+cueste reponer una pantalla y no recalcular un historial. Lo que cambió es para
+qué se usa el resultado — la zona decide **admisión**, no monto: un punto fuera
+de las cinco no produce pedido y se encamina al contacto.
+
+**Ese número no se lee para nada**, y el Principio V lo prohíbe explícitamente:
+desde que dejó de mostrarse registra lo que la regla vieja habría cobrado, no lo
+que se cobra.
+
+Una guarda automática, `web/lib/sin-precio-a-la-vista.test.ts`, falla si el
+precio vuelve a cruzar de `lib/` hacia `app/` o `components/`.
 
 ### Corregir un límite
 

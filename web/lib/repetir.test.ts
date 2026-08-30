@@ -5,13 +5,10 @@ import { describe, expect, it } from "vitest";
 import type { PedidoGuardado } from "./api";
 import {
   camposDelPedido,
-  huboReajuste,
-  precioDeHoy,
   entregaParaRehidratar,
   retiroDelPedido,
   tamanoDelPedido,
 } from "./repetir";
-import { ZONAS } from "./zonas";
 
 /** Un pedido guardado como el que devuelve `GET /pedidos`, para variar encima. */
 function unPedido(cambios: Partial<PedidoGuardado> = {}): PedidoGuardado {
@@ -171,42 +168,13 @@ describe("tamanoDelPedido", () => {
   );
 });
 
-describe("precioDeHoy", () => {
-  it("resuelve el precio del punto", () => {
-    // La Blanqueada, el mismo punto interior que usa zona-lookup.test.ts.
-    const esperado = ZONAS.find((z) => z.id === 1)?.precio;
-    expect(precioDeHoy({ lat: -34.872, lng: -56.16 })).toBe(esperado);
-  });
-
-  it("fuera de toda zona devuelve null, no la zona mas cercana", () => {
-    // Principio V: adivinar una zona es adivinar un precio.
-    expect(precioDeHoy({ lat: -34.96, lng: -56.18 })).toBeNull();
-  });
-
-  it("sin punto devuelve null", () => {
-    expect(precioDeHoy(null)).toBeNull();
-  });
-});
-
-describe("huboReajuste", () => {
-  it("no avisa cuando el precio es el mismo", () => {
-    expect(huboReajuste(150, 150)).toBe(false);
-  });
-
-  it("avisa cuando subio", () => {
-    expect(huboReajuste(150, 190)).toBe(true);
-  });
-
-  it("avisa igual cuando bajo", () => {
-    // FR-015c. Una pantalla que solo habla cuando la noticia es mala se nota.
-    expect(huboReajuste(150, 120)).toBe(true);
-  });
-
-  it("sin precio de hoy no hay reajuste que avisar", () => {
-    // Ese caso es el de FR-016: no hay precio ni pedido, y corta antes.
-    expect(huboReajuste(150, null)).toBe(false);
-  });
-});
+// Aca vivian los casos de `precioDeHoy` y `huboReajuste`. Se fueron el
+// 2026-08-30 con `013`, junto con las funciones que probaban: sin monto en
+// pantalla no hay reajuste que avisar (FR-007).
+//
+// **Lo que decidia si el envio entra no estaba aca y sigue vivo**: la
+// revalidacion del punto guardado, mas abajo, y `resolverZona()` con sus
+// propios casos en `zona-lookup.test.ts`.
 
 // ---------------------------------------------------------------------------
 // La guarda de la direccion de dependencia

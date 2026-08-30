@@ -13,7 +13,6 @@
 import type { PedidoGuardado } from "./api";
 import type { Punto } from "./direccion";
 import type { TamanoPaquete } from "./pedido";
-import { resolverZona } from "./zona-lookup";
 
 /**
  * La direccion de retiro en la forma que acepta `rehidratarRetiro()`.
@@ -160,34 +159,18 @@ export function tamanoDelPedido(tamano: string): TamanoPaquete | "" {
 }
 
 
-/**
- * El precio que corresponde HOY a un punto, o `null` si no cae en ninguna zona.
- *
- * `null` no es un error de esta funcion: es la respuesta correcta a un punto
- * fuera de toda zona, y quien llama tiene que tratarla como "no hay precio y no
- * hay pedido" (FR-016, Principio V). Nunca la zona mas cercana.
- */
-export function precioDeHoy(punto: Punto | null): number | null {
-  if (!punto) return null;
-  return resolverZona(punto.lat, punto.lng)?.precio ?? null;
-}
-
-/**
- * Si el precio cambio desde que se hizo el pedido original (FR-015a).
- *
- * Se compara **contra el precio congelado del pedido**, no contra su `zonaId`:
- * lo que la persona necesita saber es que va a pagar otra cosa, y eso puede
- * pasar por dos caminos distintos —cambiaron los precios de las zonas, o se
- * corrigio un limite y el punto quedo en otra zona—. Los dos terminan en el
- * mismo aviso.
- *
- * Sin precio de hoy no hay reajuste que avisar: ese caso es el de FR-016, que
- * corta antes y no deja confirmar.
- */
-export function huboReajuste(
-  precioOriginal: number,
-  precioActual: number | null,
-): boolean {
-  if (precioActual === null) return false;
-  return precioActual !== precioOriginal;
-}
+// Aca vivian `precioDeHoy()` y `huboReajuste()`, que decidian si avisarle a
+// alguien que su envio salia distinto que la vez pasada. Se fueron el
+// 2026-08-30 con `013`, junto con su unico consumidor: sin monto en pantalla no
+// hay reajuste que avisar (FR-007).
+//
+// Con ellas se fue el ultimo uso que este modulo hacia de `resolverZona()`, asi
+// que tambien se fue ese import. **Que un punto fuera de zona no produzca
+// pedido sigue en pie**, pero nunca vivio aca: lo comprueba `validate()` en
+// `components/pedido-form.tsx`, sobre el punto que la persona tiene marcado en
+// ese momento (FR-014). Lo que este modulo sigue haciendo es revalidar que el
+// punto guardado siga cayendo en su cuadra, mas arriba, y eso nunca dependio
+// del precio.
+//
+// Reponerlas es barato si el precio vuelve: el monto congelado sigue viniendo
+// en cada pedido guardado. Ver docs/decisions/price-not-shown.md.

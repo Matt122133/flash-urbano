@@ -116,7 +116,7 @@ function SinSesion() {
       <p className="border-t border-slate-100 pt-4 text-sm text-slate-500">
         Podés{" "}
         <Link href="/pedido" className="font-medium text-brand hover:underline">
-          ver cuánto sale un envío
+          empezar a cargar un pedido
         </Link>{" "}
         sin ingresar.
       </p>

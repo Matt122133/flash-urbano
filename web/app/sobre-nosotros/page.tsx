@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 const HORARIOS = [
   { dia: "Lunes a viernes", horario: "9:00 – 19:00" },
-  { dia: "Sábados", horario: "9:00 – 13:00" },
+  { dia: "Sábados", horario: "A coordinar" },
   { dia: "Domingos", horario: "Cerrado" },
 ];
 
