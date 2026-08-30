@@ -126,6 +126,11 @@ export function camposDelPedido(pedido: PedidoGuardado): CamposRepetidos {
   return {
     name: pedido.remitenteNombre,
     phone: pedido.remitenteTelefono,
+    // **Se sigue precargando aunque el formulario no lo muestre** (`014`, el
+    // 2026-08-30). No se saca a proposito: el dia que el campo vuelva, repetir
+    // un pedido tiene que volver a precargarlo solo, sin que nadie se acuerde
+    // de reponer esta linea. Hoy el valor que produce no llega a ninguna
+    // pantalla y no viaja al servicio — `crear-pedido.tsx` manda `"chico"` fijo.
     packageSize: tamanoDelPedido(pedido.paqueteTamano),
     // El formulario guarda la cantidad como texto: es lo que entrega un
     // `<input>`, y convertirla de ida y de vuelta solo agregaria un lugar donde
