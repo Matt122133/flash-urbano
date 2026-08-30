@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La app. TODAVIA NO EXISTE: este feature crea el directorio, y con el la
   # tercera superficie del repo. Ver research D2.
@@ -258,3 +258,30 @@ nadie confunda uno con el otro.
 Se acepta por el mismo argumento que ayer justificó guardar el punto de retiro:
 el dato no se puede reconstruir hacia atrás, y con las reversiones permitidas el
 estado actual **no cuenta lo que pasó**.
+
+---
+
+## Cierre — 2026-08-30
+
+`status: completed`. Lo que cerró y lo que **no**, sin maquillar:
+
+- **T035 cerrada por confirmación de Mateo**: el mail de Diego quedó en
+  `ADMIN_EMAILS` en Railway. La comprobación indirecta ya estaba: la app venía
+  viendo pedidos reales contra producción, cosa que sin esa variable no pasa.
+- **T038 cerrada parcial.** T4 (un pedido real de punta a punta) se hizo el
+  2026-08-26. **T2 y T3 —usar la app con una mano, leerla al sol— no se
+  evaluaron nunca**, y no se tildan como si sí. Se mudaron a la fila del
+  2026-08-26 de [`docs/tech-debt-tracker.md`](../../docs/tech-debt-tracker.md)
+  sobre el diseño de la app, que es donde van a mirarse en serio junto con el
+  alcance del pulgar, el tamaño de toque y el contraste. Es una prueba de
+  usabilidad que pertenece al rediseño, no a la rebanada base.
+- **Por qué se cierra ahora**: el cliente pidió un cambio de producto que toca
+  la web (`013`), y el harness no admite dos planes activos a la vez. La
+  alternativa era frenar trabajo del cliente esperando una prueba de usabilidad
+  de otra superficie.
+
+El límite que este plan declaró desde el principio sigue en pie y quedó
+demostrado: **la verificación tiene un piso que la sesión no alcanza**. `012`
+compiló verde en las tres superficies y aun así dejó dos defectos que solo
+aparecieron cuando alguien la usó, y una tercera observación —que la app es
+"medio fea"— que se convirtió en trabajo propio.
