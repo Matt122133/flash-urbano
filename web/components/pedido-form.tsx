@@ -211,10 +211,21 @@ function validate(
       "El punto quedó fuera de la cuadra que indicaste. Movelo de nuevo.";
   }
 
-  if (!form.packageSize) errors.packageSize = "Elegí un tamaño de paquete.";
+  // EN PAUSA — desactivadas por `014` el 2026-08-30, junto con los dos campos
+  // que exigen. **Esta es la mitad que se olvida al reponer**: sin descomentar
+  // estas dos lineas, los campos vuelven a la pantalla y nunca se exigen; y sin
+  // comentarlas al sacarlos, el formulario rechaza el pedido pidiendo algo que
+  // no muestra, con un mensaje que no tiene donde dibujarse.
+  //
+  // Van con sus bloques de `<Field>`, mas abajo en este archivo, que explican
+  // el resto.
+  //
+  // if (!form.packageSize) errors.packageSize = "Elegí un tamaño de paquete.";
+  // if (!form.pickupTime) errors.pickupTime = "Elegí un horario de retiro.";
 
+  // La FECHA se queda, y su validacion tambien. Es lo unico de este bloque que
+  // `014` NO toco: Diego necesita saber para que dia es el pedido.
   if (!form.pickupDate) errors.pickupDate = "Elegí una fecha de retiro.";
-  if (!form.pickupTime) errors.pickupTime = "Elegí un horario de retiro.";
 
   // Ya no hay coherencia entre dos fechas que validar: la entrega dejó de
   // agendarse en `004`. Queda la única regla que sobrevive sola — un día que ya
@@ -603,25 +614,48 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
           ¿Qué envías?
         </h2>
         <div className="mt-4 flex flex-col gap-4">
-          <Field
-            label="Tamaño del paquete"
-            htmlFor="packageSize"
-            error={errors.packageSize}
-          >
-            <select
-              id="packageSize"
-              className={inputClass}
-              value={form.packageSize}
-              onChange={(e) =>
-                update("packageSize", e.target.value as PackageSize)
-              }
+          {/*
+            EN PAUSA — desactivado por `014` el 2026-08-30, decision del cliente.
+
+            Diego no usa hoy el tamaño del paquete: no cambia la ruta, no cambia
+            nada. **Dijo que en el futuro si lo va a usar**, y por eso esto esta
+            comentado y no borrado. Sin esa frase, esto seria codigo muerto y
+            habria que borrarlo.
+
+            PARA REPONERLO hay que descomentar TRES cosas, no una:
+
+              1. este bloque;
+              2. la linea de `validate()` que exige el tamaño — vive mas arriba
+                 en este mismo archivo, cerca de `errors.quantity`, y **es la
+                 que se olvida**: sin ella el campo vuelve a mostrarse pero
+                 nunca se exige;
+              3. el valor fijo de `components/pedido/crear-pedido.tsx`, que hoy
+                 manda `"chico"` sin mirar el formulario. Si no se revierte, el
+                 campo pregunta y el pedido viaja con `chico` igual.
+
+            `FormState.packageSize`, `INITIAL_STATE` y el tipo `PackageSize`
+            siguen vivos a proposito: reponerlos seria reescribirlos.
+
+            <Field
+              label="Tamaño del paquete"
+              htmlFor="packageSize"
+              error={errors.packageSize}
             >
-              <option value="">Seleccioná un tamaño</option>
-              <option value="chico">Chico</option>
-              <option value="mediano">Mediano</option>
-              <option value="grande">Grande</option>
-            </select>
-          </Field>
+              <select
+                id="packageSize"
+                className={inputClass}
+                value={form.packageSize}
+                onChange={(e) =>
+                  update("packageSize", e.target.value as PackageSize)
+                }
+              >
+                <option value="">Seleccioná un tamaño</option>
+                <option value="chico">Chico</option>
+                <option value="mediano">Mediano</option>
+                <option value="grande">Grande</option>
+              </select>
+            </Field>
+          */}
 
           <Field label="Cantidad de paquetes" htmlFor="quantity" error={errors.quantity}>
             <input
@@ -640,7 +674,7 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
         <h2 className="text-base font-semibold text-slate-900">
           ¿Cuándo pasamos a buscarlo?
         </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4">
           <Field label="Fecha de retiro" htmlFor="pickupDate" error={errors.pickupDate}>
             <input
               id="pickupDate"
@@ -652,15 +686,42 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
               onBlur={revisarFechaDeRetiro}
             />
           </Field>
-          <Field label="Horario de retiro" htmlFor="pickupTime" error={errors.pickupTime}>
-            <input
-              id="pickupTime"
-              type="time"
-              className={inputClass}
-              value={form.pickupTime}
-              onChange={(e) => update("pickupTime", e.target.value)}
-            />
-          </Field>
+          {/*
+            EN PAUSA — desactivado por `014` el 2026-08-30, decision del cliente.
+
+            **Y tiene un motivo de negocio que conviene entender antes de
+            reponerlo**: Diego pasa a una hora fija y coordina el resto en
+            persona. Si una empresa necesita otra franja, lo habla el, **y ahi
+            el precio puede subir**. O sea que la hora no desaparecio del
+            negocio: salio del sitio para entrar en una conversacion donde
+            tambien se negocia la plata. Es la misma decision que `013` tomo con
+            el precio, aplicada al dato que lo mueve.
+
+            Diego dijo que en el futuro si lo va a usar. Por eso esta comentado
+            y no borrado.
+
+            PARA REPONERLO hay que descomentar TRES cosas, no una:
+
+              1. este bloque, y devolverle a la grilla su `sm:grid-cols-2` —hoy
+                 quedo en una sola columna porque quedaba un campo solo—;
+              2. la linea de `validate()` que exige el horario, mas arriba en
+                 este mismo archivo. **Es la que se olvida.**
+              3. el valor fijo de `components/pedido/crear-pedido.tsx`, que hoy
+                 manda `"16:00"` sin mirar el formulario.
+
+            Ademas hay que decidir que hace la tarjeta de `Mis pedidos`, que
+            dejo de mostrar la hora con este mismo feature (FR-006a).
+
+            <Field label="Horario de retiro" htmlFor="pickupTime" error={errors.pickupTime}>
+              <input
+                id="pickupTime"
+                type="time"
+                className={inputClass}
+                value={form.pickupTime}
+                onChange={(e) => update("pickupTime", e.target.value)}
+              />
+            </Field>
+          */}
         </div>
         {/*
           El plazo de entrega es un aviso, no un campo: la persona ya no elige
@@ -748,7 +809,6 @@ function Confirmation({
   const direccionRetiro = componerDireccion(form.retiro.direccion);
   const direccionEntrega = componerDireccion(form.entrega.direccion);
 
-  const paquete = `Tamaño ${form.packageSize}`;
 
   // **La ENTREGA, no el retiro.** Hasta `013` esta linea leia
   // `form.retiro.direccion.punto`, que quedo mal desde `011`: aquel feature
@@ -823,11 +883,13 @@ function Confirmation({
         <SummaryRow label="Dirección de retiro" value={direccionRetiro} />
         <SummaryRow label="Dirección de entrega" value={direccionEntrega} />
         {zona && <SummaryRow label="Zona de entrega" value={zona.nombre} />}
-        <SummaryRow label="Paquete" value={`${paquete} · x${form.quantity}`} />
+        {/* `014`: se fue el tamaño y **queda la cantidad**, que la persona si
+            eligio. Lo mismo abajo con la fecha, de la que se fue la hora. */}
         <SummaryRow
-          label="Retiro"
-          value={`${form.pickupDate} ${form.pickupTime}`}
+          label="Paquete"
+          value={`${form.quantity} ${form.quantity === "1" ? "paquete" : "paquetes"}`}
         />
+        <SummaryRow label="Retiro" value={form.pickupDate} />
         {/* Texto fijo, igual en todo pedido: no se deriva del retiro (FR-009a). */}
         <SummaryRow label="Entrega" value={PLAZO_DE_ENTREGA} />
         <SummaryRow

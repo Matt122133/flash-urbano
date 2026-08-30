@@ -75,12 +75,32 @@ function aDatos(form: FormState): DatosDelPedido {
     telefono: form.phone,
     retiro: form.retiro.direccion,
     entrega: form.entrega.direccion,
-    // El formulario impide enviar sin tamano; el `|| "chico"` es solo para que
-    // el tipo cierre, no una decision de negocio.
-    tamano: form.packageSize || "chico",
+    // DOS VALORES FIJOS, puestos por `014` el 2026-08-30. El formulario dejo de
+    // preguntar el tamaño y la hora (decision del cliente), pero el servicio
+    // los sigue exigiendo: `paquete_tamano` es NOT NULL con un CHECK y
+    // `retiro_hora` es `time NOT NULL`, con un indice encima.
+    //
+    // **Se eligio esto en vez de tocar el backend a proposito.** Hacer las
+    // columnas opcionales es una migracion sobre una tabla que ya tiene los
+    // pedidos reales de Diego, y el 2026-08-12 una migracion de esa misma tabla
+    // tumbo produccion. Ver specs/014-campos-en-pausa/research.md D3.
+    //
+    // `"chico"` no se eligio por gusto: **es el respaldo que esta misma linea ya
+    // usaba** cuando el campo venia vacio, asi que nada cambia de
+    // comportamiento. `"16:00"` es la hora a la que pasa Diego.
+    //
+    // **Los dos son datos que dejan de ser verdad**, igual que `precio` despues
+    // de `013`: registran el valor fijo, no lo que alguien eligio. La
+    // constitucion 5.1.0 prohibe leer esas columnas para decidir nada.
+    //
+    // AL REPONER los campos hay que revertir estas dos lineas **ademas** de
+    // descomentar los bloques de `pedido-form.tsx`. Si se descomenta el campo y
+    // esto queda, el formulario pregunta y el pedido viaja con `chico` igual —
+    // que es el modo de falla mas probable de la reposicion.
+    tamano: "chico",
     cantidad: form.quantity,
     fecha: form.pickupDate,
-    hora: form.pickupTime,
+    hora: "16:00",
     destinatarioNombre: form.receiverName,
     destinatarioTelefono: form.receiverPhone,
   };
