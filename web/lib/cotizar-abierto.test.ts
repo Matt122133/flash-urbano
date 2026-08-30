@@ -5,22 +5,30 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZONAS } from "./zonas";
 import { resolverZona } from "./zona-lookup";
 
-// FR-001 y FR-002: cotizar no puede depender del servicio. Un desconocido tiene
-// que poder cargar una direccion y ver el precio con el backend caido, apagado o
-// todavia sin desplegar.
+// FR-001 y FR-002: el formulario no puede depender del servicio. Un desconocido
+// tiene que poder cargar una direccion, resolver el cruce y saber si llegamos
+// hasta ahi con el backend caido, apagado o todavia sin desplegar. Recien
+// confirmar necesita la red.
 //
-// Esta es la unica guarda AUTOMATICA de esa promesa. Todo lo demas que la
-// protege es verificacion manual, y la verificacion manual no corre en cada
-// commit. Lo que se rompe sin esto no se rompe de golpe: alguien agrega un
-// `import` conveniente en una pantalla del formulario, nadie lo nota porque en
-// desarrollo el servicio esta arriba, y el dia que el servicio se cae deja de
-// venderse.
+// **Esta guarda sobrevivio al motivo con el que nacio, y hay que decirlo.** Se
+// escribio en `002` para que se pudiera VER EL PRECIO con el servicio muerto.
+// Desde `013` no hay precio que ver: el cliente lo acuerda por su cuenta
+// (docs/decisions/price-not-shown.md, constitucion 5.0.0). Lo que protege sigue
+// siendo real —que el formulario cargue y funcione hasta el ultimo paso— y por
+// eso se queda. Borrarla junto con el precio hubiera sido tirar la unica guarda
+// automatica de que la pantalla mas importante no necesita red.
+//
+// Todo lo demas que protege esa promesa es verificacion manual, y la
+// verificacion manual no corre en cada commit. Lo que se rompe sin esto no se
+// rompe de golpe: alguien agrega un `import` conveniente en una pantalla del
+// formulario, nadie lo nota porque en desarrollo el servicio esta arriba, y el
+// dia que el servicio se cae deja de tomarse un pedido.
 //
 // Se prueba en dos planos, porque uno solo no alcanza:
 //
-//   1. Estatico — el grafo de imports del camino de cotizar no llega a
-//      `lib/api.ts` ni a `lib/sesion.ts`, ni directa ni transitivamente.
-//   2. Dinamico — el precio sale sin que exista `fetch`.
+//   1. Estatico — el grafo de imports del formulario no llega a `lib/api.ts` ni
+//      a `lib/sesion.ts`, ni directa ni transitivamente.
+//   2. Dinamico — la zona se resuelve sin que exista `fetch`.
 //
 // El plano estatico es el que importa: atrapa la dependencia el dia que se
 // escribe, no el dia que alguien acierta a probar con el servicio apagado.
@@ -41,7 +49,7 @@ import { resolverZona } from "./zona-lookup";
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = resolve(AQUI, "..");
 
-/** Lo que arranca el camino de cotizar. */
+/** Lo que arranca el camino del formulario. */
 const ENTRADAS = [
   // El formulario entero: es "lo que importa el formulario" de la tarea.
   "components/pedido-form.tsx",
@@ -161,7 +169,7 @@ function cadena(grafo: Grafo, archivo: string): string {
   return pasos.join(" -> ");
 }
 
-describe("el camino de cotizar no depende del servicio (FR-001, FR-002)", () => {
+describe("el formulario no depende del servicio (FR-001, FR-002)", () => {
   const grafo = recorrer(ENTRADAS);
 
   it.each(ALCANZABLES)("el recorrido llega a %s siguiendo imports", (modulo) => {
@@ -215,16 +223,21 @@ describe("el camino de cotizar no depende del servicio (FR-001, FR-002)", () => 
   });
 });
 
-describe("el precio se resuelve sin red", () => {
+describe("la zona se resuelve sin red", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("cotiza con fetch roto", () => {
+  it("resuelve la zona con fetch roto", () => {
     // No se quita `fetch`: se lo reemplaza por algo que explota. Un modulo que
     // se apoyara en la red fallaria; uno que no la toca ni se entera.
+    //
+    // Se sigue afirmando sobre `precio` a proposito, aunque ya no se muestre: el
+    // DATO sigue existiendo (FR-015) y sigue viajando con el pedido, asi que la
+    // afirmacion sigue siendo verdadera y prueba que el modulo resuelve entero
+    // sin red. El dia que el dato tambien se vaya, este caso cae con el.
     const espia = vi.fn(() => {
-      throw new Error("el camino de cotizar toco la red");
+      throw new Error("el formulario toco la red");
     });
     vi.stubGlobal("fetch", espia);
 
@@ -238,9 +251,9 @@ describe("el precio se resuelve sin red", () => {
   });
 
   it("fuera de cobertura tampoco consulta a nadie", () => {
-    // El caso sin precio es donde mas tienta preguntarle a un servidor.
+    // El caso sin zona es donde mas tienta preguntarle a un servidor.
     const espia = vi.fn(() => {
-      throw new Error("el camino de cotizar toco la red");
+      throw new Error("el formulario toco la red");
     });
     vi.stubGlobal("fetch", espia);
 

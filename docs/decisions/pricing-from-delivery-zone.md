@@ -20,6 +20,15 @@ against the old text becomes non-compliant rather than merely incomplete.
 Authorizes `specs/011-precio-por-entrega/`. That spec must not be planned until
 this ADR and the constitution amendment are both in place.
 
+**Superseded on showing the price** by
+[ADR price-not-shown](price-not-shown.md) (2026-08-30): the product stops
+displaying an amount anywhere, on the client's decision that he quotes his own
+work. **What survives is everything this ADR decided about the delivery point** —
+that it is the end of the trip the site resolves, that it is required, that the
+map belongs to the delivery section, and that the pickup keeps a silently
+resolved point. The point still decides; it just decides admission instead of
+money.
+
 ## Context
 
 On 2026-08-22 the client (Diego) said, in person, that his zones and prices

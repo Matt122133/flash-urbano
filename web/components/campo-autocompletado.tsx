@@ -38,7 +38,7 @@ export type CampoAutocompletadoProps = {
    * es el valor, se haya elegido una sugerencia o no.
    *
    * Eso es lo que permite que el mismo control sirva para el retiro, donde
-   * elegir una sugerencia es obligatorio porque de ahi sale el precio, y para
+   * elegir una sugerencia es obligatorio porque de ahi sale la zona, y para
    * la entrega, donde el autocompletado es una ayuda y lo tipeado vale igual
    * (FR-007b).
    */

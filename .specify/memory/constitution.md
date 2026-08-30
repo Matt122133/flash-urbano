@@ -33,61 +33,87 @@ right after a WhatsApp conversation. Forms, navigation, and the address
 composition fields (calle, número, apto, esquina, cooperativa) must work
 cleanly on small screens with minimal typing and clear validation.
 
-### V. The site quotes; logistics stay manual
-Pricing is a function of the **delivery** zone, and the site resolves it without
-human intervention: the customer resolves the delivery address to a point, the
-site determines which of the five zones it falls in, and shows the price of that
-zone — as the price, not an estimate. The pickup address is written, not marked:
-its point is resolved silently, decides nothing about money, and may be absent. The amount is flat per zone; it is not
-multiplied by package count or adjusted by size. A point outside every zone
-yields no price and no order; it routes to direct contact. Never guess a zone,
-and never fall back to the nearest one — guessing a zone means guessing a
-price.
+### V. The site takes the order; the price is the operator's
+**The product does not say what a shipment costs.** No surface shows an amount
+to anyone, and no text justifies an action, an obligation, or a refusal by
+appealing to cost. There is no substitute message either: the product is silent
+on money, not apologetic about it. Pricing is agreed between Diego and the
+customer, off this product and by his own channel.
 
-This makes the zone boundaries **binding for charging**, so they are a data
-asset, not a picture: versioned, regenerable from the client's own file, and
-changeable without touching code. Boundaries the client has not confirmed
-MUST NOT reach production.
+What the site does with a zone is decide **whether the shipment is taken at
+all**. The customer resolves the delivery address to a point, the site
+determines which of the five zones it falls in, and a point outside every zone
+yields no order; it routes to direct contact. The pickup address is written, not
+marked: its point is resolved silently and may be absent. Never guess a zone,
+and never fall back to the nearest one — the map tells people where this
+business works, and taking an order from outside it makes that a lie.
+
+The zone boundaries stay **binding**, no longer for charging but for coverage,
+so they remain a data asset and not a picture: versioned, regenerable from the
+client's own file, and changeable without touching code. Boundaries the client
+has not confirmed MUST NOT reach production.
+
+The amount each zone would have cost **is still computed and stored with every
+order**, so this decision can be reversed cheaply. **Nothing reads it, and
+nothing may**: from the day it stopped being shown it records what the old rule
+would have charged, not what Diego charges. Reading that column for revenue,
+reporting, or a dashboard is reading a fiction. If it is ever read for anything,
+that is a new decision, not a defect.
 
 Logistics remain manual, as the client's answers describe: no capacity limits,
 no automatic acceptance, no route generation. There is no cap on daily
-deliveries — Diego accepts jobs and plans routes himself. Only pricing is
-automated.
+deliveries — Diego accepts jobs and plans routes himself. **Nothing is
+automated for the customer's benefit any more except the coverage check.**
 
-Amended twice. [ADR zone-based-automatic-pricing](../../docs/decisions/zone-based-automatic-pricing.md)
+Amended three times, and the third reverses the direction of the first two.
+[ADR zone-based-automatic-pricing](../../docs/decisions/zone-based-automatic-pricing.md)
 reversed this principle's original form ("price and logistics stay manual") on
 the evidence of the client's own zone map, and records the alternative that was
 rejected. [ADR pricing-from-delivery-zone](../../docs/decisions/pricing-from-delivery-zone.md)
 then moved the measured end of the trip from pickup to delivery, on the client's
-own correction — his zones were always about where the package goes. The first
-ADR anticipated this exact reversal and named its trigger.
+own correction — his zones were always about where the package goes.
+[ADR price-not-shown](../../docs/decisions/price-not-shown.md) then took the
+number off the screen entirely, on the client's decision that he quotes his own
+work. **Both earlier ADRs survive on how a zone is resolved and die on what is
+done with the result.** Neither was wrong when written: they read a price list
+the client had drawn for his own use as one he meant to publish, and nobody had
+asked him which it was.
 
 ## Scope boundaries
 
-**No package is created without an identified customer.** Pricing stays open to
-anyone — a visitor can quote a shipment without an account, and that must keep
-working with the service down — but **confirming an order requires being logged
-in**. This is the client's own rule, and it is what the whole identity feature
-exists to serve: an order that nobody can be held to is an order Diego cannot
-work with.
+**No package is created without an identified customer.** Anyone can open the
+form, write their addresses and mark a delivery point without an account, and
+that must keep working with the service down — but **confirming an order
+requires being logged in**. This is the client's own rule, and it is what the
+whole identity feature exists to serve: an order that nobody can be held to is
+an order Diego cannot work with.
 
-The two halves are deliberately separate: **the quote is public, the order is
-not.** Putting a door in front of the price would contradict Principle II and
-cost the business the visitor who was only asking how much.
+**The public half of this split used to carry a reward, and no longer does.**
+Until 5.0.0 the argument was "the quote is public, the order is not" — a visitor
+who only wanted to know how much got an answer without registering, and putting
+a door in front of that would have contradicted Principle II. That reasoning did
+not become false; it became moot, because Principle V removed the number from
+the public side of the door. What is left open is the form itself, up to the
+moment of confirming. **Whether asking a visitor to give their addresses before
+they learn anything about cost loses business is a real risk, and it is the
+client's to take** — the site cannot both keep his pricing private and answer
+the visitor who only wanted to know how much.
 
 Two surfaces, built in this order:
 
 1. **Customer web app** — **identified order creation** (see the rule below);
    pickup address
    (written; its point resolved silently and never shown) and delivery address
-   (written plus a point marked on the map); the zone price shown from the
-   **delivery** point; package type/description, quantity; the pickup
+   (written plus a point marked on the map); **confirmation that the delivery
+   point falls inside the coverage area**, named by zone and without an amount;
+   package type/description, quantity; the pickup
    window; the name and phone number of whoever receives the package; Sobre
-   Nosotros (hours, delivery zone map, historical volume); Contacto (WhatsApp,
-   email); Reseñas (last, deferred).
+   Nosotros (hours, delivery zone map **without prices**, historical volume);
+   Contacto (WhatsApp, email); Reseñas (last, deferred).
 
-   Three things this list used to name and deliberately no longer does, on the
-   client's own instruction: **payment method** (never confirmed — the options
+   Four things this list used to name and deliberately no longer does, on the
+   client's own instruction: **the price** (5.0.0 — he quotes his own work; see
+   Principle V), **payment method** (never confirmed — the options
    shown were placeholder), **the delivery window** (replaced by a fixed
    commitment to deliver within 24 hours of pickup, which the site states and
    does not enforce), and **the recipient's ID document** (a sensitive number
@@ -123,9 +149,40 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 4.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-22
+**Version**: 5.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-30
 
 ### Amendment history
+
+- **5.0.0** (2026-08-30) — **The product stops showing the price.** The client
+  decided he quotes his own work, by his own channel, and does not want the
+  subject to appear anywhere in the product. The site narrows to intake.
+
+  **MAJOR, and it reverses the direction of the two amendments before it.**
+  2.0.0 and 4.0.0 both moved toward automatic quoting; this one takes the number
+  off the screen. Code written against the old text — a form that shows a firm
+  amount, a legend that lists prices per zone, an order card that reports what
+  was charged — becomes non-compliant, not merely incomplete.
+
+  **What does not change**: the delivery point is still required and still
+  resolves to one of the five zones; a point outside every zone still yields no
+  order and routes to direct contact; guessing a zone or falling back to the
+  nearest one is still forbidden; the boundaries are still a versioned data
+  asset. **What changes is that the resolved zone decides admission instead of
+  money.**
+
+  **What this obliges**: `013` removes every amount and every appeal to cost
+  from the customer-facing surfaces, keeps the zone map as a coverage statement
+  with its written legend intact, and **keeps the price in the data** — computed,
+  sent and stored — so the decision can be reversed. That stored number becomes
+  a fiction the moment it ships, and Principle V now forbids reading it.
+
+  **What this costs**: the public half of the value proposition. 3.0.0 argued
+  that the quote is public and the order is not, precisely so a visitor who only
+  wanted to know how much would get an answer. That argument is now moot rather
+  than wrong, and the *Scope boundaries* say so in full.
+
+  See [ADR price-not-shown](../../docs/decisions/price-not-shown.md), which
+  records the four alternatives rejected and the trigger to revisit.
 
 - **4.0.0** (2026-08-22) — **The price comes from the delivery zone, not the
   pickup zone.** The client said on 2026-08-22 that his zones and prices were

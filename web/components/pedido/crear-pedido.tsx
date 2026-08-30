@@ -36,8 +36,6 @@ import { armarCuerpoPedido, claveDeIntento, type DatosDelPedido } from "@/lib/pe
 import {
   camposDelPedido,
   entregaParaRehidratar,
-  huboReajuste,
-  precioDeHoy,
 } from "@/lib/repetir";
 import { credencial } from "@/lib/sesion";
 
@@ -52,13 +50,6 @@ type Precarga = {
   listaLaPrecarga: boolean;
   inicial?: Partial<FormState>;
   avisoDelPunto: string | null;
-  /**
-   * El precio de hoy no es el que se pago en el pedido que se esta repitiendo
-   * (FR-015a). **Nunca dice cuanto era antes** (FR-015b): dos numeros de plata
-   * en la misma pantalla es la situacion en que alguien confirma mirando el
-   * equivocado. El monto viejo queda en la tarjeta del historial.
-   */
-  avisoDeReajuste: string | null;
   /** Por que no se pudo repetir: id que no existe, sin sesion, servicio caido. */
   avisoDeRepeticion: string | null;
 };
@@ -67,7 +58,6 @@ type Precarga = {
 const ESPERANDO: Precarga = {
   listaLaPrecarga: false,
   avisoDelPunto: null,
-  avisoDeReajuste: null,
   avisoDeRepeticion: null,
 };
 
@@ -75,7 +65,6 @@ const ESPERANDO: Precarga = {
 const SIN_PRECARGA: Precarga = {
   listaLaPrecarga: true,
   avisoDelPunto: null,
-  avisoDeReajuste: null,
   avisoDeRepeticion: null,
 };
 
@@ -174,7 +163,7 @@ export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
       const clave = claveDelIntento.current;
 
       // FR-003 y FR-006: la puerta esta ACA, en el ultimo paso, y no antes.
-      // Todo lo de arriba —cotizar, cargar la direccion, ver el precio— ocurrio
+      // Todo lo de arriba —cargar la direccion, ubicar el punto— ocurrio
       // sin pedirle nada a nadie.
       if (!credencial()) {
         if (!(await pedirIngreso())) {
@@ -228,7 +217,6 @@ export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
     inicial,
     listaLaPrecarga,
     avisoDelPunto,
-    avisoDeReajuste,
     avisoDeRepeticion,
   } = usePrecarga();
 
@@ -258,9 +246,10 @@ export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
           instruccion de escribir la calle invitarian a hacer algo que se acaba
           de hacer. */}
       {!creado && encabezado}
-      {/* El orden no es casual: uno explica por que se movio algo, el otro que
-          salio de eso. Los tres pueden convivir, y esta bien que convivan — son
-          hechos distintos y la persona tiene que enterarse de todos. */}
+      {/* Eran tres avisos hasta `013`; el de reajuste de precio se fue con el
+          precio (FR-007). Los dos que quedan pueden convivir, y esta bien que
+          convivan: son hechos distintos y la persona tiene que enterarse de los
+          dos. */}
       {avisoDeRepeticion && (
         // No se pudo repetir. El formulario queda vacio y utilizable igual: quien
         // llego hasta aca queria mandar un paquete (contracts/pantallas.md §1).
@@ -269,17 +258,10 @@ export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
         </p>
       )}
       {avisoDelPunto && (
-        // FR-022. No se cobra en silencio sobre un punto que ya no corresponde:
-        // se recoloco en el cruce y se pide que lo revise.
+        // FR-022. No se manda a nadie en silencio a un punto que ya no
+        // corresponde: se recoloco en el cruce y se pide que lo revise.
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {avisoDelPunto}
-        </p>
-      )}
-      {avisoDeReajuste && (
-        // FR-015a. Sin el monto anterior y sin comparar: el precio de hoy lo
-        // muestra el formulario, una sola vez, mas abajo.
-        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {avisoDeReajuste}
         </p>
       )}
       <PedidoForm
@@ -399,44 +381,37 @@ const AVISO_PUNTO_RECOLOCADO =
   "Revisá el punto de retiro en el mapa: lo recolocamos en el cruce porque el que tenías guardado ya no cae en esa cuadra.";
 
 /**
- * El aviso de FR-015a, y lo que NO dice es la mitad del requisito.
+ * Un pedido creado antes de `011`, cuando la zona salia del retiro y la entrega
+ * era texto sin punto. **Se puede repetir igual**, pero falta el unico dato que
+ * hoy decide si el envio entra.
  *
- * No lleva el monto anterior (FR-015b) ni distingue si subio o bajo (FR-015c).
- * La primera version propuesta decia "la vez pasada pagaste $X" y se descarto:
- * dos precios juntos en la misma pantalla es la situacion exacta en la que
- * alguien confirma mirando el numero equivocado.
- */
-/**
- * Un pedido creado antes de `011`, cuando el precio salia del retiro y la
- * entrega era texto sin punto. **Se puede repetir igual**, pero falta el unico
- * dato que hoy decide el precio.
+ * El aviso sigue existiendo y sigue pidiendo lo mismo; lo que cambio en `013`
+ * es el motivo que se le da a la persona. Antes era para verle el precio; ahora
+ * es para poder confirmar que llegamos hasta ahi.
  */
 const AVISO_SIN_PUNTO_DE_ENTREGA =
-  "Este pedido es anterior a nuestro cambio de precios: elegí la esquina de la entrega para ver cuánto sale hoy.";
-
-const AVISO_REAJUSTE =
-  "El precio de este envío se reajustó desde la última vez. Abajo está el que corresponde hoy.";
+  "Este pedido es anterior a un cambio nuestro: elegí la esquina de la entrega para que podamos ubicarla.";
 
 /**
- * La ENTREGA guardada, revalidada antes de que se cobre sobre ella (FR-016).
+ * La ENTREGA guardada, revalidada antes de mandar a nadie hacia ella (FR-016).
  *
  * **Hasta `010` esto revalidaba el RETIRO**, y la regla era la misma: no se
- * cobra sobre un punto guardado sin comprobar que sigue cayendo en su cuadra.
- * Lo que cambio en `011` no es la regla sino cual es el punto que cobra, asi que
+ * repite un punto guardado sin comprobar que sigue cayendo en su cuadra.
+ * Lo que cambio en `011` no es la regla sino cual es el punto que decide, asi que
  * la revalidacion se mudo con el. Ver research D6.
  *
  * El caso no es hipotetico: el indice de calles se regenera, y un punto guardado
- * en agosto puede quedar en otra cuadra —o en otra zona, o sea a otro precio— en
+ * en agosto puede quedar en otra cuadra —o en otra zona, o sea afuera— en
  * octubre sin que nadie toque nada.
  *
  * Cuando el punto recolocado queda fuera de toda zona, aca no hace falta hacer
- * nada especial: el formulario ya no muestra precio y no deja confirmar, y
+ * nada especial: el formulario avisa que no llegamos, no deja confirmar, y
  * encamina al contacto. Nunca la zona mas cercana (Principio V).
  *
  * **El punto del RETIRO ya no pasa por aca, y es deliberado** (FR-017): no
- * decide plata, asi que uno desactualizado es una molestia de ruta y no un error
- * de facturacion. Descartarlo seria tirar un dato bueno por una regla que dejo
- * de aplicarle.
+ * decide admision, asi que uno desactualizado es una molestia de ruta y no un
+ * pedido mal tomado. Descartarlo seria tirar un dato bueno por una regla que
+ * dejo de aplicarle.
  */
 async function entregaRevalidada(
   guardada: Parameters<typeof rehidratarRetiro>[0],
@@ -497,7 +472,7 @@ async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> 
     return {
       ...SIN_PRECARGA,
       avisoDeRepeticion:
-        "Para repetir un pedido tenés que ingresar. Mientras tanto podés cargarlo a mano o ver el precio.",
+        "Para repetir un pedido tenés que ingresar. Mientras tanto podés cargarlo a mano.",
     };
   }
 
@@ -547,9 +522,9 @@ async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> 
 
   // **Un pedido anterior a `011` no tiene punto de entrega** (FR-013). No es un
   // error ni una pantalla rota: se precarga todo lo demas, la entrega queda como
-  // texto para que la persona resuelva el cruce, y no hay precio hasta que lo
-  // haga. Rehidratar sin punto elegiria entre calles homonimas a ciegas, que es
-  // exactamente el valor aproximado que el Principio V prohibe.
+  // texto para que la persona resuelva el cruce, y no se sabe si llegamos hasta
+  // que lo haga. Rehidratar sin punto elegiria entre calles homonimas a ciegas,
+  // que es exactamente la zona adivinada que el Principio V prohibe.
   if (!pedido.entrega.punto) {
     const entrega: EstadoDireccion = {
       ...ESTADO_DIRECCION_VACIO,
@@ -572,19 +547,10 @@ async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> 
   try {
     const { estado, aviso } = await entregaRevalidada(entregaParaRehidratar(pedido));
 
-    // El reajuste se mide contra el punto QUE SE VA A COBRAR —el ya revalidado,
-    // recolocado si hizo falta—, no contra el que estaba guardado. Medirlo
-    // contra el viejo avisaria de un cambio que no es el que se va a cobrar.
-    const reajuste = huboReajuste(
-      pedido.precio,
-      precioDeHoy(estado.direccion.punto ?? null),
-    );
-
     return {
       ...SIN_PRECARGA,
       inicial: { ...base, entrega: estado },
       avisoDelPunto: aviso,
-      avisoDeReajuste: reajuste ? AVISO_REAJUSTE : null,
     };
   } catch {
     // El resto del pedido se precarga igual: perder la direccion de retiro no

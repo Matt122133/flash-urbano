@@ -82,7 +82,7 @@ export function ProveedorSesion({ children }: { children: React.ReactNode }) {
    *
    * **Si no hay credencial guardada, NO se llama al servicio.** Es la linea que
    * sostiene FR-001 en tiempo de ejecucion: un desconocido que entra a cotizar
-   * no dispara ni un pedido de red, asi que el precio sigue saliendo con el
+   * no dispara ni un pedido de red, asi que la zona sigue resolviendose con el
    * backend caido. La guarda de `cotizar-abierto.test.ts` cubre el grafo de
    * imports; esta cubre el comportamiento.
    */

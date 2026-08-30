@@ -29,24 +29,23 @@ const encabezado = (
     <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
       Crear pedido
     </h1>
-    {/* Este texto tenia dos cosas falsas, y las dos se corrigen en `007`:
+    {/* Este texto ya arrastro dos correcciones y va por la tercera. Es lo
+        primero que lee quien llega desde un buscador, y el sitio es indexable
+        desde `004`, asi que cada frase falsa que se queda acá se queda a la
+        vista de todos.
 
-        FR-028 — decia "marcá en el mapa desde dónde retiramos el paquete".
-        Dejó de ser cierto en `003`: el punto sale del cruce de calles y sólo se
-        puede arrastrar dentro de la cuadra declarada. Marcar libre en el mapa
-        es justamente lo que ese feature prohibió, porque un punto libre hace el
-        precio manipulable.
+        `007` corrigio dos: que se marcaba libre en el mapa (falso desde `003`)
+        y que se podia pedir como invitado (falso desde la constitucion 3.0.0).
 
-        FR-027 — decía "Podés cargarlo como invitado, sin necesidad de crear una
-        cuenta". La constitución v3.0.0 dice lo contrario desde el 2026-08-11: no
-        hay pedido sin cliente identificado.
-
-        Es lo primero que lee quien llega desde un buscador, y el sitio es
-        indexable desde `004`. */}
+        `013` corrige la tercera: **ya no se muestra un monto**. El cliente
+        acuerda el precio por su cuenta (constitucion 5.0.0,
+        docs/decisions/price-not-shown.md). Lo que se sigue pudiendo hacer sin
+        cuenta es cargar el pedido entero; lo unico que pide identificarse es
+        confirmarlo. */}
     <p className="mt-2 text-sm text-slate-600 sm:text-base">
       Escribí la calle y la esquina de entrega: con eso ubicamos el punto y te
-      mostramos el precio al instante, sin necesidad de crear una cuenta. Para
-      confirmar el pedido sí vas a tener que identificarte.
+      confirmamos que llegamos hasta ahí. Podés cargar todo el pedido sin crear
+      una cuenta; para confirmarlo sí vas a tener que identificarte.
     </p>
   </div>
 );

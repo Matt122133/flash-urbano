@@ -58,7 +58,7 @@ const PLAZO_MOSAICOS_MS = 8000;
 
 // Marcador propio en HTML en vez de L.Icon.Default: el icono por defecto arma
 // URLs a leaflet/dist/images/ en runtime, sin el basePath de GitHub Pages, y
-// daria 404 justo en el elemento del que depende el precio. Ver research.md D5.
+// daria 404 justo en el elemento del que depende la zona. Ver research.md D5.
 const ICONO = L.divIcon({
   className: "",
   html: `<div style="
@@ -80,9 +80,10 @@ const ICONO = L.divIcon({
  * telefono el hover no existe, y el telefono es donde este producto se usa
  * (Principio IV). Costo dos intentos descubrirlo, en escritorio, el 2026-08-22.
  *
- * No es cosmetico: de este cruce sale el precio, asi que elegir el equivocado es
- * cobrar mal. Y el caso es comun — el indice de calles tiene 286 pares con mas
- * de un cruce dentro de Montevideo.
+ * No es cosmetico: de este cruce sale la zona, asi que elegir el equivocado es
+ * decidir mal si el envio entra —y mandar a alguien a contacto directo, o
+ * aceptarle una entrega a la que no llegamos—. Y el caso es comun: el indice de
+ * calles tiene 286 pares con mas de un cruce dentro de Montevideo.
  */
 const iconoCandidato = (numero: number) =>
   L.divIcon({
@@ -188,7 +189,7 @@ export default function MapaZonas({
         fillColor: zona.color,
         fillOpacity: 0.25,
       })
-        .bindTooltip(`${zona.nombre} — $ ${zona.precio}`, { sticky: true })
+        .bindTooltip(zona.nombre, { sticky: true })
         .addTo(m);
       limites.extend(zona.anillo);
     }
@@ -201,9 +202,10 @@ export default function MapaZonas({
 
     // Sin manejador de click a proposito (FR-010c). Antes tocar el mapa
     // colocaba el punto, y esa era la via por la que el pin podia terminar en
-    // cualquier lado: como el punto decide el precio, moverlo libremente vuelve
-    // el cobro manipulable. Ahora el punto lo pone el cruce resuelto y desde
-    // ahi solo se arrastra dentro de la cuadra declarada.
+    // cualquier lado: como el punto decide la zona, moverlo libremente deja
+    // declarar una entrega en un lado y pedirla en otro. Ahora el punto lo pone
+    // el cruce resuelto y desde ahi solo se arrastra dentro de la cuadra
+    // declarada.
 
     return () => {
       clearTimeout(reloj);
@@ -263,7 +265,7 @@ export default function MapaZonas({
   //
   // El grosor va en pixeles y el margen en metros, asi que hay que recalcularlo
   // en cada zoom. Si no, el limite dibujado mentiria en todos los zooms menos
-  // uno — y este limite es el que sostiene la integridad del precio.
+  // uno — y este limite es el que sostiene que el punto declarado sea el real.
   useEffect(() => {
     const m = mapa.current;
     if (!m) return;
@@ -332,8 +334,8 @@ export default function MapaZonas({
 
   // Sin aria-hidden: Leaflet inyecta controles enfocables adentro, y ocultar del
   // arbol de accesibilidad un subarbol con foco es un error, no una mejora. La
-  // informacion de zonas y precios viaja por la leyenda en texto (FR-007), que
-  // no depende de este mapa.
+  // informacion de las zonas viaja por la leyenda en texto (FR-007 de `002`,
+  // FR-010 de `013`), que no depende de este mapa.
   //
   // `isolate` (isolation: isolate) encierra a Leaflet en su propio contexto de
   // apilado. Sin eso, el CSS de la libreria declara z-index 400 en .leaflet-pane

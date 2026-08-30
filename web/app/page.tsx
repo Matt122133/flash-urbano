@@ -81,7 +81,7 @@ export default function Home() {
                 href="/sobre-nosotros"
                 className="rounded-full border border-white/30 px-6 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-white/10"
               >
-                Ver zonas y precios
+                Ver zonas de entrega
               </Link>
             </div>
           </div>

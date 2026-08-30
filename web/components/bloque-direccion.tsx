@@ -23,16 +23,16 @@ import {
  *
  * Dos modos, y **se llaman por lo que hacen, no por la direccion que ocupan**:
  *
- * - `exigente`: de aca sale el precio. Elegir de las sugerencias es obligatorio,
- *   el cruce se resuelve a un punto, y sin ese punto no se sigue. Con una calle
- *   homonima **pregunta cual**, porque tomar la primera seria adivinar una zona,
- *   o sea un precio.
+ * - `exigente`: de aca sale la zona, y la zona decide si el envio entra. Elegir
+ *   de las sugerencias es obligatorio, el cruce se resuelve a un punto, y sin
+ *   ese punto no se sigue. Con una calle homonima **pregunta cual**, porque
+ *   tomar la primera seria adivinar una zona, o sea adivinar si llegamos.
  * - `oportunista`: el autocompletado es una **ayuda, no una puerta**. Lo tipeado
  *   vale aunque no este en el indice, no hay mapa, y **nunca bloquea nada**. Si
  *   el cruce resuelve solo, guarda el punto **en silencio**; si es ambiguo o no
  *   resuelve, sigue sin punto y sin decir nada.
  *
- * Hasta `010` se llamaban `retiro` y `entrega`, y estaban bien: el precio salia
+ * Hasta `010` se llamaban `retiro` y `entrega`, y estaban bien: la zona salia
  * del retiro. Desde `011` sale de la entrega
  * (docs/decisions/pricing-from-delivery-zone.md), asi que los nombres viejos
  * describirian al reves quien usa cada uno. **El nombre dice que hace, no donde
@@ -141,9 +141,9 @@ export function BloqueDireccion({
     onCambio({ ...valor, direccion: { ...valor.direccion, ...parcial } });
 
   /**
-   * Escribir en calle o esquina invalida el punto, la zona, el precio y los
-   * complementos (FR-013). Quedarse con el punto viejo mostraria un precio que
-   * ya no corresponde a la direccion escrita.
+   * Escribir en calle o esquina invalida el punto, la zona y los complementos
+   * (FR-013). Quedarse con el punto viejo diria que llegamos a una direccion
+   * que no es la escrita.
    *
    * **El modo oportunista tambien tiene punto que invalidar, desde `011`.** Se
    * resolvio en silencio, y si la calle cambia deja de corresponder: un punto
@@ -219,10 +219,10 @@ export function BloqueDireccion({
     // **Que se hace con varios depende del modo, y es la decision de FR-014**:
     //
     //   - `exigente` los ofrece para que elija la persona, **nunca el sitio**
-    //     (FR-021). Ahi el punto cobra: tomar el primero seria adivinar una
-    //     zona, o sea un precio.
+    //     (FR-021). Ahi el punto decide admision: tomar el primero seria
+    //     adivinar una zona, o sea adivinar si el envio entra.
     //   - `oportunista` **no pregunta y se queda sin punto**. Sin punto no hay
-    //     punto equivocado, y preguntar por una direccion que no cobra es
+    //     punto equivocado, y preguntar por una direccion que no decide nada es
     //     friccion sobre la propia casa de quien envia a cambio de nada.
     onCambio({
       direccion: base,
@@ -259,7 +259,7 @@ export function BloqueDireccion({
       {indiceFallo && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           {exigente
-            ? "No podemos cargar el listado de calles en este momento, así que no podemos ubicar la dirección ni calcular el precio. Probá de nuevo en un rato, o escribinos y lo resolvemos."
+            ? "No podemos cargar el listado de calles en este momento, así que no podemos ubicar la dirección ni confirmar que llegamos hasta ahí. Probá de nuevo en un rato, o escribinos y lo resolvemos."
             : "No podemos cargar el listado de calles, así que no vas a ver sugerencias. Escribí la dirección a mano: se envía igual."}
         </p>
       )}

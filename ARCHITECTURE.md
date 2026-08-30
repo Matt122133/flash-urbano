@@ -19,8 +19,10 @@ Flash Urbano is a package pickup/delivery business run by a single operator
 (Diego). This repo holds **three deployed surfaces**:
 
 - **`web/`** — the customer-facing web app (Next.js, static export) at
-  `https://flashurbano.uy`, where clients price and create pickup/delivery
-  orders themselves instead of coordinating by WhatsApp.
+  `https://flashurbano.uy`, where clients create pickup/delivery orders
+  themselves instead of coordinating by WhatsApp. **It does not show prices**:
+  since `013` the operator quotes his own work off this product — see
+  [ADR price-not-shown](docs/decisions/price-not-shown.md).
 - **`backend/`** — a Go HTTP service on Railway, with Postgres + PostGIS. It
   holds identity: who is asking, and what they saved.
 - **`android/`** — since `012`, the Kotlin/Compose app Diego uses in the street
@@ -105,7 +107,8 @@ The same split applies to the street index, with one difference that matters:
 fetched on demand the first time someone touches an address field, so a visitor
 who only reads `/contacto` never pays for it. `lib/direcciones.ts` is the code
 that queries it. Zones went the other way — five polygons are small, and
-in-bundle means the price never depends on a request succeeding.
+in-bundle means that deciding whether an address is covered never depends on a
+request succeeding — and without that answer there is no order.
 
 ## Dependency direction
 
@@ -140,8 +143,9 @@ default; components that need interactivity (forms, nav toggle) are marked
   constitution's Principle II. Client-side validation and the field set live
   here; if the client's brief changes, this is usually the file to touch.
 
-  **The delivery section is the one that locates and prices; the pickup is
-  written.** That is the inversion `011` made: the map, the mandatory crossing
+  **The delivery section is the one that locates and decides admission; the
+  pickup is written.** That is the inversion `011` made: the map, the mandatory
+  crossing
   resolution and the candidate list hang off *a dónde llevamos el paquete*,
   while the pickup resolves a point silently, never shows it, and may end up
   without one. The two behaviours are the two modes of
@@ -154,10 +158,10 @@ default; components that need interactivity (forms, nav toggle) are marked
   an `onConfirmar` prop — the composition in
   `web/components/pedido/crear-pedido.tsx` is what actually talks to the
   service. This looks like ceremony and is not: this file is one of the
-  `ENTRADAS` of `web/lib/cotizar-abierto.test.ts`, the guard that proves
-  quoting works with the backend down (FR-001, FR-002). An import of the API
+  `ENTRADAS` of `web/lib/cotizar-abierto.test.ts`, the guard that proves the
+  form works with the backend down (FR-001, FR-002). An import of the API
   client here turns that guard red, correctly — it would be a form that can end
-  up needing the network to show a price. **If you find yourself "simplifying"
+  up needing the network before the last step. **If you find yourself "simplifying"
   this by importing the client directly, the guard will stop you; the guard is
   right.** Reasoning in `specs/007-pedido-identificado/research.md` D1.
 
@@ -193,7 +197,9 @@ default; components that need interactivity (forms, nav toggle) are marked
   fails outright**; in development it works fine, which is the trap.
 
 - `web/lib/repetir.ts` — the pure half of repeating an order: mapping what was
-  saved onto the form's fields, and deciding whether the price was readjusted. It
+  saved onto the form's fields, and revalidating the saved delivery point. It
+  used to decide whether the price had been readjusted too; that went with the
+  price in `013`. It
   lives in `lib/` rather than in the component so it can be tested in the `node`
   environment the repo already has — it is the only part of `010` with an
   automated net. Its test includes a guard that it never reaches `components/`,
@@ -205,9 +211,15 @@ default; components that need interactivity (forms, nav toggle) are marked
   and the service **does not resolve zones**, so it stores the point and the
   declared price. That second one is a deliberate, recorded tradeoff — see the
   `Medium` row of 2026-08-12 in `docs/tech-debt-tracker.md` before "fixing" it.
+
+  **The stored `precio` is no longer shown to anyone and must not be read.**
+  Since `013` it records what the old rule would have charged, not what the
+  operator charges; it is kept only so the decision can be reversed cheaply.
+  Principle V, version 5.0.0, forbids reading it for revenue, reporting or a
+  dashboard.
 - `web/lib/zona-lookup.ts` — resolves which delivery zone a marked point falls
-  in, and therefore what the customer is charged. **Since `011` the point it is
-  asked about is the DELIVERY point, not the pickup one**
+  in, and therefore **whether the order can be taken at all**. **Since `011` the
+  point it is asked about is the DELIVERY point, not the pickup one**
   (`docs/decisions/pricing-from-delivery-zone.md`); the module itself did not
   change, only who calls it with what. The only module in the repo
   with unit tests (`zona-lookup.test.ts`), because it is the only one where a
@@ -217,8 +229,9 @@ default; components that need interactivity (forms, nav toggle) are marked
   `design-source/build-zonas.js`; see `web/design-source/README.md`.
 - `web/lib/direcciones.ts` — resolves an address from a street/corner pair, and
   computes how far the pin may be dragged from it. That drag bound is not a UX
-  nicety: the pin decides the price, so an unbounded pin makes the charge
-  gameable. Tested for the same reason `zona-lookup.ts` is. Its search
+  nicety: the pin decides the zone, so an unbounded pin lets someone declare a
+  delivery in one place and expect it in another. Tested for the same reason
+  `zona-lookup.ts` is. Its search
   normalisation must stay in step with `design-source/build-calles.js`.
 - `web/public/calles-mvd.json` — **generated**, never hand-edited, and not
   imported: it is fetched at runtime. Regenerate with

@@ -50,8 +50,10 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {/* El precio que se COBRO, no el que corresponderia hoy (FR-005). */}
-          <span className="font-semibold text-slate-900">$ {pedido.precio}</span>
+          {/* Acá iba el monto cobrado. Salió el 2026-08-30 con `013`: el cliente
+              acuerda el precio por su cuenta y no quiere que el producto lo
+              nombre. El dato sigue llegando en la respuesta del servicio y sigue
+              guardado — ver docs/decisions/price-not-shown.md. */}
           <svg
             aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"

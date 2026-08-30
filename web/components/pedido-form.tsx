@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { MapaZonasDinamico } from "./mapa-zonas-dinamico";
 import type { EstadoMosaicos, Punto } from "./mapa-zonas";
@@ -18,7 +18,6 @@ import {
 } from "@/lib/fechas";
 import { contiene, regionPermitida } from "@/lib/direcciones";
 import { resolverZona } from "@/lib/zona-lookup";
-import type { Zona } from "@/lib/zonas";
 
 type PackageSize = "chico" | "mediano" | "grande";
 
@@ -36,12 +35,13 @@ export type FormState = {
   // cobra sobre el, y puede faltar sin trancar el pedido (FR-014, FR-015). Se
   // guarda para la ruta del repartidor.
   retiro: EstadoDireccion;
-  // Domicilio de entrega. **De aca sale el precio desde `011`**: el cruce se
+  // Domicilio de entrega. **De aca sale la zona desde `011`**: el cruce se
   // resuelve a un punto, ese punto decide la zona, y sin el no hay pedido.
   //
-  // La zona y el precio NO se guardan acá: se derivan del punto con
-  // resolverZona() en cada render, para que no puedan quedar desincronizados de
-  // la ubicacion. Son plata.
+  // Desde `013` la zona ya no decide un monto —decide ADMISION: si cae fuera de
+  // las cinco, no hay pedido y se encamina al contacto—. La zona NO se guarda
+  // acá: se deriva del punto con resolverZona() en cada render, para que no
+  // pueda quedar desincronizada de la ubicacion.
   entrega: EstadoDireccion;
   // Única forma de declarar qué se envía. La descripción libre se quitó en
   // `004`: el cliente ya la había marcado como no necesaria en el relevamiento
@@ -170,7 +170,7 @@ function validate(
   }
 
   // ------------------------------------------------------------------
-  // La ENTREGA es la que ubica, y de la que sale el precio.
+  // La ENTREGA es la que ubica, y de la que sale la zona.
   // ------------------------------------------------------------------
   const entregaEstado = form.entrega;
   const entrega = entregaEstado.direccion;
@@ -185,13 +185,13 @@ function validate(
   if (!entrega.numero.trim())
     errors.entregaNumero = "Ingresá el número de puerta.";
 
-  // La ubicacion de la entrega es obligatoria: de ella sale el precio, y el
-  // precio es en firme. Sin punto no hay pedido, y con el mapa caido tampoco —
-  // no se cobra sobre un mapa que la persona no pudo ver.
+  // La ubicacion de la entrega es obligatoria: de ella sale la zona, y la zona
+  // decide si el envio entra. Sin punto no hay pedido, y con el mapa caido
+  // tampoco — no se acepta una entrega sobre un mapa que la persona no pudo ver.
   const punto = entrega.punto;
   if (estadoMosaicos === "no-disponible") {
     errors.ubicacionEntrega =
-      "No podemos cargar el mapa en este momento, así que no podemos calcular el precio. Escribinos y lo resolvemos.";
+      "No podemos cargar el mapa en este momento, así que no podemos confirmar que llegamos hasta ahí. Escribinos y lo resolvemos.";
   } else if (entregaEstado.esquina && !punto) {
     errors.ubicacionEntrega = "Todavía no pudimos ubicar esa dirección.";
   } else if (punto && !resolverZona(punto.lat, punto.lng)) {
@@ -265,10 +265,10 @@ export type PedidoFormProps = {
    * mundo exterior**, y por eso es una prop y no un import.
    *
    * El motivo no es elegancia: `components/pedido-form.tsx` es una de las
-   * ENTRADAS de `lib/cotizar-abierto.test.ts`, la guarda que verifica que
-   * cotizar no dependa del servicio (FR-001, FR-002, FR-004). Importar el
+   * ENTRADAS de `lib/cotizar-abierto.test.ts`, la guarda que verifica que el
+   * formulario no dependa del servicio (FR-001, FR-002, FR-004). Importar el
    * cliente del API desde aca pondria esa guarda en rojo —con razon: seria un
-   * formulario que puede terminar necesitando la red para mostrar un precio—.
+   * formulario que puede terminar necesitando la red antes de confirmar—.
    * Quien monta este componente decide como se cumple.
    *
    * (Y ni siquiera se puede NOMBRAR ese import con su sintaxis en un comentario:
@@ -323,24 +323,15 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
     ? regionPermitida(form.entrega.esquina, form.entrega.cualEsLaCalle)
     : null;
 
-  // Mover el pin puede cruzar de zona y cambiar el precio. Eso se muestra, pero
-  // no se frena: la persona reacomoda el pin varias veces hasta encontrar su
-  // puerta, y un dialogo de confirmacion en cada cruce de zona pelea con el
-  // Principio IV (FR-017). El punto de confirmacion es el resumen previo al
-  // envio (FR-017a).
-  const zonaPrevia = useRef<Zona | null>(null);
-  const [cambioDeZona, setCambioDeZona] = useState<{
-    antes: Zona;
-    ahora: Zona;
-  } | null>(null);
-
-  useEffect(() => {
-    const anterior = zonaPrevia.current;
-    if (anterior && zona && anterior.id !== zona.id) {
-      setCambioDeZona({ antes: anterior, ahora: zona });
-    }
-    zonaPrevia.current = zona;
-  }, [zona]);
+  // El aviso de cambio de zona al mover el pin se fue en `013` (FR-005), y con
+  // el su estado entero. Existia por una sola razon: cruzar de zona cambiaba el
+  // monto, y cambiarle a alguien el precio sin decirselo es lo que no se podia
+  // hacer. Sin monto, cruzar entre dos zonas que las dos se cubren no le cambia
+  // nada a la persona, y el bloque de abajo ya le dice en cual quedo.
+  //
+  // Lo que SI sigue avisando es el caso que importa: que el punto quede fuera de
+  // toda zona. Eso no pasa por aca — lo dice `ResultadoZona` y lo frena la
+  // validacion.
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -519,12 +510,12 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
           ¿A dónde lo llevamos?
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Escribí la calle y la esquina: con eso ubicamos el punto y de ahí sale
-          la zona y el precio del envío.
+          Escribí la calle y la esquina: con eso ubicamos el punto y confirmamos
+          que llegamos hasta ahí.
         </p>
         <BloqueDireccion
           id="entrega"
-          // De aca sale la zona y el precio desde `011`.
+          // De aca sale la zona desde `011`, y la zona decide si el envio entra.
           modo="exigente"
           valor={form.entrega}
           onCambio={(estado) => {
@@ -577,7 +568,7 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
           ) : (
             <div className="flex h-[340px] w-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 text-center text-sm text-slate-500 sm:h-[420px]">
               Cuando elijas la calle y la esquina, acá te mostramos el punto en
-              el mapa y el precio.
+              el mapa.
             </div>
           )}
         </div>
@@ -594,17 +585,6 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
             Lo trajimos de vuelta: el punto solo puede moverse dentro de las
             cuadras de {form.entrega.direccion.calle} que tocan la esquina que
             elegiste. Si tu puerta está más lejos, revisá la esquina.
-          </p>
-        )}
-
-        {cambioDeZona && (
-          <p
-            role="status"
-            className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-950"
-          >
-            Al mover el punto cambiaste de {cambioDeZona.antes.nombre} a{" "}
-            {cambioDeZona.ahora.nombre}: el envío pasa de $&nbsp;
-            {cambioDeZona.antes.precio} a $&nbsp;{cambioDeZona.ahora.precio}.
           </p>
         )}
 
@@ -770,10 +750,19 @@ function Confirmation({
 
   const paquete = `Tamaño ${form.packageSize}`;
 
-  const punto = form.retiro.direccion.punto ?? null;
+  // **La ENTREGA, no el retiro.** Hasta `013` esta linea leia
+  // `form.retiro.direccion.punto`, que quedo mal desde `011`: aquel feature
+  // movio la zona al punto de entrega y esta pantalla se le paso. Venia
+  // mostrando la zona equivocada —la del retiro— y, desde que el punto de
+  // retiro dejo de ser obligatorio, a veces ninguna.
+  //
+  // Se arregla acá porque `013` toca esta misma fila para sacarle el monto, y
+  // dejar una fila corregida a medias —sin plata pero con la zona equivocada—
+  // seria peor que no tocarla.
+  const punto = form.entrega.direccion.punto ?? null;
 
   // Se recalcula desde el punto en vez de arrastrarse en el estado: el punto es
-  // la unica fuente de verdad del precio.
+  // la unica fuente de verdad de la zona.
   const zona = punto ? resolverZona(punto.lat, punto.lng) : null;
 
   return (
@@ -833,12 +822,7 @@ function Confirmation({
         <SummaryRow label="Teléfono" value={form.phone} />
         <SummaryRow label="Dirección de retiro" value={direccionRetiro} />
         <SummaryRow label="Dirección de entrega" value={direccionEntrega} />
-        {zona && (
-          <SummaryRow
-            label="Zona y precio"
-            value={`${zona.nombre} · $ ${zona.precio}`}
-          />
-        )}
+        {zona && <SummaryRow label="Zona de entrega" value={zona.nombre} />}
         <SummaryRow label="Paquete" value={`${paquete} · x${form.quantity}`} />
         <SummaryRow
           label="Retiro"
@@ -878,11 +862,17 @@ function BotonContacto() {
 }
 
 /**
- * Muestra en que zona cayo el punto y cuanto sale el envio.
+ * Dice si el punto entra en la cobertura, y en cual de las cinco zonas cayo.
  *
- * Nunca inventa un precio: fuera de las cinco zonas no hay monto, y no se ofrece
- * "la zona mas cercana" — adivinar una zona es adivinar un precio, y el precio
- * es en firme (FR-012, FR-014).
+ * **Hasta `013` este bloque mostraba un monto**, y ese monto hacia dos trabajos
+ * a la vez: decia cuanto salia, y —solo por aparecer— confirmaba que la
+ * direccion estaba dentro del area. El primero se fue; el segundo hay que
+ * seguir haciendolo, porque si no el formulario habla nada mas que para decir
+ * que no (FR-003a).
+ *
+ * Nunca inventa una zona: fuera de las cinco no hay pedido, y no se ofrece "la
+ * zona mas cercana". El mapa le promete a la persona donde se trabaja, y tomar
+ * un pedido de afuera convierte esa promesa en mentira (FR-013, FR-014).
  */
 function ResultadoZona({
   estadoMosaicos,
@@ -900,8 +890,8 @@ function ResultadoZona({
           No pudimos cargar el mapa
         </p>
         <p className="mt-1 text-sm text-amber-800">
-          Sin el mapa no podemos calcular el precio del envío, así que no
-          podemos tomar el pedido por acá. Escribinos y lo coordinamos.
+          Sin el mapa no podemos confirmar que llegamos hasta esa dirección, así
+          que no podemos tomar el pedido por acá. Escribinos y lo coordinamos.
         </p>
         <BotonContacto />
       </div>
@@ -931,18 +921,34 @@ function ResultadoZona({
   }
 
   return (
-    <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <div className="flex items-center gap-3">
-        <span
-          className="h-3.5 w-3.5 shrink-0 rounded-full"
-          style={{ backgroundColor: zona.color }}
-        />
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{zona.nombre}</p>
-          <p className="text-xs text-slate-500">Precio del envío</p>
-        </div>
+    <div
+      role="status"
+      className="mt-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4"
+    >
+      <span
+        aria-hidden="true"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white"
+        style={{ backgroundColor: zona.color }}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={3}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </span>
+      <div>
+        <p className="text-sm font-semibold text-emerald-900">
+          Llegamos hasta acá
+        </p>
+        <p className="text-xs text-emerald-800">
+          La entrega queda en {zona.nombre}.
+        </p>
       </div>
-      <p className="text-2xl font-bold text-slate-900">$ {zona.precio}</p>
     </div>
   );
 }
