@@ -143,6 +143,14 @@ default; components that need interactivity (forms, nav toggle) are marked
   constitution's Principle II. Client-side validation and the field set live
   here; if the client's brief changes, this is usually the file to touch.
 
+  **Two fields are commented out rather than deleted** — package size and pickup
+  time, paused by `014` on 2026-08-30 because the client said he will use them
+  again. Each block names what to uncomment, and **the validation lines live in a
+  different part of the file**, which is the half people miss. The site sends
+  `chico` and `16:00` in their place from `components/pedido/crear-pedido.tsx`,
+  so the service and its `NOT NULL` columns needed no change; reinstating the
+  fields means reverting those two literals too.
+
   **The delivery section is the one that locates and decides admission; the
   pickup is written.** That is the inversion `011` made: the map, the mandatory
   crossing

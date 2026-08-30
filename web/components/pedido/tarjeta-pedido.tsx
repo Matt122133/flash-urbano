@@ -33,8 +33,18 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
           </div>
           {/* La fecha de RETIRO y no la de creacion: es la que la persona
               recuerda ("el envio del martes"). La de creacion va en el detalle. */}
+          {/* `014` le saco la hora: desde el 2026-08-30 el formulario no la
+              pregunta y el sitio manda `16:00` fijo, asi que mostrarla seria
+              devolverle a la persona un dato que nunca eligio, presentado como
+              si lo hubiera elegido.
+              Se oculta tambien en los pedidos VIEJOS, donde el dato era
+              verdadero. Es el costo aceptado de no distinguir por epoca:
+              distinguir necesita saber de que era es cada pedido, y la unica
+              señal seria comparar contra el valor fijo, que es adivinar.
+              Ver specs/014-campos-en-pausa/research.md D5.
+              La FECHA se queda: esa si la eligio. */}
           <p className="mt-1 text-sm text-slate-600">
-            Retiro el {formatearFecha(pedido.retiroFecha)} a las {pedido.retiroHora}
+            Retiro el {formatearFecha(pedido.retiroFecha)}
           </p>
           {/* Con numero y esquina, no solo la calle (FR-028): dos pedidos a la
               misma calle son indistinguibles sin desplegarlos, que es justo lo
@@ -72,9 +82,11 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
         <dl className="grid gap-3 sm:grid-cols-2">
           <Dato titulo="Retiro" valor={componer(pedido.retiro)} />
           <Dato titulo="Entrega" valor={componer(pedido.entrega)} />
+          {/* Sin el tamaño, por lo mismo que la hora de arriba (`014`). La
+              CANTIDAD se queda: esa la eligio la persona. */}
           <Dato
             titulo="Paquete"
-            valor={`${tamanoVisible(pedido.paqueteTamano)} · ${pedido.cantidad} ${
+            valor={`${pedido.cantidad} ${
               pedido.cantidad === 1 ? "paquete" : "paquetes"
             }`}
           />
@@ -175,19 +187,30 @@ function estadoVisible(estado: string): { texto: string; clase: string } {
   }
 }
 
-/** Mismo criterio que el estado: lo conocido se traduce, lo demas se muestra. */
-function tamanoVisible(tamano: string): string {
-  switch (tamano) {
-    case "chico":
-      return "Chico";
-    case "mediano":
-      return "Mediano";
-    case "grande":
-      return "Grande";
-    default:
-      return tamano;
+/*
+  EN PAUSA — quedo sin usar cuando `014` saco el tamaño de la tarjeta el
+  2026-08-30. Se comenta en vez de borrarse por el mismo motivo que el campo del
+  formulario: el cliente dijo que el tamaño vuelve, y entonces esta traduccion
+  vuelve con el.
+
+  PARA REPONERLO: descomentar esto y la linea del `<Dato titulo="Paquete">` de
+  mas arriba.
+
+  Mismo criterio que el estado: lo conocido se traduce, lo demas se muestra.
+
+  function tamanoVisible(tamano: string): string {
+    switch (tamano) {
+      case "chico":
+        return "Chico";
+      case "mediano":
+        return "Mediano";
+      case "grande":
+        return "Grande";
+      default:
+        return tamano;
+    }
   }
-}
+*/
 
 /**
  * `2026-08-22` → `22/08/2026`.

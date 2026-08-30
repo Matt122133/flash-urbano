@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # Las once pantallas y componentes donde el precio se ve o se nombra.
   # Ver research.md D1 para el inventario archivo por archivo.
@@ -199,3 +199,37 @@ prohíbe el token y no solo el acceso a la propiedad.
 ## Complexity Tracking
 
 Vacío: el *Constitution Check* no encontró violaciones que justificar.
+
+
+---
+
+## Cierre — 2026-08-30
+
+`status: completed`, para dejar entrar a `014`. Lo que se verificó y lo que
+**no**, sin maquillar:
+
+**Verificado**: `verify:` verde (lint limpio, 175 pruebas, build OK); la guarda
+de FR-020 **rota a propósito** y vista en rojo nombrando el archivo; y el export
+estático real (`GITHUB_PAGES=true`) grepeado sobre el HTML publicado — ninguna
+frase de precio, ningún monto, y el sábado diciendo *A coordinar*.
+
+**NO verificado, y no se tilda**:
+
+- **T026 — nivel 1 del quickstart.** Nada de esto se vio en un navegador. Las
+  ocho pantallas, el bloqueo fuera de zona, el mapa y el formulario con el
+  servicio caído siguen sin mirarse.
+- **T027 — nivel 2.** Que el pedido siga llegando con su `cobro` y se siga
+  guardando (FR-015) no lo puede tocar `verify:`, y no se corrió contra Postgres.
+  **Es el requisito con menos respaldo de todo el feature.**
+- **T029 — que Diego lo mire.** El criterio del feature era suyo.
+
+Las tres son verificación de trabajo entregado, no deuda técnica, así que **no
+van al tracker**: quedan acá, en el plan del feature que las dejó sin correr, que
+es donde alguien las va a buscar. Si al mirarlas aparece un defecto, es de `013`
+y se arregla como tal.
+
+**Lo que este feature enseñó y conviene no perder**: el inventario manual de
+"dónde se muestra el precio" contó once lugares y eran trece. La guarda
+automática, escrita **antes** de tocar una pantalla, encontró los dos que
+faltaban en su primera corrida. En un cambio cuyo riesgo es la omisión, el
+control tiene que existir antes que el trabajo — no después, como comprobación.

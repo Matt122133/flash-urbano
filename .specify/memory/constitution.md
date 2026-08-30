@@ -106,19 +106,29 @@ Two surfaces, built in this order:
    (written; its point resolved silently and never shown) and delivery address
    (written plus a point marked on the map); **confirmation that the delivery
    point falls inside the coverage area**, named by zone and without an amount;
-   package type/description, quantity; the pickup
-   window; the name and phone number of whoever receives the package; Sobre
+   how many packages; the pickup **date**; the name and phone number of whoever
+   receives the package; Sobre
    Nosotros (hours, delivery zone map **without prices**, historical volume);
    Contacto (WhatsApp, email); Reseñas (last, deferred).
 
-   Four things this list used to name and deliberately no longer does, on the
+   Six things this list used to name and deliberately no longer does, on the
    client's own instruction: **the price** (5.0.0 — he quotes his own work; see
-   Principle V), **payment method** (never confirmed — the options
+   Principle V), **the package size** and **the pickup time** (5.1.0 — he uses
+   neither today, and the pickup time in particular moves out of the site and
+   into a conversation he holds himself, where the price can move with it),
+   **payment method** (never confirmed — the options
    shown were placeholder), **the delivery window** (replaced by a fixed
    commitment to deliver within 24 hours of pickup, which the site states and
    does not enforce), and **the recipient's ID document** (a sensitive number
    collected at order time that nothing used; captured in the Android app at
    delivery if it is needed at all).
+
+   **The package size and the pickup time are in pause, not retired.** The
+   client said he will use both again, so the code stays in place, commented,
+   with what disabled it and what to uncomment. Until then the site sends a
+   fixed value for each, and **those two stored columns record that fixed value
+   rather than anything anyone chose** — the same caveat Principle V places on
+   `precio`, and the same prohibition: they are not to be read.
 
    The recipient's **name** left this list on 2026-08-06 and came back the same
    day, once the client clarified. Without it the courier arrives at a door with
@@ -149,9 +159,33 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 5.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-30
+**Version**: 5.1.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-30
 
 ### Amendment history
+
+- **5.1.0** (2026-08-30) — **The package size and the pickup time leave the
+  order form.** The client uses neither today. The pickup time has a business
+  reason worth recording: he passes at a fixed hour and coordinates any other
+  slot in person, **where the price can go up** — the same instinct that took
+  prices off the site in 5.0.0, applied to the input that drives them.
+
+  **MINOR, not MAJOR.** No principle is reversed: the client is narrowing his
+  own brief, which is the source this list was derived from. Principles II and
+  IV both come out reinforced — two fewer fields on the highest-priority
+  surface, one of them a time picker on a phone. Same reasoning as **2.1.0**,
+  which retired payment method and the delivery window. **No ADR**: governance
+  requires one when a change reverses a prior decision, and this narrows a list
+  against its own source.
+
+  **What this obliges**: `014` comments the two fields out rather than deleting
+  them —the client said they come back— and the site sends `chico` and `16:00`
+  so the service, its `NOT NULL` columns and the Android app need no change at
+  all. See `specs/014-campos-en-pausa/`.
+
+  **What it costs**: `paquete_tamano` and `retiro_hora` join `precio` as columns
+  that store a placeholder rather than a fact. Three of them now. If that list
+  grows again, the question stops being "can we reverse this cheaply" and starts
+  being "what is this table for".
 
 - **5.0.0** (2026-08-30) — **The product stops showing the price.** The client
   decided he quotes his own work, by his own channel, and does not want the
