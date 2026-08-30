@@ -86,13 +86,49 @@ Con el teléfono conectado por USB y la depuración activada:
 adb install -r app-release.apk
 ```
 
-Si no hay cable, se le pasa el archivo por el medio que sea. En el teléfono hay
-que habilitar **"instalar aplicaciones desconocidas"** para la app desde la que
-se abra el archivo, una sola vez.
+**En un Xiaomi eso falla**, y no es el APK. HyperOS/MIUI rechaza la instalación
+por USB con:
 
-**El teléfono tiene que tener Android 8.0 o superior** (`minSdk 26`). Se mira en
-Ajustes → Acerca del teléfono. Al 2026-08-26 nadie comprobó cuál tiene el de
-Diego; se asumió que sí porque el teléfono es nuevo y 8.0 es de 2017.
+```
+INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+```
+
+Nadie canceló nada: falta la opción **Ajustes → Ajustes adicionales → Opciones
+de desarrollador → "Instalar vía USB"**, que en Xiaomi es **aparte** de la
+depuración USB. Y activarla **exige sesión con cuenta Mi y conexión**, porque
+hace una verificación contra los servidores de Xiaomi — si el teléfono no tiene
+cuenta Mi, ese camino no está disponible.
+
+Las dos vías de esquive por `adb` **tampoco funcionan** (comprobado el
+2026-08-26 sobre el teléfono de Diego, Redmi con HyperOS 3.0): `pm install`
+desde el propio teléfono choca con la misma restricción, y abrir el instalador
+con un intent `file://` no resuelve ninguna actividad.
+
+### La vía que sí funciona: instalar desde el gestor de archivos
+
+Es la que se usó. No necesita cuenta Mi ni tocar opciones de desarrollador.
+
+```bash
+adb push app-release.apk /sdcard/Download/flash-urbano.apk
+```
+
+Desde un shell tipo MSYS (Git Bash) hay que desactivar la conversión de rutas o
+`/sdcard/...` se convierte en una ruta de Windows y el archivo va a cualquier
+lado:
+
+```bash
+MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' adb push ...
+```
+
+Después, en el teléfono: **Archivos → Descargas → `flash-urbano.apk` → tocar**.
+Pide permitir **"instalar aplicaciones desconocidas"** para el gestor de
+archivos, una sola vez, y con eso instala.
+
+Si no hay cable, el archivo se le pasa por el medio que sea y el resto es igual.
+
+**El teléfono tiene que tener Android 8.0 o superior** (`minSdk 26`). El de
+Diego, medido el 2026-08-26 con `adb shell getprop ro.build.version.release`: un
+**Redmi con Android 16 (API 36)**, muy por encima del piso.
 
 ---
 
