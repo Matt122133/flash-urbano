@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # El numero sale del tag, y la version se muestra en dos pantallas.
   - android/
@@ -15,7 +15,7 @@ covers:
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd backend && go vet ./... && go test ./... && cd ../android && .\gradlew.bat assembleDebug testDebugUnitTest
-analyzed:
+analyzed: 2026-08-31
 ---
 
 # Implementation Plan: Qué versión tiene el teléfono
