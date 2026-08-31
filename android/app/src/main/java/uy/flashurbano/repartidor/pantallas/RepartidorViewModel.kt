@@ -10,6 +10,8 @@ import kotlinx.coroutines.launch
 import uy.flashurbano.repartidor.datos.Credencial
 import uy.flashurbano.repartidor.datos.Motivo
 import uy.flashurbano.repartidor.datos.Resultado
+import uy.flashurbano.repartidor.datos.Seccion
+import uy.flashurbano.repartidor.datos.seccionDe
 import uy.flashurbano.repartidor.datos.Pedido
 import uy.flashurbano.repartidor.datos.Servicio
 
@@ -19,6 +21,19 @@ sealed interface Destino {
     data class Ingreso(val motivo: String = "") : Destino
     data object Pedidos : Destino
 }
+
+/**
+ * Un movimiento que se puede revertir.
+ *
+ * `estadoAnterior` es a donde vuelve, y `adonde` es la seccion a la que se fue
+ * —lo que el aviso le dice a Diego para que sepa donde buscarlo si no deshace—.
+ */
+data class Deshacer(
+    val pedidoId: String,
+    val codigo: String,
+    val estadoAnterior: String,
+    val adonde: Seccion,
+)
 
 /**
  * El estado de la app y lo unico que habla con el servicio.
@@ -59,6 +74,62 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
     private val _aviso = MutableStateFlow("")
     val aviso: StateFlow<String> = _aviso.asStateFlow()
 
+    /**
+     * En que pestaña esta Diego.
+     *
+     * **Arranca en PENDIENTES y eso no es arbitrario**: es donde nace todo
+     * pedido —`pedidos.estado` es `NOT NULL DEFAULT 'creacion'` y `seccionDe()`
+     * lo manda ahi— asi que es la bandeja de entrada del trabajo del dia.
+     *
+     * Vive en el ViewModel y no en la pantalla para que sobreviva a un giro de
+     * telefono: con `remember` se perderia y Diego volveria a Pendientes cada
+     * vez que rota la mano.
+     */
+    private val _seccion = MutableStateFlow(Seccion.PENDIENTES)
+    val seccion: StateFlow<Seccion> = _seccion.asStateFlow()
+
+    fun elegirSeccion(cual: Seccion) {
+        _seccion.value = cual
+    }
+
+    /**
+     * El ultimo movimiento que salio bien, para poder volver atras.
+     *
+     * **Existe porque mover un pedido ahora lo saca de la pantalla.** Con las
+     * pestanas de `015`, tocar "Lo tengo" en Pendientes hace que el pedido
+     * desaparezca de la lista que Diego esta mirando: sin este aviso, la unica
+     * senal de que paso algo es que una tarjeta se fue, y para corregir un toque
+     * de mas habria que adivinar a que pestana ir.
+     *
+     * Guarda el estado ANTERIOR, no el destino: deshacer es volver a donde
+     * estaba, y ese dato se pierde apenas el servicio contesta.
+     */
+    private val _deshacer = MutableStateFlow<Deshacer?>(null)
+    val deshacer: StateFlow<Deshacer?> = _deshacer.asStateFlow()
+
+    /**
+     * Se perdio la conexion y lo que se ve es lo ultimo que se bajo.
+     *
+     * **No es lo mismo que `NoSePudo`.** Aquel es "no se pudo averiguar si hay
+     * trabajo" y ocupa la pantalla entera porque no hay nada que mostrar. Esto
+     * es "esto es lo de recien, y puede estar viejo": Diego sigue viendo sus
+     * pedidos y sabe que no los puede mover.
+     */
+    private val _sinRed = MutableStateFlow(false)
+    val sinRed: StateFlow<Boolean> = _sinRed.asStateFlow()
+
+    /** El aviso se fue —lo toco, o se lo llevo el tiempo—. */
+    fun descartarDeshacer() {
+        _deshacer.value = null
+    }
+
+    /** Volver el pedido a donde estaba, y sacar el aviso. */
+    fun revertir(cual: Deshacer) {
+        _deshacer.value = null
+        val pedido = pedidos.firstOrNull { it.id == cual.pedidoId } ?: return
+        mover(pedido, cual.estadoAnterior, recordable = false)
+    }
+
     init {
         viewModelScope.launch {
             if (credencial.leer() == null) {
@@ -81,6 +152,21 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
 
             val respuesta = servicio.pedidos(guardada)
             if (respuesta is Resultado.Ok) pedidos = respuesta.valor
+
+            // **Una recarga que falla por red NO borra lo que ya estaba**
+            // (FR-016). Antes, tocar Actualizar en un sotano dejaba a Diego con
+            // una pantalla de error y sin sus pedidos — justo cuando mas los
+            // necesita, porque sin senal tampoco los puede volver a pedir.
+            //
+            // Solo aplica si hay algo que conservar: la primera carga sin red no
+            // tiene nada viejo que mostrar y cae en el camino de siempre.
+            val esDeRed = respuesta is Resultado.Fallo && respuesta.motivo == Motivo.SIN_RED
+            if (esDeRed && pedidos.isNotEmpty()) {
+                _sinRed.value = true
+                _pantalla.value = agrupar(pedidos)
+                return@launch
+            }
+            _sinRed.value = false
 
             val estado = estadoDesde(respuesta)
             if (estado is EstadoPantalla.HayQueIngresar) {
@@ -114,12 +200,20 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
      * —es idempotente— pero la pantalla parpadearia y la segunda podria llegar
      * despues de un deshacer y pisarlo.
      */
-    fun mover(pedido: Pedido, destino: String) {
+    /**
+     * @param recordable si este movimiento deja un aviso de deshacer. **Lo que
+     *   deshace un deshacer no se puede deshacer**: encadenarlos dejaria a Diego
+     *   rebotando entre dos estados sin saber cual es el bueno.
+     */
+    fun mover(pedido: Pedido, destino: String, recordable: Boolean = true) {
         if (_moviendo.value.contains(pedido.id)) return
+
+        val estadoAnterior = pedido.estado
 
         viewModelScope.launch {
             _moviendo.value = _moviendo.value + pedido.id
             _aviso.value = ""
+            _deshacer.value = null
 
             val guardada = credencial.leer()
             if (guardada == null) {
@@ -135,6 +229,18 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
                     // cosa, la pantalla muestra la verdad y no el deseo.
                     pedidos = pedidos.map { if (it.id == r.valor.id) r.valor else it }
                     _pantalla.value = agrupar(pedidos)
+
+                    // El aviso se arma **despues** de que el servicio confirmo.
+                    // Ofrecer deshacer algo que todavia no paso es prometer una
+                    // marcha atras sobre un movimiento que puede fallar.
+                    if (recordable) {
+                        _deshacer.value = Deshacer(
+                            pedidoId = r.valor.id,
+                            codigo = r.valor.codigo,
+                            estadoAnterior = estadoAnterior,
+                            adonde = seccionDe(r.valor.estado),
+                        )
+                    }
                 }
 
                 is Resultado.Fallo -> {

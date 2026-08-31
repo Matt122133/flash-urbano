@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # Los tres componentes que muestran o mandan los dos campos. Ver research D1.
   - web/components/
@@ -142,3 +142,36 @@ y la tarjeta con el dato viejo que se pierde (D5).
 ## Complexity Tracking
 
 Vacío: el *Constitution Check* no encontró violaciones que justificar.
+
+
+---
+
+## Cierre — 2026-08-30
+
+`status: completed`, mergeado a `master` por el PR #26. Lo verificado y lo que
+**no**, sin maquillar:
+
+**Verificado**: `verify:` verde (lint limpio, 175 pruebas, build OK); la guarda
+de `013` **sigue verde** aunque los comentarios nuevos nombran el precio varias
+veces —el comportamiento para el que se diseñó, visto sobre un caso que no se
+inventó para probarla—; y sobre el bundle del export estático real,
+`Tamaño del paquete` y `Horario de retiro` no aparecen mientras
+`Cantidad de paquetes` y `Fecha de retiro` sí.
+
+**NO verificado, y no se tilda**: T014 (nivel 1 del quickstart — nada se vio en
+un navegador), T015 (nivel 2 — que el pedido llegue con `chico` y `16:00` y el
+servicio lo acepte, **el único modo de falla que dejó abierto no tocar el
+backend**) y T016 (que Diego lo mire, y que vea que su app va a decir
+`Tamaño chico` y `16:00` en todos los pedidos).
+
+Como en `013`, esas tres son verificación de trabajo entregado y **no van al
+tracker**: quedan acá, en el plan que las dejó sin correr.
+
+**Se cierra para dejar entrar a `015`**, el rediseño de la app, que el cliente
+pidió el mismo día mirando una maqueta.
+
+**Lo que este feature deja andando y conviene no perder**: los tres bloques
+comentados nombran las **tres** cosas que hay que descomentar, y la tercera —el
+valor fijo de `crear-pedido.tsx`— es el modo de falla más probable de la
+reposición: se descomenta el campo, la persona elige "grande", y el pedido viaja
+con `chico` igual.

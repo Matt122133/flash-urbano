@@ -2,36 +2,30 @@ package uy.flashurbano.repartidor
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import uy.flashurbano.repartidor.pantallas.Destino
-import uy.flashurbano.repartidor.pantallas.EstadoPantalla
-import uy.flashurbano.repartidor.pantallas.PantallaEntregados
 import uy.flashurbano.repartidor.pantallas.PantallaIngreso
 import uy.flashurbano.repartidor.pantallas.PantallaPedidos
 import uy.flashurbano.repartidor.pantallas.RepartidorViewModel
+import uy.flashurbano.repartidor.ui.tema.TemaFlashUrbano
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            TemaFlashUrbano {
                 // `safeDrawingPadding` en la raiz y no en cada pantalla: sin
                 // esto el titulo queda pegado a la barra de estado, y en un
                 // telefono con muesca —que es cualquiera hoy— se le mete
@@ -47,9 +41,18 @@ class MainActivity : ComponentActivity() {
 /**
  * El arbol entero de la app.
  *
- * **Sin biblioteca de navegacion**: son tres pantallas y una de ellas se ve una
- * vez en la vida. Traer `navigation-compose` para esto seria la misma decision
- * que Retrofit para dos llamadas (research D4).
+ * **Sin biblioteca de navegacion**, igual que en `012` y por el mismo motivo,
+ * aunque el modelo cambio: ahora son tres listas HERMANAS elegidas con una
+ * barra abajo, no dos pantallas apiladas. Comparten el mismo `ViewModel` y los
+ * mismos datos ya cargados, asi que un grafo de navegacion aportaria rutas,
+ * argumentos y un back stack para decidir cual de tres se dibuja (research D1).
+ *
+ * ## "Atras" cambia de significado, y es deliberado
+ *
+ * Hasta `014` habia un `BackHandler` que volvia de Entregados a la pantalla de
+ * trabajo. Se fue con la pantalla: **con pestanas hermanas, atras sale de la
+ * app desde cualquiera de las tres**, que es lo que hace toda barra de
+ * navegacion en Android. Diego no vuelve "de" Entregados: cambia de pestana.
  */
 @Composable
 fun AppRepartidor(vm: RepartidorViewModel = viewModel()) {
@@ -58,8 +61,9 @@ fun AppRepartidor(vm: RepartidorViewModel = viewModel()) {
     val ingreso by vm.ingreso.collectAsState()
     val moviendo by vm.moviendo.collectAsState()
     val aviso by vm.aviso.collectAsState()
-
-    var viendoEntregados by remember { mutableStateOf(false) }
+    val seccion by vm.seccion.collectAsState()
+    val deshacer by vm.deshacer.collectAsState()
+    val sinRed by vm.sinRed.collectAsState()
 
     when (val d = destino) {
         is Destino.Arrancando -> Column(
@@ -77,30 +81,19 @@ fun AppRepartidor(vm: RepartidorViewModel = viewModel()) {
             alVerificar = vm::verificarCodigo,
         )
 
-        is Destino.Pedidos -> {
-            val entregados = (pantalla as? EstadoPantalla.Hay)?.entregados.orEmpty()
-            if (viendoEntregados) {
-                // El boton fisico de atras vuelve al trabajo, que es lo que
-                // espera cualquiera. Sin esto, "atras" cierra la app desde una
-                // pantalla de consulta.
-                BackHandler { viendoEntregados = false }
-                PantallaEntregados(
-                    pedidos = entregados,
-                    moviendo = moviendo,
-                    alVolver = { viendoEntregados = false },
-                    alMover = vm::mover,
-                )
-            } else {
-                PantallaPedidos(
-                    estado = pantalla,
-                    moviendo = moviendo,
-                    aviso = aviso,
-                    alReintentar = vm::cargar,
-                    alVerEntregados = { viendoEntregados = true },
-                    alMover = vm::mover,
-                    alDescartarAviso = vm::descartarAviso,
-                )
-            }
-        }
+        is Destino.Pedidos -> PantallaPedidos(
+            estado = pantalla,
+            seccion = seccion,
+            moviendo = moviendo,
+            aviso = aviso,
+            deshacer = deshacer,
+            sinRed = sinRed,
+            alElegirSeccion = vm::elegirSeccion,
+            alReintentar = vm::cargar,
+            alMover = { pedido, destino -> vm.mover(pedido, destino) },
+            alDescartarAviso = vm::descartarAviso,
+            alRevertir = vm::revertir,
+            alDescartarDeshacer = vm::descartarDeshacer,
+        )
     }
 }

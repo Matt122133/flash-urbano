@@ -73,7 +73,7 @@ red lleva los valores fijos.
 - [ ] T014 Ejecutar el **nivel 1** del [quickstart](quickstart.md): Q1 (los campos no están), Q2 (la fecha sigue validando), Q3 (*Mis pedidos*), Q4 (repetir) y **Q5 (los comentarios se explican solos)**
 - [ ] T015 Ejecutar el **nivel 2** del [quickstart](quickstart.md), Q6: crear un pedido contra el servicio local y comprobar en Postgres que llegó con `chico` y `16:00`. **`verify:` no puede probar esto**, y es el único modo de falla que la decisión de no tocar el backend deja abierto: si el sitio deja de mandar alguno, el servicio devuelve 400
 - [ ] T016 **TUYA** Ejecutar el **nivel 3**, Q7: que Diego lo mire, y que vea que **su app va a decir `Tamaño chico` y `16:00` en todos los pedidos**. Está aceptado a sabiendas, pero él no lo vio
-- [ ] T017 Poner `specs/014-campos-en-pausa/plan.md` en `status: completed` **después** de commitear el resto
+- [x] T017 Poner `specs/014-campos-en-pausa/plan.md` en `status: completed` **después** de commitear el resto **HECHO el 2026-08-30**, después del merge del PR #26. **T014, T015 y T016 quedan sin correr y sin tildar**, con el detalle en el cierre del plan
 
 ---
 
