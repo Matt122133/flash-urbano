@@ -92,6 +92,13 @@ How the system treats it:
 - **It is stored in the state history** (`pedidos_estados`), attached to the
   delivery event, not on the order. Re-delivering after an undo writes a new
   row; nothing is overwritten.
+- **Undoing a delivery erases it.** Moving an order back out of `entrega`
+  clears the receiver's name and document from that order's delivery rows. The
+  rows stay — the history still records that a delivery happened and was
+  reverted — but **holding a third party's ID number for an event that was
+  undone has no purpose**, and data we hold without a purpose is the kind we
+  should not be holding. The client asked for this on 2026-08-31, having first
+  noticed only that the name was still on screen.
 - **It never reaches the customer.** `GET /pedidos` returns the receiver's
   **name** — a useful delivery confirmation — and **never the document number**.
   The sender has no need for a neighbour's ID, and once a value leaves the

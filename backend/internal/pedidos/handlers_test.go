@@ -954,7 +954,7 @@ func TestElClienteNoRecibeLaCedulaPorSuEndpoint(t *testing.T) {
 // mirar si el pedido seguia entregado**. La correccion NO borra la fila del
 // historial: que esa persona recibio el paquete es un hecho que ocurrio, y esa
 // tabla existe para no perderlo. Lo que cambia es cuando se muestra.
-func TestDeshacerUnaEntregaOcultaAlReceptor(t *testing.T) {
+func TestDeshacerUnaEntregaBorraAlReceptor(t *testing.T) {
 	srv, repo, _ := escenario(t, relojFijo)
 	id, _ := unPedidoCreado(t, srv, "tok-ana", "a1")
 	mover(t, srv, "tok-diego", id, EstadoAceptacion)
@@ -984,17 +984,21 @@ func TestDeshacerUnaEntregaOcultaAlReceptor(t *testing.T) {
 	// entrega, mas el deshacer: tres filas, y la de la entrega conserva a
 	// Susana.
 	if n := contarHistorial(t, repo, id); n != 3 {
-		t.Errorf("el historial tiene %d filas, quiero 3 — deshacer no borra el pasado", n)
+		t.Errorf("el historial tiene %d filas, quiero 3 — deshacer vacia la columna, no borra la fila", n)
 	}
+	// **La FILA se queda y la COLUMNA se vacia.** El historial sigue contando
+	// que hubo una entrega y que se revirtio; lo que se va es el dato personal
+	// de alguien que ya no tiene relacion con este pedido.
 	var guardado string
 	if err := repo.pool.QueryRow(context.Background(),
-		`SELECT receptor_nombre FROM pedidos_estados
+		`SELECT coalesce(receptor_nombre, '') FROM pedidos_estados
 		 WHERE pedido_id = $1 AND estado = 'entrega'`, id).Scan(&guardado); err != nil {
 		t.Fatalf("leyendo el historial: %v", err)
 	}
-	if guardado != "Susana" {
-		t.Errorf("el historial guardo %q, quiero %q — el hecho ocurrio y no se borra",
-			guardado, "Susana")
+	if guardado != "" {
+		t.Errorf("al deshacer, la columna del receptor quedo con %q y tiene que quedar vacia. "+
+			"Guardar la cedula de esa persona para una entrega que se deshizo no tiene proposito",
+			guardado)
 	}
 
 	// Volver a entregar con OTRA persona muestra a la segunda.

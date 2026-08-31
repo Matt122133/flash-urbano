@@ -660,6 +660,33 @@ func (r *Repositorio) CambiarEstado(
 			return fmt.Errorf("no se pudo escribir el historial: %w", err)
 		}
 
+		// **Deshacer una entrega BORRA quien recibio, y no es por la pantalla.**
+		//
+		// Que no se muestre ya lo resuelve la consulta de lectura. Esto es otra
+		// cosa: si la entrega se deshizo, **guardar la cedula de esa persona
+		// dejo de tener proposito**. Es el documento de un tercero que no tiene
+		// nada que ver con un pedido que volvio a estar pendiente, y
+		// `SECURITY.md` dice que somos responsables de el mientras lo tengamos.
+		// Lo pidio Mateo el 2026-08-31, y pidio lo correcto: **la columna, no la
+		// fila**.
+		//
+		// **La fila se queda.** El historial sigue contando que hubo una entrega
+		// y que despues se revirtio, que es justo lo que esa tabla existe para
+		// conservar. Lo que se va es el dato personal, no el hecho.
+		//
+		// Se limpian TODAS las filas de entrega del pedido y no solo la ultima:
+		// si alguna quedo con datos de una vuelta anterior, tampoco tiene
+		// proposito ahora.
+		if estado != EstadoEntrega {
+			if _, err := tx.Exec(ctx,
+				`UPDATE pedidos_estados
+				 SET receptor_nombre = NULL, receptor_documento = NULL
+				 WHERE pedido_id = $1 AND estado = $2`,
+				id, EstadoEntrega); err != nil {
+				return fmt.Errorf("no se pudo limpiar el receptor al deshacer: %w", err)
+			}
+		}
+
 		p, err = escanear(tx.QueryRow(ctx,
 			`SELECT `+columnas+desdePedidos+` WHERE pedidos.id = $1`, id))
 		if err != nil {
