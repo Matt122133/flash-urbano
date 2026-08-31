@@ -175,3 +175,24 @@ motivo. Diego pide un código nuevo y entra.
 ejecute a mano. Mientras haya un solo repartidor, alcanza. **El día que haya un
 segundo, esto se vuelve obligatorio como función del producto** — está anotado
 en [`../tech-debt-tracker.md`](../tech-debt-tracker.md) con ese disparador.
+
+
+## `adb install` y el Xiaomi: la traba es por telefono, no por HyperOS
+
+**Corregido el 2026-08-30, midiendolo.** Este documento decia que HyperOS
+rechaza `adb install` con `INSTALL_FAILED_USER_RESTRICTED`. Lo que rechaza no es
+HyperOS: es tener apagada la opcion **"Instalar via USB"** de Opciones de
+desarrollo, que es un ajuste **por telefono** y que ademas pide cuenta Mi para
+activarse.
+
+En otro Xiaomi con Android 16, con esa opcion prendida, `adb install -r`
+funciono a la primera.
+
+O sea que hay dos caminos y conviene probar el barato primero:
+
+1. **`adb install -r <apk>`**, si el telefono tiene "Instalar via USB" activada.
+2. Si devuelve `INSTALL_FAILED_USER_RESTRICTED`, recien ahi el camino largo:
+   empujar el APK a Descargas con `adb push` y abrirlo desde el gestor de
+   archivos.
+
+El de Diego necesita el segundo. Otro telefono puede no necesitarlo.

@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La unica superficie que este feature toca. Adentro: el tema nuevo, la barra
   # de navegacion, las pantallas y la tarjeta. Ver research D1 a D6.
@@ -161,3 +161,46 @@ HyperOS lo rechaza. Eso significa que el emulador no es una comodidad: es la
 ## Complexity Tracking
 
 Vacío: el *Constitution Check* no encontró violaciones que justificar.
+
+
+---
+
+## Cierre — 2026-08-30
+
+`status: completed`. **El criterio que este feature vino a cumplir se cumplio, y
+lo dijo una persona usando la app**: Mateo la probo en un telefono real con una
+sola mano y llego a todo. Eso es SC-001 y SC-003, y es exactamente lo que `012`
+dejo sin evaluar — de ahi salio este trabajo.
+
+**Lo que NO se evaluo, y no se tilda**: la lectura **al sol**, y que **Diego**
+la vea. Las dos quedan para cuando le llegue el APK. La fila del tracker se
+cerro con esa salvedad escrita adentro en vez de darla por saldada entera.
+
+### Lo que este feature enseño, que vale mas que el feature
+
+**El emulador encontro cuatro defectos que 50 pruebas no podian ver**, y los
+cuatro llegaron a existir en una sola jornada:
+
+1. la barra de destinos en lila —`surfaceContainer` sin declarar—;
+2. la accion del Snackbar en lila —`inversePrimary` sin declarar—;
+3. un spinner en las acciones apagadas sin red, que decia "espera que esta
+   yendo" cuando no iba nada;
+4. seis textos sin sus tildes, incluido uno que antes estaba bien escrito.
+
+Los dos primeros comparten causa y quedo escrita en `Tema.kt`: **un rol de
+Material 3 sin declarar no es un valor que falta, es el morado de referencia
+esperando a que alguien use el componente que lo lee.**
+
+**Y lo que si atajaron las pruebas, antes de llegar a una pantalla**: el badge
+en blanco sobre el naranja (2.80:1) y el gris que pasaba sobre blanco y fallaba
+sobre el fondo (4.42:1 contra 4.5). Ninguno de los dos se ve mirando.
+
+La conclusion no es que las pruebas sirvan poco: es que **cubren cosas
+distintas, y las dos tienen que correr**. `ContrasteTest` lo tiene escrito como
+limite adentro, y este cierre es la evidencia de que ese limite es real.
+
+### Una correccion al proceso, medida
+
+`adb install` **funciono** en un Xiaomi con Android 16. La nota de `012` decia
+que HyperOS lo rechaza; lo que lo rechaza es tener apagada la opcion *Instalar
+via USB*, que es por telefono. Corregido en el runbook.
