@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import uy.flashurbano.repartidor.pantallas.Destino
+import uy.flashurbano.repartidor.pantallas.HojaEntrega
 import uy.flashurbano.repartidor.pantallas.PantallaIngreso
 import uy.flashurbano.repartidor.pantallas.PantallaPedidos
 import uy.flashurbano.repartidor.pantallas.RepartidorViewModel
@@ -64,6 +65,7 @@ fun AppRepartidor(vm: RepartidorViewModel = viewModel()) {
     val seccion by vm.seccion.collectAsState()
     val deshacer by vm.deshacer.collectAsState()
     val sinRed by vm.sinRed.collectAsState()
+    val entregando by vm.entregando.collectAsState()
 
     when (val d = destino) {
         is Destino.Arrancando -> Column(
@@ -81,19 +83,35 @@ fun AppRepartidor(vm: RepartidorViewModel = viewModel()) {
             alVerificar = vm::verificarCodigo,
         )
 
-        is Destino.Pedidos -> PantallaPedidos(
-            estado = pantalla,
-            seccion = seccion,
-            moviendo = moviendo,
-            aviso = aviso,
-            deshacer = deshacer,
-            sinRed = sinRed,
-            alElegirSeccion = vm::elegirSeccion,
-            alReintentar = vm::cargar,
-            alMover = { pedido, destino -> vm.mover(pedido, destino) },
-            alDescartarAviso = vm::descartarAviso,
-            alRevertir = vm::revertir,
-            alDescartarDeshacer = vm::descartarDeshacer,
-        )
+        is Destino.Pedidos -> {
+            PantallaPedidos(
+                estado = pantalla,
+                seccion = seccion,
+                moviendo = moviendo,
+                aviso = aviso,
+                deshacer = deshacer,
+                sinRed = sinRed,
+                alElegirSeccion = vm::elegirSeccion,
+                alReintentar = vm::cargar,
+                alMover = { pedido, destino -> vm.mover(pedido, destino) },
+                alDescartarAviso = vm::descartarAviso,
+                alRevertir = vm::revertir,
+                alDescartarDeshacer = vm::descartarDeshacer,
+                alEntregar = vm::pedirEntrega,
+            )
+
+            // La hoja va **encima** de la pantalla, no en lugar de ella: al
+            // cerrarla Diego vuelve a la lista donde estaba, con el pedido
+            // todavia en En curso si no confirmo.
+            entregando?.let { pedido ->
+                HojaEntrega(
+                    pedido = pedido,
+                    alCancelar = vm::cancelarEntrega,
+                    alConfirmar = { nombre, documento ->
+                        vm.confirmarEntrega(pedido, nombre, documento)
+                    },
+                )
+            }
+        }
     }
 }

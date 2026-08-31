@@ -237,6 +237,21 @@ export type PedidoGuardado = {
   destinatarioNombre: string;
   destinatarioTelefono: string;
 
+  /**
+   * Quién recibió el paquete, cuando está entregado (`016`).
+   *
+   * **Ausente y no vacío** cuando no se registró: un pedido entregado antes de
+   * `016`, o uno que todavía no se entregó, no trae el campo. Eso deja
+   * distinguir "no se registró" de "se registró en blanco" sin preguntar.
+   *
+   * **La CÉDULA de quien recibió no está acá, y su ausencia es deliberada.** El
+   * servicio no se la manda al cliente: es el documento de un tercero que se lo
+   * dio a Diego en la puerta, no al remitente. **Declararla en este tipo sería
+   * una invitación a mostrarla**, y por eso no se declara ni siquiera como
+   * opcional. Del lado del servicio lo sostiene una prueba.
+   */
+  recibioNombre?: string;
+
   /** Pesos enteros, congelado al crear. Un cambio de precios no lo reescribe. */
   precio: number;
   zonaId: number;

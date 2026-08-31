@@ -71,6 +71,23 @@ data class Pedido(
     val destinatarioTelefono: String = "",
     val precio: Int = 0,
     val zonaId: Int = 0,
+
+    /**
+     * Quien recibio el paquete, del ultimo cambio a `entrega` (016).
+     *
+     * **Con valor por defecto, como todo lo demas de este tipo**, y por el mismo
+     * motivo que los estados son texto y no un enum: un pedido anterior a `016`
+     * no trae estos campos, y un tipo que los exija haria que la app **no pueda
+     * leer su propia lista** el dia que aparezca uno viejo. Leer no es crear.
+     */
+    val recibioNombre: String = "",
+
+    /**
+     * Su cedula. **Solo llega por `GET /admin/pedidos`**: el servicio no la
+     * manda en la respuesta del cliente, y eso lo sostiene una prueba del lado
+     * del backend.
+     */
+    val recibioDocumento: String = "",
 )
 
 /** Los estados que el servicio conoce hoy. Los mismos textos que el CHECK. */

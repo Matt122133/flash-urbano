@@ -116,12 +116,36 @@ type respuestaLista struct {
 	Pedidos []*Pedido `json:"pedidos"`
 }
 
+// La lista de Diego. Tipo aparte y no un campo mas: ver `ParaAdmin`.
+type respuestaListaAdmin struct {
+	Pedidos []*ParaAdmin `json:"pedidos"`
+}
+
 // peticionEstado es el cuerpo de PATCH /admin/pedidos/{id}/estado.
 //
 // Un solo campo, y es el estado DESTINO. No se manda una transicion: ver
 // specs/012-app-repartidor/contracts/servicio-y-pantallas.md seccion 1.
 type peticionEstado struct {
 	Estado string `json:"estado"`
+
+	// Quien recibio el paquete (016). **Opcional en el cuerpo y solo se
+	// interpreta cuando el estado es `entrega`.**
+	//
+	// Mandarlo con otro estado NO es un error: se ignora. Rechazarlo obligaria
+	// a la app a saber en que transicion esta para armar el cuerpo, y ese
+	// conocimiento ya lo tiene el servicio.
+	Receptor *peticionReceptor `json:"receptor"`
+}
+
+type peticionReceptor struct {
+	Nombre string `json:"nombre"`
+
+	// **Opcional, y puede venir vacio.** Si quien recibe no da la cedula, la
+	// entrega se registra igual (FR-006): no darla no puede trabar una entrega
+	// que ya ocurrio, con la persona en la puerta.
+	//
+	// Se guarda tal como llega, sin validar ni normalizar (research D5).
+	Documento string `json:"documento"`
 }
 
 // Crear guarda un pedido. Es el endpoint del feature.
@@ -373,7 +397,10 @@ func (h *Handlers) Todos(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorInterno(w, "leyendo todos los pedidos", err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, respuestaLista{Pedidos: lista})
+	// **`ParaAdminTodos` y no `respuestaLista`**: es la unica linea del servicio
+	// que expone la cedula de quien recibio, y tiene que leerse como una
+	// decision. Ver el tipo `ParaAdmin`.
+	httpx.JSON(w, http.StatusOK, respuestaListaAdmin{Pedidos: ParaAdminTodos(lista)})
 }
 
 // CambiarEstado mueve un pedido de estado. Solo para una direccion
@@ -418,7 +445,30 @@ func (h *Handlers) CambiarEstado(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pedido, err := h.repo.CambiarEstado(r.Context(), r.PathValue("id"), estado)
+	// **El nombre es obligatorio al entregar** (FR-007). La app siempre lo
+	// tiene: o lo escribio Diego, o es el destinatario del pedido, que copia al
+	// aceptar la propuesta de un toque.
+	//
+	// Se valida ACA y no en el repositorio porque es una regla del contrato
+	// HTTP, no de la base: la base acepta nulos a proposito, para no convertir
+	// un error de escritura en el fallo de una transaccion entera.
+	var receptor *Receptor
+	if estado == EstadoEntrega {
+		nombre := ""
+		documento := ""
+		if p.Receptor != nil {
+			nombre = strings.TrimSpace(p.Receptor.Nombre)
+			documento = strings.TrimSpace(p.Receptor.Documento)
+		}
+		if nombre == "" {
+			httpx.Error(w, http.StatusBadRequest,
+				"al entregar hay que decir quien recibio el paquete")
+			return
+		}
+		receptor = &Receptor{Nombre: nombre, Documento: documento}
+	}
+
+	pedido, err := h.repo.CambiarEstado(r.Context(), r.PathValue("id"), estado, receptor)
 	switch {
 	case errors.Is(err, ErrNoExiste):
 		httpx.Error(w, http.StatusNotFound, "no hay tal pedido")

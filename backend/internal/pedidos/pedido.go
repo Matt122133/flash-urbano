@@ -118,8 +118,86 @@ type Pedido struct {
 	Precio int `json:"precio"`
 	ZonaID int `json:"zonaId"`
 
+	// Quien recibio el paquete, del ultimo cambio a `entrega` (016).
+	//
+	// **`omitempty` no es cosmetico**: un pedido que no esta entregado, o uno
+	// anterior a `016`, no trae el campo en vez de traerlo vacio. La pantalla
+	// distingue "no se registro" de "se registro en blanco" sin tener que
+	// preguntar.
+	//
+	// **El DOCUMENTO no esta aca, y esa ausencia es el feature.** Ver el tipo
+	// `ParaAdmin`, abajo.
+	RecibioNombre string `json:"recibioNombre,omitempty"`
+
+	// La cedula de quien recibio.
+	//
+	// **Va en minuscula a proposito, y es la mitad mas fuerte de la guarda de
+	// FR-009.** `encoding/json` no serializa campos no exportados: este dato
+	// puede viajar en memoria con el pedido y **no hay forma de que salga en la
+	// respuesta del cliente por descuido**, ni agregandole una etiqueta, ni
+	// olvidandose de blanquearlo, ni renombrando algo.
+	//
+	// La unica forma de exponerlo es `ParaAdmin()`, que hay que llamar a
+	// proposito. El compilador sostiene la regla; la prueba de
+	// `respuesta_cliente_test.go` sostiene que la regla siga siendo esta.
+	recibioDocumento string
+
 	CreadoEn      time.Time `json:"creadoEn"`
 	ActualizadoEn time.Time `json:"actualizadoEn"`
+}
+
+// ParaAdmin es un pedido con lo que solo Diego puede ver.
+//
+// ## Por que existe un tipo aparte en vez de un campo mas
+//
+// Hasta `016`, `GET /pedidos` y `GET /admin/pedidos` devolvian **exactamente la
+// misma estructura**: los dos handlers terminan en el mismo `respuestaLista`
+// sobre el mismo `[]*Pedido`. O sea que agregarle la cedula a `Pedido` **se la
+// agregaba a los dos**, en el mismo commit, sin que nadie lo escribiera ni lo
+// notara.
+//
+// Se descartaron las dos alternativas:
+//
+//   - **Blanquear al salir** —un campo en `Pedido` que `Mios` vacia antes de
+//     escribir— deja lo seguro como excepcion: el proximo dato sensible se
+//     filtra por defecto, porque el default pasa a ser exponer.
+//   - **`MarshalJSON` con una bandera de contexto** funciona y es opaco: la
+//     respuesta deja de leerse en el tipo y pasa a depender de quien llamo.
+//
+// **Con dos tipos, lo seguro es el default.** `Pedido` es lo que ve el cliente;
+// exponer la cedula obliga a nombrar `ParaAdmin` a proposito. Si manana alguien
+// suma otro dato sensible, cae del lado del cliente **solo si lo escribe ahi
+// queriendo**.
+//
+// La regla la sostiene una prueba, no esta explicacion: ver
+// `respuesta_cliente_test.go`.
+type ParaAdmin struct {
+	*Pedido
+
+	// La cedula de quien recibio. **No sale de aca a ningun lado mas.**
+	//
+	// Es un dato personal de un tercero que ademas nunca interactuo con el
+	// sistema: se la dio a Diego en la puerta, no a nosotros. Se guarda como
+	// respaldo de entrega y se muestra solo en la app de Diego.
+	RecibioDocumento string `json:"recibioDocumento,omitempty"`
+}
+
+// ParaAdmin expone el pedido con lo que solo Diego puede ver.
+//
+// **Es el unico camino por el que la cedula sale del proceso**, y por eso es
+// una llamada explicita y no una etiqueta en un campo: se lee en el sitio donde
+// se usa, no hay que ir a buscarla a la definicion del tipo.
+func (p *Pedido) ParaAdmin() *ParaAdmin {
+	return &ParaAdmin{Pedido: p, RecibioDocumento: p.recibioDocumento}
+}
+
+// ParaAdminTodos es lo mismo, para una lista.
+func ParaAdminTodos(pedidos []*Pedido) []*ParaAdmin {
+	fuera := make([]*ParaAdmin, 0, len(pedidos))
+	for _, p := range pedidos {
+		fuera = append(fuera, p.ParaAdmin())
+	}
+	return fuera
 }
 
 // Nuevo es lo que hace falta para crear un pedido.
@@ -180,7 +258,31 @@ const columnas = `
 	to_char(retiro_fecha, 'YYYY-MM-DD'), to_char(retiro_hora, 'HH24:MI'),
 	destinatario_nombre, destinatario_telefono,
 	precio, zona_id,
-	creado_en, actualizado_en`
+	creado_en, actualizado_en,
+	e.receptor_nombre, e.receptor_documento`
+
+// De donde salen los pedidos, con quien recibio pegado.
+//
+// **Un LEFT JOIN LATERAL y no una consulta por pedido** (research D3): la lista
+// de Diego ya esta anotada como sin paginar, y convertirla en 1+N seria
+// empeorar a proposito lo que ya duele.
+//
+// `LEFT` y no `INNER`: un pedido que no se entrego —o uno anterior a `016`— no
+// tiene fila de receptor y **tiene que seguir apareciendo igual**.
+//
+// El `ORDER BY ocurrido_en DESC LIMIT 1` toma el ULTIMO cambio a `entrega`, que
+// es el que vale cuando un pedido se entrego, se deshizo y se volvio a
+// entregar. Se apoya en el indice `(pedido_id, ocurrido_en)` que creo `012`
+// para leer el historial en orden: no hace falta ninguno nuevo.
+const desdePedidos = `
+	FROM pedidos
+	LEFT JOIN LATERAL (
+		SELECT receptor_nombre, receptor_documento
+		FROM pedidos_estados
+		WHERE pedido_id = pedidos.id AND estado = 'entrega'
+		ORDER BY ocurrido_en DESC
+		LIMIT 1
+	) e ON true`
 
 // escanear arma un Pedido desde una fila con el orden de columnas.
 func escanear(fila pgx.Row) (*Pedido, error) {
@@ -200,6 +302,11 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 	var retiroLat, retiroLng *float64
 	var entregaLat, entregaLng *float64
 
+	// Punteros porque **son nulos en todo pedido que no se entrego**, y en todo
+	// pedido anterior a `016`. Escanear en un string pelado romperia la lectura
+	// de casi toda la tabla — el mismo error que `entrega_punto` costo caro.
+	var recibioNombre, recibioDocumento *string
+
 	err := fila.Scan(
 		&p.ID, &p.UsuarioID, &p.Codigo, &p.Estado,
 		&p.RemitenteNombre, &p.RemitenteTelefono,
@@ -212,6 +319,7 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 		&p.DestinatarioNombre, &p.DestinatarioTelefono,
 		&p.Precio, &p.ZonaID,
 		&p.CreadoEn, &p.ActualizadoEn,
+		&recibioNombre, &recibioDocumento,
 	)
 	if err != nil {
 		return nil, err
@@ -221,6 +329,14 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 	// direccion que no se pudo ubicar (FR-014, FR-015), y en la entrega es un
 	// pedido anterior a `011`, que `crear-pedido.tsx` sabe precargar sin precio
 	// (FR-013).
+	// Nil es lo normal, no un error: son nulos en todo pedido que no se entrego.
+	if recibioNombre != nil {
+		p.RecibioNombre = *recibioNombre
+	}
+	if recibioDocumento != nil {
+		p.recibioDocumento = *recibioDocumento
+	}
+
 	if retiroLat != nil && retiroLng != nil {
 		p.Retiro.Punto = &Punto{Lat: *retiroLat, Lng: *retiroLng}
 	}
@@ -286,8 +402,18 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 			$23, $24
 		)
 		ON CONFLICT (usuario_id, clave_idempotencia) DO NOTHING
-		RETURNING ` + columnas
+		RETURNING id`
 
+	// **Devuelve el id y se relee, en vez de `RETURNING columnas`.**
+	//
+	// Desde `016` las columnas de un pedido incluyen a quien recibio, que sale
+	// de un LATERAL sobre `pedidos_estados` — y un `RETURNING` no puede
+	// referirse a una tabla que no esta en la sentencia. Un pedido recien
+	// creado ademas **no puede tener receptor**: nace en `creacion`.
+	//
+	// Se eligio esto antes que una segunda lista de columnas y un segundo
+	// escaner: dos formas de leer un pedido son dos formas de que una se olvide
+	// de un campo. Cuesta un viaje mas en el unico camino donde no importa.
 	fila := r.pool.QueryRow(ctx, sql,
 		n.UsuarioID, n.ClaveIdempotencia,
 		n.RemitenteNombre, n.RemitenteTelefono,
@@ -301,8 +427,13 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 		n.Entrega.Punto.Lat, n.Entrega.Punto.Lng,
 	)
 
-	p, err := escanear(fila)
+	var nuevoID string
+	err := fila.Scan(&nuevoID)
 	if err == nil {
+		p, err := r.porID(ctx, nuevoID)
+		if err != nil {
+			return nil, false, fmt.Errorf("no se pudo releer el pedido creado: %w", err)
+		}
 		return p, true, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -318,13 +449,23 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 	return existente, false, nil
 }
 
+// porID relee un pedido entero, con quien recibio pegado.
+//
+// **Es la unica forma de leer un pedido en este repositorio**, y por eso la usan
+// tanto crear como mover: dos caminos de lectura son dos oportunidades de que
+// uno se olvide de un campo.
+func (r *Repositorio) porID(ctx context.Context, id string) (*Pedido, error) {
+	return escanear(r.pool.QueryRow(ctx,
+		`SELECT `+columnas+desdePedidos+` WHERE pedidos.id = $1`, id))
+}
+
 // PorClave devuelve el pedido creado con una clave de idempotencia.
 //
 // Toma el usuario ademas de la clave porque la unicidad es POR USUARIO: buscar
 // solo por clave podria devolver el pedido de otra persona.
 func (r *Repositorio) PorClave(ctx context.Context, usuarioID, clave string) (*Pedido, error) {
-	const sql = `SELECT ` + columnas + `
-		FROM pedidos WHERE usuario_id = $1 AND clave_idempotencia = $2`
+	const sql = `SELECT ` + columnas + desdePedidos + `
+		WHERE usuario_id = $1 AND clave_idempotencia = $2`
 
 	p, err := escanear(r.pool.QueryRow(ctx, sql, usuarioID, clave))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -342,8 +483,8 @@ func (r *Repositorio) PorClave(ctx context.Context, usuarioID, clave string) (*P
 // Es lo que implementa FR-017 en la capa que toca la base, en vez de confiar en
 // que todos los handlers se acuerden.
 func (r *Repositorio) PorUsuario(ctx context.Context, usuarioID string) ([]*Pedido, error) {
-	const sql = `SELECT ` + columnas + `
-		FROM pedidos WHERE usuario_id = $1 ORDER BY creado_en DESC`
+	const sql = `SELECT ` + columnas + desdePedidos + `
+		WHERE usuario_id = $1 ORDER BY creado_en DESC`
 	return r.consultar(ctx, sql, usuarioID)
 }
 
@@ -356,8 +497,8 @@ func (r *Repositorio) PorUsuario(ctx context.Context, usuarioID string) ([]*Pedi
 // entorno (FR-022 de `006`). El repositorio no conoce el concepto de
 // administrador y no debe conocerlo.
 func (r *Repositorio) Todos(ctx context.Context) ([]*Pedido, error) {
-	const sql = `SELECT ` + columnas + `
-		FROM pedidos ORDER BY retiro_fecha DESC, retiro_hora DESC`
+	const sql = `SELECT ` + columnas + desdePedidos + `
+		ORDER BY retiro_fecha DESC, retiro_hora DESC`
 	return r.consultar(ctx, sql)
 }
 
@@ -412,7 +553,19 @@ func EstadoValido(estado string) bool {
 // **Las dos escrituras van en la MISMA transaccion** (FR-014). Si el historial
 // se escribiera aparte, un fallo entre las dos dejaria un pedido movido sin
 // rastro, que es exactamente lo que el historial existe para impedir.
-func (r *Repositorio) CambiarEstado(ctx context.Context, id, estado string) (*Pedido, error) {
+// Receptor es quien recibio el paquete, en el evento de entrega.
+//
+// Se pasa junto con el estado y no aparte porque **es parte del mismo hecho**:
+// escribir el cambio a `entrega` sin decir quien recibio dejaria el registro a
+// medias, y las dos escrituras ya comparten transaccion.
+type Receptor struct {
+	Nombre    string
+	Documento string
+}
+
+func (r *Repositorio) CambiarEstado(
+	ctx context.Context, id, estado string, receptor *Receptor,
+) (*Pedido, error) {
 	if !EstadoValido(estado) {
 		return nil, ErrEstadoInvalido
 	}
@@ -448,18 +601,22 @@ func (r *Repositorio) CambiarEstado(ctx context.Context, id, estado string) (*Pe
 			// `actualizado_en`: no paso nada, y registrar que no paso nada
 			// ensucia el unico registro que este feature agrega.
 			p, err = escanear(tx.QueryRow(ctx,
-				`SELECT `+columnas+` FROM pedidos WHERE id = $1`, id))
+				`SELECT `+columnas+desdePedidos+` WHERE pedidos.id = $1`, id))
 			if err != nil {
 				return fmt.Errorf("no se pudo releer el pedido: %w", err)
 			}
 			return nil
 		}
 
-		p, err = escanear(tx.QueryRow(ctx,
-			`UPDATE pedidos SET estado = $2, actualizado_en = now()
-			 WHERE id = $1
-			 RETURNING `+columnas, id, estado))
-		if err != nil {
+		// **El UPDATE ya no puede devolver el pedido con RETURNING.** Desde
+		// `016` las columnas incluyen a quien recibio, que sale de un LATERAL
+		// sobre `pedidos_estados` — y esa fila todavia no existe cuando el
+		// UPDATE corre. Se mueve el estado, se escribe el historial, y recien
+		// entonces se relee: es el unico orden en el que el pedido devuelto
+		// puede traer al receptor que se acaba de registrar.
+		if _, err := tx.Exec(ctx,
+			`UPDATE pedidos SET estado = $2, actualizado_en = now() WHERE id = $1`,
+			id, estado); err != nil {
 			return fmt.Errorf("no se pudo mover el estado: %w", err)
 		}
 
@@ -468,10 +625,30 @@ func (r *Repositorio) CambiarEstado(ctx context.Context, id, estado string) (*Pe
 		// desde Go a proposito: la hora del proceso y la de la base pueden
 		// diferir, y el orden del historial tiene que ser el de una sola de las
 		// dos.
+		//
+		// **El receptor se guarda solo en el evento de entrega.** En cualquier
+		// otro cambio va nulo, aunque el llamador lo mande: quien recibio no
+		// tiene sentido en un pedido que se acaba de tomar, y guardarlo ahi
+		// ensuciaria el registro que este dato existe para conservar.
+		var nombre, documento *string
+		if receptor != nil && estado == EstadoEntrega {
+			nombre = &receptor.Nombre
+			if receptor.Documento != "" {
+				documento = &receptor.Documento
+			}
+		}
+
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO pedidos_estados (pedido_id, estado) VALUES ($1, $2)`,
-			id, estado); err != nil {
+			`INSERT INTO pedidos_estados (pedido_id, estado, receptor_nombre, receptor_documento)
+			 VALUES ($1, $2, $3, $4)`,
+			id, estado, nombre, documento); err != nil {
 			return fmt.Errorf("no se pudo escribir el historial: %w", err)
+		}
+
+		p, err = escanear(tx.QueryRow(ctx,
+			`SELECT `+columnas+desdePedidos+` WHERE pedidos.id = $1`, id))
+		if err != nil {
+			return fmt.Errorf("no se pudo releer el pedido movido: %w", err)
 		}
 		return nil
 	})
