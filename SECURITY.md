@@ -1,7 +1,7 @@
 ---
 owner: flash-urbano
 status: living
-last_reviewed: 2026-08-11
+last_reviewed: 2026-08-31
 update_trigger: on-trust-boundary-change
 ---
 
@@ -155,3 +155,30 @@ because a static export on GitHub Pages cannot do nonces. The CSP therefore
 limits `connect-src` — an injected script could read the credential but not ship
 it to an attacker's server — but it does not prevent execution. See the `Medium`
 row of 2026-08-10 in the tech-debt tracker.
+
+### What the phone reports about itself, and what it deliberately does not
+
+Since `017` the courier app declares **its own version** on every request
+(`X-App-Version`), and the service records it on that session's row so we can
+tell which build a phone is running without asking. The app is installed by
+hand from a published link, so without this there is no way to know whether a
+bug report is about the current build or one from three weeks ago.
+
+**Nothing else about the device is collected**, and that is a deliberate
+boundary rather than an omission: no model, no manufacturer, no Android
+version, no advertising or device identifier, no custom `User-Agent`. Answering
+"which build is running" needs none of them, and this is exactly the kind of
+endpoint where a fingerprint gets added later "just for debugging" by someone
+who does not know it was ruled out on purpose.
+
+That boundary is **enforced by a test, not by this paragraph**: the app's test
+suite enumerates the headers each request carries and fails on any it does not
+expect. Adding one is therefore a decision someone has to make deliberately,
+with a red test in front of them.
+
+The declared value is treated as untrusted client input: length-capped and
+discarded entirely unless it matches a version shape, before it reaches the
+database. A malformed value is never an error — it is recorded as *not
+declared*, leaving whatever the session already held. **A defect in this must
+never be able to stop the courier working**, since it exists only to diagnose
+the things that do.
