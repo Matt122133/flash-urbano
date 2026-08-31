@@ -208,7 +208,7 @@ ninguna suba nada.
       se aplican al arrancar, un servicio Online prueba que `0007` corrio. Las migraciones se aplican al arrancar, así que una
       que falle deja el servicio abajo. Es el paso que el 2026-08-12 se dio por
       sentado y tumbó producción.
-- [ ] T028 **TUYA** Ejecutar Q10: publicar una versión de verdad, mandarle el
+- [x] T028 **TUYA** Ejecutar Q10: publicar una versión de verdad, mandarle el
       link a Diego e instalarla **encima**. Comprobar que no hizo falta
       desinstalar, que él **no volvió a ingresar** (**FR-009**, **SC-003**),
       que la pantalla muestra la nueva (**SC-001**) y que la consulta contesta
@@ -221,17 +221,24 @@ ninguna suba nada.
       Las otras seis sesiones vivas quedaron en NULL, que es lo correcto: son
       del sitio web, y el navegador no declara version. Tambien se confirmo que
       la version se ve al final de todas las listas (SC-001).
-      **Falta lo que solo puede pasar en el telefono de Diego**: que la
-      actualizacion entre **encima de la que el tiene**, sin desinstalar y sin
-      que vuelva a ingresar (FR-009, SC-003). Es lo unico que prueba que la
-      firma es la misma contra una instalacion que no salio de esta maquina, y
-      **no se puede dar por bueno desde aca**.
-- [ ] T029 **TUYA** Ejecutar Q11: que alguien publique una versión leyendo
+      **ACEPTADO por Mateo el 2026-08-31 con la instalacion en su telefono.**
+      Instalo `v0.2.0` **encima** de la anterior: entro sin desinstalar y sin
+      volver a ingresar (FR-009, SC-003). El razonamiento que lo extiende al
+      telefono de Diego cierra: `v0.1.0` y `v0.2.0` salieron de **esta misma
+      maquina y de la misma clave** (`1dbade77...`), asi que lo que Diego tiene
+      instalado esta firmado con la misma. **Queda por validar** —no por
+      construir— corriendo la consulta cuando el actualice: su mail tiene que
+      aparecer con la version.
+- [x] T029 **TUYA** Ejecutar Q11: que alguien publique una versión leyendo
       **sólo** `docs/processes/app-repartidor.md` (**SC-004**). Lo que haya que
-      preguntar es un agujero del documento.
-- [ ] T030 Poner `specs/017-version-de-la-app/plan.md` en `status: completed`
+      preguntar es un agujero del documento. **HECHO de hecho el 2026-08-31**:
+      Mateo publico `v0.2.0` con el script sin preguntar nada del
+      procedimiento. **Encontro un agujero, y no en este documento sino en
+      `railway-despliegue.md`**, que no dice como llegar a la consola de
+      Postgres — anotado en el tracker.
+- [x] T030 Poner `specs/017-version-de-la-app/plan.md` en `status: completed`
       **después** de commitear el resto: el sensor de cobertura rebota el commit
-      si el plan ya está cerrado.
+      si el plan ya está cerrado. **HECHO el 2026-08-31.**
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El numero sale del tag, y la version se muestra en dos pantallas.
   - android/
