@@ -1,0 +1,53 @@
+-- 0006 — quien recibio el paquete, de 016-quien-recibio.
+--
+-- Diego entrega, y a veces no recibe la persona que figura en el pedido: lo
+-- atiende la madre, un vecino, el encargado. Hasta hoy eso no quedaba en ningun
+-- lado, y es exactamente el caso en el que alguien reclama despues.
+--
+-- --------------------------------------------------------------------------
+-- Por que va ACA y no en `pedidos`
+-- --------------------------------------------------------------------------
+--
+-- Por el modelo: quien recibio pertenece al **evento** de entrega, no al
+-- pedido. Un pedido que se entrega, se deshace y se vuelve a entregar tiene dos
+-- receptores distintos, y esta tabla ya guarda una fila por movimiento. En
+-- `pedidos` el segundo pisaria al primero.
+--
+-- Y por el riesgo: **no se toca `pedidos`**, que es la tabla con los datos
+-- reales y la que ya dejo el servicio sin arrancar una vez.
+--
+-- --------------------------------------------------------------------------
+-- Por que NULLABLE, y no es comodidad
+-- --------------------------------------------------------------------------
+--
+-- Es la correccion explicita del error del 2026-08-12. Aquella migracion entro
+-- `entrega_punto` como NOT NULL creyendo que produccion estaba vacia; tenia
+-- filas, y **el servicio no arranco**. Una columna nullable no le exige nada a
+-- las filas que ya estan — y `pedidos_estados` tiene filas reales desde que
+-- Diego usa la app.
+--
+-- Los pedidos entregados antes de hoy quedan con las dos columnas en nulo, y
+-- eso no es un dato faltante que haya que rellenar: es la verdad. No se
+-- registro.
+ALTER TABLE pedidos_estados
+    ADD COLUMN receptor_nombre    text,
+    ADD COLUMN receptor_documento text;
+
+-- --------------------------------------------------------------------------
+-- Lo que esta migracion NO hace, y por que
+-- --------------------------------------------------------------------------
+--
+-- **No hay CHECK que ate estas columnas al estado `entrega`.** La restriccion
+-- seria `estado <> 'entrega' -> columnas nulas`, suena prolija, y convierte
+-- cualquier error de escritura futuro en el fallo de la transaccion entera en
+-- vez de un dato raro visible. En una tabla que existe para **no perder el
+-- registro**, fallar es peor que guardar de mas.
+--
+-- **No hay indice nuevo.** El de `012` —`(pedido_id, ocurrido_en)`— es el que
+-- sirve la consulta que este feature necesita: el ULTIMO cambio a `entrega` de
+-- cada pedido.
+--
+-- **No hay validacion de formato del documento.** Se guarda como Diego lo
+-- escribe. Es un respaldo que anota en la calle, no una clave: rechazarle
+-- `1234567-8` porque se esperaba `1.234.567-8` le traba una entrega que ya
+-- ocurrio, con la persona en la puerta. Anotado en el tracker con su disparador.

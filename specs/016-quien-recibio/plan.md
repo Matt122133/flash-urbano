@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # La migracion 0006: dos columnas nullable en `pedidos_estados`.
   - backend/migrations/
@@ -16,7 +16,7 @@ covers:
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... && cd ../android && .\gradlew.bat assembleDebug testDebugUnitTest
-analyzed:
+analyzed: 2026-08-30
 ---
 
 # Implementation Plan: Quién recibió el paquete
@@ -143,7 +143,15 @@ como se escribe (D5), y el `verify:` con sus dos trampas (D6).
 
 **Fase 2 — `tasks.md`.**
 
-## Lo que hay que aceptar antes de promover este plan
+## El gate — 2026-08-30
+
+Promovido a `active` por instruccion explicita de Mateo, con el informe de
+`/speckit-analyze` leido: **cero criticos**, tres hallazgos, los tres aplicados.
+El que valia: mover a `entrega` sin receptor pasa a devolver 400, y ninguna
+tarea exigia que la app tuviera **un solo camino** hacia ese estado — una
+regresion que no aparece hasta que alguien entrega de verdad.
+
+## Lo que hay que aceptar, y se acepto al promover
 
 **Este feature guarda el documento de identidad de personas que nunca
 interactuaron con el sistema.** Susana le dio su cédula a Diego en la puerta, no

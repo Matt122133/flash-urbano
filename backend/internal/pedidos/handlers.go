@@ -116,6 +116,11 @@ type respuestaLista struct {
 	Pedidos []*Pedido `json:"pedidos"`
 }
 
+// La lista de Diego. Tipo aparte y no un campo mas: ver `ParaAdmin`.
+type respuestaListaAdmin struct {
+	Pedidos []*ParaAdmin `json:"pedidos"`
+}
+
 // peticionEstado es el cuerpo de PATCH /admin/pedidos/{id}/estado.
 //
 // Un solo campo, y es el estado DESTINO. No se manda una transicion: ver

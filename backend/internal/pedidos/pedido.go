@@ -118,8 +118,55 @@ type Pedido struct {
 	Precio int `json:"precio"`
 	ZonaID int `json:"zonaId"`
 
+	// Quien recibio el paquete, del ultimo cambio a `entrega` (016).
+	//
+	// **`omitempty` no es cosmetico**: un pedido que no esta entregado, o uno
+	// anterior a `016`, no trae el campo en vez de traerlo vacio. La pantalla
+	// distingue "no se registro" de "se registro en blanco" sin tener que
+	// preguntar.
+	//
+	// **El DOCUMENTO no esta aca, y esa ausencia es el feature.** Ver el tipo
+	// `ParaAdmin`, abajo.
+	RecibioNombre string `json:"recibioNombre,omitempty"`
+
 	CreadoEn      time.Time `json:"creadoEn"`
 	ActualizadoEn time.Time `json:"actualizadoEn"`
+}
+
+// ParaAdmin es un pedido con lo que solo Diego puede ver.
+//
+// ## Por que existe un tipo aparte en vez de un campo mas
+//
+// Hasta `016`, `GET /pedidos` y `GET /admin/pedidos` devolvian **exactamente la
+// misma estructura**: los dos handlers terminan en el mismo `respuestaLista`
+// sobre el mismo `[]*Pedido`. O sea que agregarle la cedula a `Pedido` **se la
+// agregaba a los dos**, en el mismo commit, sin que nadie lo escribiera ni lo
+// notara.
+//
+// Se descartaron las dos alternativas:
+//
+//   - **Blanquear al salir** —un campo en `Pedido` que `Mios` vacia antes de
+//     escribir— deja lo seguro como excepcion: el proximo dato sensible se
+//     filtra por defecto, porque el default pasa a ser exponer.
+//   - **`MarshalJSON` con una bandera de contexto** funciona y es opaco: la
+//     respuesta deja de leerse en el tipo y pasa a depender de quien llamo.
+//
+// **Con dos tipos, lo seguro es el default.** `Pedido` es lo que ve el cliente;
+// exponer la cedula obliga a nombrar `ParaAdmin` a proposito. Si manana alguien
+// suma otro dato sensible, cae del lado del cliente **solo si lo escribe ahi
+// queriendo**.
+//
+// La regla la sostiene una prueba, no esta explicacion: ver
+// `respuesta_cliente_test.go`.
+type ParaAdmin struct {
+	*Pedido
+
+	// La cedula de quien recibio. **No sale de aca a ningun lado mas.**
+	//
+	// Es un dato personal de un tercero que ademas nunca interactuo con el
+	// sistema: se la dio a Diego en la puerta, no a nosotros. Se guarda como
+	// respaldo de entrega y se muestra solo en la app de Diego.
+	RecibioDocumento string `json:"recibioDocumento,omitempty"`
 }
 
 // Nuevo es lo que hace falta para crear un pedido.
