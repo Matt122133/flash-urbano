@@ -279,7 +279,22 @@ const desdePedidos = `
 	LEFT JOIN LATERAL (
 		SELECT receptor_nombre, receptor_documento
 		FROM pedidos_estados
-		WHERE pedido_id = pedidos.id AND estado = 'entrega'
+		WHERE pedido_id = pedidos.id
+		  AND estado = 'entrega'
+		  -- **Solo si el pedido SIGUE entregado.**
+		  --
+		  -- Sin esta linea, deshacer una entrega dejaba el receptor a la vista:
+		  -- el pedido volvia a Pendientes y la tarjeta seguia diciendo "lo
+		  -- recibio Susana". Lo encontro Mateo probando en produccion.
+		  --
+		  -- **La fila del historial NO se borra**, y no puede borrarse: que esa
+		  -- persona recibio el paquete es un hecho que ocurrio, y esta tabla
+		  -- existe para no perderlo. Lo que se corrige es mostrarlo cuando ya no
+		  -- corresponde.
+		  --
+		  -- Con esto, entregar → deshacer → volver a entregar muestra al
+		  -- SEGUNDO receptor, y las dos filas quedan guardadas.
+		  AND pedidos.estado = 'entrega'
 		ORDER BY ocurrido_en DESC
 		LIMIT 1
 	) e ON true`
@@ -643,6 +658,33 @@ func (r *Repositorio) CambiarEstado(
 			 VALUES ($1, $2, $3, $4)`,
 			id, estado, nombre, documento); err != nil {
 			return fmt.Errorf("no se pudo escribir el historial: %w", err)
+		}
+
+		// **Deshacer una entrega BORRA quien recibio, y no es por la pantalla.**
+		//
+		// Que no se muestre ya lo resuelve la consulta de lectura. Esto es otra
+		// cosa: si la entrega se deshizo, **guardar la cedula de esa persona
+		// dejo de tener proposito**. Es el documento de un tercero que no tiene
+		// nada que ver con un pedido que volvio a estar pendiente, y
+		// `SECURITY.md` dice que somos responsables de el mientras lo tengamos.
+		// Lo pidio Mateo el 2026-08-31, y pidio lo correcto: **la columna, no la
+		// fila**.
+		//
+		// **La fila se queda.** El historial sigue contando que hubo una entrega
+		// y que despues se revirtio, que es justo lo que esa tabla existe para
+		// conservar. Lo que se va es el dato personal, no el hecho.
+		//
+		// Se limpian TODAS las filas de entrega del pedido y no solo la ultima:
+		// si alguna quedo con datos de una vuelta anterior, tampoco tiene
+		// proposito ahora.
+		if estado != EstadoEntrega {
+			if _, err := tx.Exec(ctx,
+				`UPDATE pedidos_estados
+				 SET receptor_nombre = NULL, receptor_documento = NULL
+				 WHERE pedido_id = $1 AND estado = $2`,
+				id, EstadoEntrega); err != nil {
+				return fmt.Errorf("no se pudo limpiar el receptor al deshacer: %w", err)
+			}
 		}
 
 		p, err = escanear(tx.QueryRow(ctx,

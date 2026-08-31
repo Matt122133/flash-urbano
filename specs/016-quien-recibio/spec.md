@@ -144,9 +144,18 @@ la web, con la sesión del cliente.
 
 ### Edge Cases
 
-- **Deshacer una entrega.** El historial es append-only: la fila de la entrega
-  **queda**, con quien recibió. Volver a entregar escribe una fila nueva. El
-  registro no se reescribe.
+- **Deshacer una entrega.** La fila de la entrega **queda** —el historial sigue
+  contando que hubo una entrega y que se revirtió— pero **las columnas de quién
+  recibió se vacían**. Volver a entregar escribe una fila nueva.
+
+  *Corregido el 2026-08-31, con el feature ya en producción.* La versión
+  original de este caso decía que la fila quedaba **con** quien recibió, por
+  respetar que el historial es append-only. Está mal, y el cliente lo vio
+  primero: notó que un pedido devuelto a Pendientes seguía mostrando a Susana en
+  pantalla. **El defecto de fondo no era la pantalla sino la retención**: si la
+  entrega se deshizo, guardar la cédula de esa persona dejó de tener propósito, y
+  `SECURITY.md` nos hace responsables de ese dato mientras lo tengamos.
+  Append-only protege **el hecho**, no el dato personal colgado del hecho.
 - **Un pedido entregado antes de este feature.** No tiene quién recibió, y eso
   no es un error: la pantalla no muestra el dato en vez de mostrarlo vacío.
 - **Un nombre vacío en el camino largo.** No se puede confirmar sin nombre: si
