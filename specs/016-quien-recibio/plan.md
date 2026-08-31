@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La migracion 0006: dos columnas nullable en `pedidos_estados`.
   - backend/migrations/
