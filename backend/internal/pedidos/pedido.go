@@ -279,7 +279,22 @@ const desdePedidos = `
 	LEFT JOIN LATERAL (
 		SELECT receptor_nombre, receptor_documento
 		FROM pedidos_estados
-		WHERE pedido_id = pedidos.id AND estado = 'entrega'
+		WHERE pedido_id = pedidos.id
+		  AND estado = 'entrega'
+		  -- **Solo si el pedido SIGUE entregado.**
+		  --
+		  -- Sin esta linea, deshacer una entrega dejaba el receptor a la vista:
+		  -- el pedido volvia a Pendientes y la tarjeta seguia diciendo "lo
+		  -- recibio Susana". Lo encontro Mateo probando en produccion.
+		  --
+		  -- **La fila del historial NO se borra**, y no puede borrarse: que esa
+		  -- persona recibio el paquete es un hecho que ocurrio, y esta tabla
+		  -- existe para no perderlo. Lo que se corrige es mostrarlo cuando ya no
+		  -- corresponde.
+		  --
+		  -- Con esto, entregar → deshacer → volver a entregar muestra al
+		  -- SEGUNDO receptor, y las dos filas quedan guardadas.
+		  AND pedidos.estado = 'entrega'
 		ORDER BY ocurrido_en DESC
 		LIMIT 1
 	) e ON true`

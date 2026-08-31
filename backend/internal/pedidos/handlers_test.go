@@ -944,3 +944,67 @@ func TestElClienteNoRecibeLaCedulaPorSuEndpoint(t *testing.T) {
 			"cadena en ningun lado:\n%s", cuerpoAdmin)
 	}
 }
+
+// **Deshacer una entrega deja de mostrar a quien recibio.**
+//
+// Lo encontro Mateo probando en produccion: deshizo una entrega, el pedido
+// volvio a Pendientes, y la tarjeta seguia diciendo "lo recibio Susana".
+//
+// La causa era que la consulta buscaba el ultimo cambio a `entrega` **sin
+// mirar si el pedido seguia entregado**. La correccion NO borra la fila del
+// historial: que esa persona recibio el paquete es un hecho que ocurrio, y esa
+// tabla existe para no perderlo. Lo que cambia es cuando se muestra.
+func TestDeshacerUnaEntregaOcultaAlReceptor(t *testing.T) {
+	srv, repo, _ := escenario(t, relojFijo)
+	id, _ := unPedidoCreado(t, srv, "tok-ana", "a1")
+	mover(t, srv, "tok-diego", id, EstadoAceptacion)
+
+	_, cuerpo := moverCrudo(t, srv, "tok-diego", id,
+		`{"estado":"entrega","receptor":{"nombre":"Susana","documento":"1.234.567-8"}}`)
+	var entregado respuestaCrear
+	if err := json.Unmarshal(cuerpo, &entregado); err != nil {
+		t.Fatalf("leyendo la respuesta: %v", err)
+	}
+	if entregado.Pedido.RecibioNombre != "Susana" {
+		t.Fatalf("entregado deberia mostrar al receptor, dice %q", entregado.Pedido.RecibioNombre)
+	}
+
+	// Deshacer: vuelve a "tomado".
+	_, cuerpoDeshecho := mover(t, srv, "tok-diego", id, EstadoAceptacion)
+	var deshecho respuestaCrear
+	if err := json.Unmarshal(cuerpoDeshecho, &deshecho); err != nil {
+		t.Fatalf("leyendo la respuesta: %v", err)
+	}
+	if deshecho.Pedido.RecibioNombre != "" {
+		t.Errorf("tras deshacer, el pedido sigue diciendo que lo recibio %q",
+			deshecho.Pedido.RecibioNombre)
+	}
+
+	// **Y la fila del historial NO se borro.** Dos movimientos hasta la
+	// entrega, mas el deshacer: tres filas, y la de la entrega conserva a
+	// Susana.
+	if n := contarHistorial(t, repo, id); n != 3 {
+		t.Errorf("el historial tiene %d filas, quiero 3 — deshacer no borra el pasado", n)
+	}
+	var guardado string
+	if err := repo.pool.QueryRow(context.Background(),
+		`SELECT receptor_nombre FROM pedidos_estados
+		 WHERE pedido_id = $1 AND estado = 'entrega'`, id).Scan(&guardado); err != nil {
+		t.Fatalf("leyendo el historial: %v", err)
+	}
+	if guardado != "Susana" {
+		t.Errorf("el historial guardo %q, quiero %q — el hecho ocurrio y no se borra",
+			guardado, "Susana")
+	}
+
+	// Volver a entregar con OTRA persona muestra a la segunda.
+	_, cuerpoDeNuevo := moverCrudo(t, srv, "tok-diego", id,
+		`{"estado":"entrega","receptor":{"nombre":"El encargado"}}`)
+	var deNuevo respuestaCrear
+	if err := json.Unmarshal(cuerpoDeNuevo, &deNuevo); err != nil {
+		t.Fatalf("leyendo la respuesta: %v", err)
+	}
+	if deNuevo.Pedido.RecibioNombre != "El encargado" {
+		t.Errorf("vale el ultimo receptor: dice %q", deNuevo.Pedido.RecibioNombre)
+	}
+}
