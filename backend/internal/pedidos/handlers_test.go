@@ -897,3 +897,50 @@ func TestReentregarDejaElUltimoReceptor(t *testing.T) {
 		t.Errorf("vale el ultimo receptor: dice %q, quiero %q", r.Pedido.RecibioNombre, "Segunda")
 	}
 }
+
+// FR-009 de punta a punta: **Ana pide SUS pedidos y la cedula no viene.**
+//
+// La prueba de `respuesta_cliente_test.go` mira la serializacion del tipo. Esta
+// mira **el cuerpo que sale por el handler real**, con una entrega hecha por el
+// camino de verdad: Diego mueve el pedido con receptor y documento, y despues
+// Ana pide su lista.
+//
+// Es la diferencia entre "el tipo no tiene el campo" y "por este endpoint no
+// sale el valor", y las dos hacen falta: la primera se rompe agregando un campo,
+// la segunda se rompe cambiando que tipo escribe el handler.
+func TestElClienteNoRecibeLaCedulaPorSuEndpoint(t *testing.T) {
+	srv, _, _ := escenario(t, relojFijo)
+	id, _ := unPedidoCreado(t, srv, "tok-ana", "a1")
+
+	mover(t, srv, "tok-diego", id, EstadoAceptacion)
+	if estado, cuerpo := moverCrudo(t, srv, "tok-diego", id,
+		`{"estado":"entrega","receptor":{"nombre":"Susana Pérez","documento":"1.234.567-8"}}`,
+	); estado != http.StatusOK {
+		t.Fatalf("entregando: quiero 200, dio %d — %s", estado, cuerpo)
+	}
+
+	estado, cuerpo := pedir(t, srv, "GET", "/pedidos", "tok-ana", "", "")
+	if estado != http.StatusOK {
+		t.Fatalf("GET /pedidos: quiero 200, dio %d — %s", estado, cuerpo)
+	}
+
+	if strings.Contains(string(cuerpo), "1.234.567-8") {
+		t.Fatalf("la cedula salio por GET /pedidos:\n%s", cuerpo)
+	}
+	// Y el nombre SI: sin esto la prueba pasaria con una respuesta que no dice
+	// nada de quien recibio, que es otro defecto distinto.
+	if !strings.Contains(string(cuerpo), "Susana") {
+		t.Fatalf("el cliente tiene que ver quien recibio su paquete:\n%s", cuerpo)
+	}
+
+	// EL CONTROL POSITIVO: por el endpoint de Diego **si** sale.
+	estadoAdmin, cuerpoAdmin := pedir(t, srv, "GET", "/admin/pedidos", "tok-diego", "", "")
+	if estadoAdmin != http.StatusOK {
+		t.Fatalf("GET /admin/pedidos: quiero 200, dio %d — %s", estadoAdmin, cuerpoAdmin)
+	}
+	if !strings.Contains(string(cuerpoAdmin), "1.234.567-8") {
+		t.Fatalf("la cedula NO salio por el endpoint de Diego, y tiene que salir. "+
+			"Sin esto, el caso de arriba estaria pasando porque no encuentra la "+
+			"cadena en ningun lado:\n%s", cuerpoAdmin)
+	}
+}

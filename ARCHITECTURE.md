@@ -245,6 +245,15 @@ default; components that need interactivity (forms, nav toggle) are marked
   declared price. That second one is a deliberate, recorded tradeoff — see the
   `Medium` row of 2026-08-12 in `docs/tech-debt-tracker.md` before "fixing" it.
 
+  **Since `016` the two list endpoints no longer return the same shape.**
+  `GET /pedidos` returns `Pedido`; `GET /admin/pedidos` returns `ParaAdmin`,
+  which embeds it and adds the receiver's ID number. The customer's type is the
+  default **on purpose**: exposing something sensitive should require naming the
+  admin type, so the next sensitive field lands on the customer side only if
+  someone writes it there deliberately. The document itself rides in an
+  unexported field that `encoding/json` cannot serialise, so the compiler — not
+  a convention — is what keeps it in.
+
   **The stored `precio` is no longer shown to anyone and must not be read.**
   Since `013` it records what the old rule would have charged, not what the
   operator charges; it is kept only so the decision can be reversed cheaply.

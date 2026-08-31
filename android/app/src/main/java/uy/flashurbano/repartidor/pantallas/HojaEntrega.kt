@@ -1,10 +1,14 @@
 package uy.flashurbano.repartidor.pantallas
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,8 +82,20 @@ fun HojaEntrega(
     var documento by remember { mutableStateOf("") }
 
     ModalBottomSheet(onDismissRequest = alCancelar) {
+        // **La hoja SCROLLEA, y no es prolijidad: sin esto el boton de confirmar
+        // queda debajo del borde y no se puede tocar.** Se vio en el emulador
+        // con el teclado abierto —que es el estado normal, porque se acaba de
+        // escribir un nombre— y compilando no se ve. Es la misma familia de
+        // defecto que el boton con el texto cortado de `012`.
+        //
+        // `imePadding` corre el contenido por encima del teclado y
+        // `navigationBarsPadding` lo despega de la barra del sistema.
         Column(
-            modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 28.dp),
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(start = 18.dp, end = 18.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Column {

@@ -74,6 +74,44 @@ What authenticates a caller:
   digest. Fast hashing is correct *there* precisely because the input is not
   guessable, and it is verified on every request.
 
+### Personal data of people who never used this system
+
+Since `016` the delivery flow stores **the name and, when given, the national ID
+number (cédula) of whoever received a package**. That person is usually not the
+customer and usually not the addressee: it is the mother, a neighbour, the
+building's caretaker. **They handed their document to Diego at a door, not to
+us.**
+
+This is worth stating plainly because it is easy to wave away: a cédula is
+shared constantly in Uruguay — at a pharmacy, at a bank, signing for a delivery.
+**Shared often is not the same as public.** It is personal data under Uruguay's
+**Ley 18.331**, and holding a third party's is an obligation, not a convenience.
+
+How the system treats it:
+
+- **It is stored in the state history** (`pedidos_estados`), attached to the
+  delivery event, not on the order. Re-delivering after an undo writes a new
+  row; nothing is overwritten.
+- **It never reaches the customer.** `GET /pedidos` returns the receiver's
+  **name** — a useful delivery confirmation — and **never the document number**.
+  The sender has no need for a neighbour's ID, and once a value leaves the
+  service it cannot be recalled.
+- **The boundary is a type, not a convention.** `Pedido` is the customer's
+  shape; the document lives in an **unexported** field that `encoding/json`
+  cannot serialise, and the only way to expose it is the admin type `ParaAdmin`,
+  which has to be named on purpose. Before `016` both endpoints returned the
+  same struct, so adding a field would have leaked it to everyone in the same
+  commit.
+- **A test guards it**, and its failure message says where a new sensitive field
+  belongs. A rule of exposure without an automated guard lasts exactly as long
+  as the memory of whoever wrote it.
+- **It is not validated or normalised.** It is a delivery receipt written at a
+  door, not a key. Nothing looks it up, and nothing should start to without
+  revisiting this section.
+
+What is deliberately *not* done: no photo, no signature capture, no document
+scan. Nobody asked for them, and each would widen this category further.
+
 Rules the code must not cross:
 
 - **Identity comes from the credential, never from the request body.** `PUT /yo`
@@ -93,6 +131,10 @@ Rules the code must not cross:
   string.
 - **The audit trail never stores the code or the credential.** There is no
   column for either, and that is deliberate.
+- **A third party's document number must not cross into the customer's
+  response.** It is the only rule here that breaks silently — not by a decision,
+  but by someone adding a field in good faith six months from now. That is why
+  the split is a type the compiler enforces and not a line of prose.
 
 Where input is validated: at the handler, before touching the database, and
 again by the schema (`CHECK` constraints on the audit trail's enums, `email =

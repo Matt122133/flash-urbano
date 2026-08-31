@@ -447,6 +447,43 @@ fun TarjetaPedido(pedido: Pedido, debajo: @Composable () -> Unit = {}) {
             // Lo que NO se perdio es el motivo: si el servicio suma un cuarto
             // estado antes que la app, ese pedido cae en Pendientes **y se ve
             // que es raro**.
+            // **Quien recibio, cuando se registro** (FR-008). Diego ve las dos
+            // cosas: el nombre y la cedula. Es el unico lugar del producto donde
+            // la cedula se muestra — al cliente no le llega, y eso lo sostiene
+            // una prueba del lado del servicio.
+            //
+            // Solo aparece si hay dato: un pedido entregado antes de `016` no
+            // tiene receptor, y eso no es un hueco que haya que rellenar.
+            if (pedido.recibioNombre.isNotBlank()) {
+                Row(modifier = Modifier.padding(top = 9.dp)) {
+                    Icon(
+                        IconoTilde,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(18.dp).padding(top = 1.dp),
+                    )
+                    Column(modifier = Modifier.padding(start = 9.dp)) {
+                        Text(
+                            "LO RECIBIÓ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            pedido.recibioNombre,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        if (pedido.recibioDocumento.isNotBlank()) {
+                            Text(
+                                "C.I. " + pedido.recibioDocumento,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
             if (!esEstadoConocido(pedido.estado)) {
                 Text(
                     "Estado desconocido: " + pedido.estado,

@@ -90,6 +90,17 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
               pedido.cantidad === 1 ? "paquete" : "paquetes"
             }`}
           />
+          {/*
+            Quién recibió, cuando se registró (`016`). **Solo el nombre**: la
+            cédula no llega hasta acá, y no llega a propósito.
+
+            Un pedido sin este dato **no muestra nada** —ni un hueco, ni "sin
+            datos"— porque no haberlo registrado es la verdad de lo que pasó, y
+            un pedido entregado antes de `016` no tiene por qué verse roto.
+          */}
+          {pedido.recibioNombre && (
+            <Dato titulo="Lo recibió" valor={pedido.recibioNombre} />
+          )}
           <Dato
             titulo="Recibe"
             valor={`${pedido.destinatarioNombre} · ${pedido.destinatarioTelefono}`}
