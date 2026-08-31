@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -81,7 +83,24 @@ fun HojaEntrega(
     var nombre by remember { mutableStateOf("") }
     var documento by remember { mutableStateOf("") }
 
-    ModalBottomSheet(onDismissRequest = alCancelar) {
+    // **La hoja abre ENTERA, no a media altura.**
+    //
+    // Lo reporto Mateo probandola en su telefono, contra produccion: al tocar el
+    // campo del nombre, el teclado tapaba la hoja y habia que **subirla con el
+    // dedo**. `imePadding` sola no alcanza — corre el contenido dentro de una
+    // hoja que sigue midiendo media pantalla, asi que el boton se va abajo igual.
+    //
+    // `skipPartiallyExpanded` la abre expandida desde el primer momento, que es
+    // lo correcto para una hoja que **existe para completar un formulario**: no
+    // hay nada que espiar detras, y el estado intermedio solo agrega un gesto.
+    //
+    // El manejo de los margenes lo hace el contenido, con `imePadding` y
+    // `navigationBarsPadding` mas abajo.
+    ModalBottomSheet(
+        onDismissRequest = alCancelar,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+    ) {
         // **La hoja SCROLLEA, y no es prolijidad: sin esto el boton de confirmar
         // queda debajo del borde y no se puede tocar.** Se vio en el emulador
         // con el teclado abierto —que es el estado normal, porque se acaba de
