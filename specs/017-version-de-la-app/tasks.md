@@ -29,7 +29,7 @@ auditar con un `grep` y no sólo leyendo.
 
 ## Fase 1: Preparación
 
-- [ ] T001 Traer los tags al repo local con `git fetch --tags origin`, y
+- [x] T001 Traer los tags al repo local con `git fetch --tags origin`, y
       confirmar con `git tag -l` que aparece `v0.1.0`. **Sin esto nada de la
       Fase 2 se puede probar**: `gh release create` creó ese tag sólo del lado
       del servidor (research D1), y un `git describe` sobre un repo sin tags
@@ -42,13 +42,13 @@ auditar con un `grep` y no sólo leyendo.
 **Bloquea todo lo demás.** Mientras el número sea constante, mostrarlo o
 mandarlo al servicio no responde ninguna pregunta.
 
-- [ ] T002 En `android/app/build.gradle.kts`, reemplazar `versionCode = 1` y
+- [x] T002 En `android/app/build.gradle.kts`, reemplazar `versionCode = 1` y
       `versionName = "0.1.0"` por el valor derivado de `git describe`, leído con
       `providers.exec`. La cuenta del entero es `major*10000 + minor*100 +
       patch` (**FR-001**). Implementar **las tres situaciones de la tabla de
       research D3** y que **ninguna falle el build** (**FR-002**): un clon sin
       tags y sin red tiene que seguir compilando.
-- [ ] T003 Comprobar el resultado **sobre el APK y no sobre el build**, con
+- [x] T003 Comprobar el resultado **sobre el APK y no sobre el build**, con
       `aapt2 dump badging <apk> | grep -E "versionCode|versionName"`
       (**FR-001**, Q3 del quickstart). En una rama de trabajo el caso que sale
       es "sin tag" (research D2); para ver los otros dos hay que crear un tag
@@ -66,45 +66,45 @@ mirando la pantalla y mirando la base, y que las dos digan lo mismo.
 
 ### La que Diego lee
 
-- [ ] T004 [P] [US1] Agregar la versión al pie de `PantallaIngreso`, después del
+- [x] T004 [P] [US1] Agregar la versión al pie de `PantallaIngreso`, después del
       botón, en
       `android/app/src/main/java/uy/flashurbano/repartidor/pantallas/Ingreso.kt`
       (**FR-003**). Lee `BuildConfig.VERSION_NAME`.
-- [ ] T005 [P] [US1] Agregar la versión al final de la lista de pedidos, después
+- [x] T005 [P] [US1] Agregar la versión al final de la lista de pedidos, después
       de la última tarjeta, en
       `android/app/src/main/java/uy/flashurbano/repartidor/pantallas/Principal.kt`
       (**FR-003**). **No puede ocupar espacio permanente** (Principio IV): va
       dentro de lo que se desplaza, no en una barra fija.
-- [ ] T006 [US1] Comprobar que las dos leen el **mismo** valor y no dos fuentes
+- [x] T006 [US1] Comprobar que las dos leen el **mismo** valor y no dos fuentes
       distintas (**FR-012**, **SC-007**). Es barato de romper después con una
       constante escrita a mano en una de las dos.
 
 ### La que contesta sin preguntarle
 
-- [ ] T007 [P] [US1] Escribir la migración
+- [x] T007 [P] [US1] Escribir la migración
       `backend/migrations/0007_version_de_la_app.sql`: `version_app text` y
       `version_vista_en timestamptz`, **las dos nullable y sin `DEFAULT`**
       (**FR-010**). El porqué de cada decisión está en `data-model.md`.
-- [ ] T008 [US1] Crear el validador y el middleware en
+- [x] T008 [US1] Crear el validador y el middleware en
       `backend/internal/httpx/version.go`: lee `X-App-Version`, acota el largo,
       descarta lo que no tenga forma de versión, y deja lo que sobrevive en el
       `context`. **Acepta las cuatro formas** del contrato, incluidas las de un
       binario sin tag (**FR-006**) — si sólo aceptara `X.Y.Z`, los binarios de
       trabajo llegarían como "no declarada" y se perdería la distinción.
-- [ ] T009 [US1] Pruebas del validador en
+- [x] T009 [US1] Pruebas del validador en
       `backend/internal/httpx/version_test.go`: las cuatro formas válidas, la
       cabecera ausente, la vacía, la larguísima y la que no es una versión.
       **Ninguna de las inválidas puede cambiar el código de respuesta.**
-- [ ] T010 [US1] En `backend/internal/auth/sesion.go`, convertir el `SELECT` de
+- [x] T010 [US1] En `backend/internal/auth/sesion.go`, convertir el `SELECT` de
       `Resolver` en un `UPDATE ... RETURNING` **con el mismo `WHERE`**, que
       escriba `version_app` y `version_vista_en` (**FR-010**). **Ninguna firma
       cambia**: `Resolver(ctx, token)` lee la versión del `context`. El filtro
       de `revocada_en` se queda **en la consulta**, que es lo que el comentario
       de esa función defiende.
-- [ ] T011 [US1] **El `UPDATE` usa `COALESCE`** sobre lo declarado, para que una
+- [x] T011 [US1] **El `UPDATE` usa `COALESCE`** sobre lo declarado, para que una
       sesión del sitio web —que no manda cabecera— no borre lo que la app anotó.
       Es lo más fácil de romper de todo el feature y falla en silencio.
-- [ ] T012 [US1] Pruebas en `backend/internal/auth/sesion_test.go`: que la
+- [x] T012 [US1] Pruebas en `backend/internal/auth/sesion_test.go`: que la
       versión declarada queda guardada con su marca de tiempo, que un pedido sin
       cabecera **no la borra**, que una sesión revocada o vencida sigue sin
       resolver, y —explícitamente— que **una sesión del sitio web, que nunca
@@ -112,15 +112,15 @@ mirando la pantalla y mirando la base, y que las dos digan lo mismo.
       que protege al sitio de una regresión en el camino compartido de sesión.
       Necesitan `TEST_DATABASE_URL`; sin ella **se saltan solas y en silencio**
       (`backend/README.md`).
-- [ ] T013 [US1] **Romper las dos guardas a propósito y verlas en rojo** (Q2 del
+- [x] T013 [US1] **Romper las dos guardas a propósito y verlas en rojo** (Q2 del
       quickstart): sacar el `COALESCE` y sacar el tope de largo. Si alguna de
       las pruebas sigue verde, no está probando nada y hay que arreglarla antes
       de seguir. Volver a poner las dos.
-- [ ] T014 [US1] En
+- [x] T014 [US1] En
       `android/app/src/main/java/uy/flashurbano/repartidor/datos/Servicio.kt`,
       agregar `X-App-Version` a **todos** los pedidos que arma, no sólo a los
       autenticados. Ver `contracts/cabecera-version.md`.
-- [ ] T015 [US1] Prueba que **enumera las cabeceras** que la app arma y falla
+- [x] T015 [US1] Prueba que **enumera las cabeceras** que la app arma y falla
       ante una no esperada (**FR-011**). Sin esto, "no viaja nada del teléfono"
       es una afirmación que nada comprobaría el día que alguien agregue una
       cabecera de buena fe: es una guarda negativa sin control positivo.
@@ -129,6 +129,21 @@ mirando la pantalla y mirando la base, y que las dos digan lo mismo.
       base, no en la pantalla**: una pantalla correcta con un dato distinto
       llegando al servicio es la forma exacta en que FR-012 se rompe sin que
       nadie lo note.
+      **PARCIAL al 2026-08-31.** La mitad del servicio esta comprobada **contra
+      el backend corriendo de verdad**, no solo en pruebas: se creo una sesion a
+      mano —insertando el SHA-256 de un token conocido— y se golpeo `GET /yo` en
+      los cinco casos. Q6: `0.2.0` quedo en la fila con su marca de tiempo. Q7:
+      un pedido **sin** cabecera dejo la version y **no movio la marca**. Q8: la
+      cabecera basura y una de 5000 caracteres dieron **200** y la fila intacta.
+      Y un binario de trabajo (`0.0.0-ef2e896`) quedo anotado distinto, que es
+      FR-006 sobre el servicio real.
+      **FALTA Q5**, la mitad de la pantalla: que la version se vea al final de
+      la lista y al pie del ingreso, y que **el texto coincida** con lo que
+      llego a la base (SC-007). Eso necesita el emulador, y el ingreso pide un
+      codigo por mail que no se puede leer desde una sesion. **Es justo la clase
+      de paso que en `012`, `015` y `016` encontro defectos que compilaban
+      perfecto**, asi que no se da por bueno: queda pendiente y se hace con el
+      emulador a mano, o directamente en Q10 sobre el telefono.
 
 ---
 
@@ -139,20 +154,20 @@ mirando la pantalla y mirando la base, y que las dos digan lo mismo.
 **Prueba independiente**: intentar las tres publicaciones prohibidas de Q9 y que
 ninguna suba nada.
 
-- [ ] T017 [US2] Escribir `scripts/publicar-app.sh` con las comprobaciones
+- [x] T017 [US2] Escribir `scripts/publicar-app.sh` con las comprobaciones
       **antes** de subir nada: árbol de trabajo limpio, y el tag pedido no
       existe ni local ni en el remoto (**FR-005**, **FR-002**). Recién ahí:
       crear el tag, compilar, verificar el APK y publicar.
-- [ ] T018 [US2] El script **lee el APK compilado y compara** su `versionName`
+- [x] T018 [US2] El script **lee el APK compilado y compara** su `versionName`
       contra el tag que se está publicando, y se planta si no coinciden
       (**FR-004**). Es la única comprobación que detecta el modo de falla de
       research D1 —compilar con un tag que el repo local no tiene— y sin ella
       ese error publica en silencio.
-- [ ] T019 [US2] El script **reusa** las dos comprobaciones que ya están
+- [x] T019 [US2] El script **reusa** las dos comprobaciones que ya están
       escritas con su comando exacto en `docs/processes/app-repartidor.md` —que
       el `release` no lleve la excepción de texto plano, y que el APK esté
       firmado— en vez de escribir una versión propia.
-- [ ] T020 [US2] Ejecutar Q9 del quickstart: provocar los tres rechazos a
+- [x] T020 [US2] Ejecutar Q9 del quickstart: provocar los tres rechazos a
       propósito (**SC-005**, **SC-002**). **Si alguno publica, la guarda no
       existe.**
 
@@ -162,18 +177,18 @@ ninguna suba nada.
 
 **Meta**: que el runbook describa el mundo actual y no el de antes.
 
-- [ ] T021 [US3] En `docs/processes/app-repartidor.md`, agregar la publicación
+- [x] T021 [US3] En `docs/processes/app-repartidor.md`, agregar la publicación
       por link: el orden **tag local → compilar → publicar** con el porqué de
       research D1 (**FR-007**), porque es el paso que se puede hacer mal en
       silencio.
-- [ ] T022 [US3] Agregar el mensaje que se le manda a Diego, con lo de
+- [x] T022 [US3] Agregar el mensaje que se le manda a Diego, con lo de
       **Archivos → Descargas** (**FR-007**) — abrirlo desde ahí usa el permiso
       de instalar apps desconocidas que ya tiene dado al gestor de archivos;
       desde el navegador se lo pediría de nuevo.
-- [ ] T023 [US3] Agregar la consulta de `data-model.md` junto al procedimiento
+- [x] T023 [US3] Agregar la consulta de `data-model.md` junto al procedimiento
       de cortar sesiones (**SC-006**), que ya vive en ese documento y ya explica
       cómo llegar a la consola de Postgres de Railway.
-- [ ] T024 [US3] Escribir **la consecuencia de perder la clave de firma**: dónde
+- [x] T024 [US3] Escribir **la consecuencia de perder la clave de firma**: dónde
       vive el archivo, y que sin él la próxima versión no se instala encima y
       Diego pierde la sesión (**FR-008**). Hoy no está en ningún lado del repo.
 
@@ -181,12 +196,12 @@ ninguna suba nada.
 
 ## Fase 6: Cierre
 
-- [ ] T025 Decidir si `SECURITY.md` suma una línea. Guardar la versión en
+- [x] T025 Decidir si `SECURITY.md` suma una línea. Guardar la versión en
       `sesiones` cambia qué se guarda en una tabla que ese documento describe.
       **No es dato personal** —FR-011 lo acota a la versión de la app— pero el
       precedente de `016` fue actualizarlo. `SECURITY.md` es ancla de raíz, así
       que no necesita estar en `covers:`.
-- [ ] T026 Correr el `verify:` del plan entero y mirarlo con dos ojos: que las
+- [x] T026 Correr el `verify:` del plan entero y mirarlo con dos ojos: que las
       dos patas estén verdes **y que el conteo de `SKIP` de Go sea 0** con
       `TEST_DATABASE_URL` puesta. Un verde con saltos no dice nada sobre la
       migración `0007`.
