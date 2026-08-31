@@ -1,0 +1,61 @@
+-- 0007 — que version de la app corre cada telefono, de 017-version-de-la-app.
+--
+-- Desde el 2026-08-31 el APK le llega a Diego por un link y lo instala el, en
+-- su casa. Entre que se publica una version y que la instala pasa un tiempo que
+-- hasta ahora nadie podia medir: cuando el avisa que algo no anda, no habia
+-- forma de saber si eso esta pasando sobre la version que uno cree o sobre una
+-- de hace tres semanas.
+--
+-- La app ahora declara su version en cada pedido, y esto es donde queda.
+--
+-- --------------------------------------------------------------------------
+-- Por que va en `sesiones` y no en `usuarios`
+-- --------------------------------------------------------------------------
+--
+-- Una sesion es **un telefono con una credencial**; un usuario puede tener
+-- varias. En `usuarios` dos sesiones del mismo mail se pisarian la una a la
+-- otra, y la respuesta a "que esta corriendo" dependeria de cual hablo ultimo
+-- sin dejar rastro de que eran dos.
+--
+-- Y no hay tabla nueva: una fila por cada vez que la app reporta creceria con
+-- cada pedido para contestar algo que hoy tiene una sola respuesta. Con un solo
+-- repartidor eso es infraestructura de mas (Principio III).
+--
+-- --------------------------------------------------------------------------
+-- Por que NULLABLE y sin DEFAULT
+-- --------------------------------------------------------------------------
+--
+-- Igual que en `0006`, y por la misma leccion del 2026-08-12: una columna
+-- nullable no le exige nada a las filas que ya estan, y `sesiones` tiene filas
+-- reales — entre ellas la del telefono de Diego, que si esta migracion la
+-- rompiera lo dejaria afuera de la app.
+--
+-- Ademas es lo unico honesto. Una sesion anterior a hoy **nunca declaro una
+-- version**, y no hay valor que inventarle: `NULL` dice "todavia no lo dijo",
+-- mientras que un `''` o un `'desconocida'` serian una afirmacion falsa. Las
+-- sesiones del **sitio web** quedan en NULL para siempre, y tambien es
+-- correcto: el navegador no es la app y no tiene version que declarar.
+--
+-- Sin DEFAULT por lo mismo: haria que una sesion recien creada afirme una
+-- version antes de que la app haya hablado.
+ALTER TABLE sesiones
+    ADD COLUMN version_app      text,
+    ADD COLUMN version_vista_en timestamptz;
+
+-- --------------------------------------------------------------------------
+-- Lo que esta migracion NO hace, y por que
+-- --------------------------------------------------------------------------
+--
+-- **No hay indice.** La consulta que esto habilita —que version tienen las
+-- sesiones vivas— corre sobre una tabla con una fila por ingreso de un
+-- operador. Un indice aca seria estructura para un problema que no existe.
+--
+-- **No hay CHECK de formato.** El validador de `internal/httpx` acota el largo
+-- y descarta lo que no tenga forma de version ANTES de escribir; poner ademas
+-- una restriccion en la base convertiria un dato raro en el fallo de la
+-- consulta que resuelve la sesion — o sea, en Diego sin poder trabajar por un
+-- defecto en el instrumento que existe para diagnosticarlo.
+--
+-- **No hay NOT NULL sobre `version_vista_en` atado a `version_app`.** Se
+-- escriben siempre juntas desde un unico lugar (`Sesiones.Resolver`), y una
+-- restriccion que solo puede violar un bug propio no paga su costo aca.

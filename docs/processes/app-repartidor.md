@@ -1,15 +1,28 @@
 ---
 owner: flash-urbano
 status: living
-last_reviewed: 2026-08-26
+last_reviewed: 2026-08-31
 update_trigger: on-app-release-or-session-policy-change
 ---
 
-# La app de Diego: generar el APK y cortarle la sesión a un teléfono perdido
+# La app de Diego: compilarla, publicarla y cortarle la sesión a un teléfono perdido
 
-Los dos procedimientos operativos de `012-app-repartidor` (FR-011 y FR-016). La
-app vive en [`android/`](../../android), es la **tercera superficie** del repo, y
-no se publica en ninguna tienda: el archivo se instala a mano.
+Los procedimientos operativos de la app. La app vive en
+[`android/`](../../android), es la **tercera superficie** del repo, y no se
+publica en ninguna tienda.
+
+**Desde el 2026-08-31 no se instala a mano.** Hasta `016` el APK se ponía en el
+teléfono de Diego por cable, con el teléfono presente; desde `017` se publica
+por link y lo instala él, en su casa. Las dos vías están acá: la de cable sigue
+sirviendo para probar en el emulador o en un teléfono conectado, y la de link es
+la que se usa para entregarle una versión.
+
+| | Procedimiento |
+|---|---|
+| 1 | Generar el APK e instalarlo por cable (FR-011 de `012`) |
+| 2 | **Publicar una versión y hacérsela llegar** (`017`) |
+| 3 | Saber qué versión tiene puesta (`017`) |
+| 4 | Cortarle la sesión a un teléfono perdido (FR-016 de `012`) |
 
 ---
 
@@ -132,7 +145,133 @@ Diego, medido el 2026-08-26 con `adb shell getprop ro.build.version.release`: un
 
 ---
 
-## 2. Cortarle la sesión a un teléfono perdido (FR-016)
+## 2. Publicar una versión y hacérsela llegar (`017`)
+
+Es la vía normal desde el 2026-08-31. Diego no viene, no hay cable: le llega un
+link y la instala él.
+
+### El comando
+
+```bash
+scripts/publicar-app.sh v0.2.0 "Que cambio en esta version"
+```
+
+El script hace todo: comprueba, crea el tag, compila, verifica el APK, publica,
+y al final imprime el link y el mensaje para mandarle. **Si algo no cierra, se
+planta antes de que nada suba** y borra el tag que había creado.
+
+### Por qué hay un script y no una lista de pasos
+
+Porque **el orden se puede hacer mal en silencio**, y esa es la única forma de
+error que este procedimiento tiene.
+
+El número de versión ya no se escribe a mano: sale del tag, con `git describe`.
+Y `gh release create` **sabe crear el tag, pero lo crea del lado del servidor**
+— el repo local no se entera hasta un `git fetch --tags`. Así que si se compila
+antes de que el tag exista **localmente**, el APK sale con el número de la
+versión *anterior*, se publica igual, y no hay ningún síntoma: Diego instala
+algo que dice ser lo que no es.
+
+Se descubrió así, publicando `v0.1.0` el 2026-08-31 y encontrando `git tag -l`
+vacío después. Por eso el orden es **tag local primero, compilar después,
+publicar último**, y por eso el script compara el `versionName` del APK contra
+el tag antes de subir nada.
+
+### Lo que el script rechaza, y por qué
+
+| Rechaza | Por qué |
+|---|---|
+| Un formato que no sea `vX.Y.Z` | De ahí sale el entero que Android compara (`mayor*10000 + menor*100 + parche`). Ninguna parte puede pasar de 99. |
+| El árbol de trabajo sucio | El APK no correspondería a ningún estado del repositorio: el tag apuntaría a un commit que no es lo que se compiló. |
+| Un tag que ya existe, local o remoto | **Un identificador publicado no se reutiliza, ni siquiera si esa versión se retiró.** Si alguien ya se la bajó, la que la reemplace necesita un número mayor o Android no la instala encima. |
+| Que el APK declare algo distinto del tag | Es el síntoma de haber compilado sin el tag local. |
+| La excepción de texto plano en `release` | La app de Diego aceptaría conexiones sin cifrar contra producción. |
+| Un APK sin firmar | Android no lo instala. Un archivo que parece listo y no lo es. |
+
+### El mensaje que se le manda
+
+```
+Che, actualización de la app. Tocá este link:
+https://github.com/Matt122133/flash-urbano/releases/download/v0.2.0/app-release.apk
+Cuando termine de bajar, andá a Archivos → Descargas y tocá app-release.apk.
+Se instala encima, no desinstales nada.
+```
+
+**Lo de "Archivos → Descargas" no es adorno.** Abierto desde ahí usa el permiso
+de *"instalar aplicaciones desconocidas"* que Diego **ya le dio al gestor de
+archivos** el 2026-08-26. Si lo abre desde la notificación de descarga del
+navegador, Android se lo pide de nuevo, ahora para el navegador — un paso extra
+que en la calle se traduce en un llamado.
+
+No hay que desinstalar nada y **no pierde la sesión**: se instala encima.
+
+### La clave de firma: lo único de todo esto que no tiene arreglo
+
+El APK se firma con la **clave de depuración de la máquina desde la que se
+publica**, a propósito y desde `012` (research D11). En esta máquina vive en:
+
+```
+C:\Users\USUARIO\.android\debug.keystore
+```
+
+Eso era inofensivo mientras la instalación era presencial. **Con actualizaciones
+a distancia deja de serlo**: Android sólo instala una actualización encima si
+viene firmada con la misma clave que la versión instalada.
+
+**Si ese archivo se pierde** —máquina nueva, formateo, disco muerto— la próxima
+versión **no se instala encima**. La única salida es que Diego desinstale y
+reinstale, lo que le **borra la sesión** y lo obliga a pedir un código nuevo. No
+hay recuperación posible: esa clave no se puede volver a generar igual.
+
+Hacerle una copia fuera del repo es lo más barato que se puede hacer hoy contra
+el problema más caro de este documento.
+
+La huella se imprime en cada publicación, y **tiene que ser siempre la misma**:
+
+```
+SHA-256  1dbade77950f9f5fca32ceb52c34e8426cdd924df5fac1a08a4c0e242268482b
+```
+
+---
+
+## 3. Saber qué versión tiene puesta (`017`)
+
+Hay dos vías, y contestan preguntas distintas.
+
+### Preguntándole
+
+La app muestra su versión **al final de la lista de pedidos** —desplazando hasta
+abajo— y al pie de la pantalla de ingreso. Sirve cuando él ya está escribiendo
+por otra cosa.
+
+### Sin preguntarle
+
+Es la única que contesta *"¿ya instaló la última?"* cuando él no está
+disponible. La app declara su versión en cada pedido que hace, y queda anotada
+en la fila de su sesión. Desde la consola de Postgres de Railway (ver
+[`railway-despliegue.md`](railway-despliegue.md)):
+
+```sql
+SELECT u.email, s.version_app, s.version_vista_en
+FROM sesiones s JOIN usuarios u ON u.id = s.usuario_id
+WHERE s.revocada_en IS NULL
+  AND s.expira_en > now()
+  AND s.version_app IS NOT NULL
+ORDER BY s.version_vista_en DESC;
+```
+
+**`version_app` en nulo no es un dato faltante.** Significa que esa sesión nunca
+declaró una versión, y es lo normal en las **sesiones del sitio web**: el
+navegador no es la app y no tiene versión que declarar.
+
+**Un valor con un hash adentro** —`0.2.0+3-gc3eb8fe` o `0.0.0-c3eb8fe`— no es un
+error: es un binario compilado **fuera del procedimiento de publicación**, o sea
+una prueba que terminó en un teléfono. Que se distinga de una versión publicada
+es a propósito.
+
+---
+
+## 4. Cortarle la sesión a un teléfono perdido (FR-016)
 
 **Lo que protege la credencial es el cifrado del sistema mientras el teléfono
 está bloqueado**, no nada que haga la app. Un teléfono desbloqueado en manos de

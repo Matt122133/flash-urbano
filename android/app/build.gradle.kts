@@ -5,6 +5,99 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// ---------------------------------------------------------------------------
+// La version sale del tag de la publicacion, y no de estos renglones.
+//
+// Hasta `017` `versionCode` y `versionName` estaban escritos a mano, y no se
+// movieron desde `012`: atravesaron `015` y `016` diciendo lo mismo. Con el APK
+// llegando por un link en vez de por cable, eso significa que un telefono no
+// puede decir que version corre, que es todo el problema que `017` resuelve.
+//
+// Ahora hay **una sola fuente**: el tag. No queda ningun paso que alguien pueda
+// olvidarse de dar.
+// ---------------------------------------------------------------------------
+
+/**
+ * Corre un comando y devuelve su salida, o `null` si fallo por lo que sea.
+ *
+ * Devolver `null` en vez de reventar es deliberado: aca abajo, **no poder leer
+ * la version nunca puede romper el build**. Un clon recien bajado no tiene
+ * tags, y una maquina puede no tener `git` en el PATH; si cualquiera de esas
+ * dos cosas volteara la compilacion, se romperia el trabajo diario para
+ * resolver un problema que es de publicacion.
+ *
+ * `isIgnoreExitValue` cubre el comando que corre y falla —`git describe` sin
+ * tags sale con 128—; el `try` cubre el que ni siquiera arranca.
+ */
+fun salidaDe(vararg comando: String): String? = try {
+    val ejecucion = providers.exec {
+        commandLine(*comando)
+        isIgnoreExitValue = true
+    }
+    if (ejecucion.result.get().exitValue != 0) {
+        null
+    } else {
+        ejecucion.standardOutput.asText.get().trim().ifEmpty { null }
+    }
+} catch (_: Exception) {
+    null
+}
+
+/**
+ * El numero de version, derivado del tag alcanzable desde HEAD.
+ *
+ * **`git describe` solo ve tags alcanzables desde HEAD** (research D2), asi que
+ * en una rama de trabajo no encuentra ninguno y cae al ultimo caso. Eso no es
+ * una limitacion: es lo que hace que un binario compilado fuera del
+ * procedimiento de publicacion **no pueda hacerse pasar por publicado**
+ * (FR-006), sin que haya que escribir nada para lograrlo.
+ *
+ * Las tres situaciones, que son la tabla de research D3:
+ *
+ * | Situacion                        | nombre              | codigo    |
+ * |----------------------------------|---------------------|-----------|
+ * | HEAD tiene el tag exacto         | `0.2.0`             | `200`     |
+ * | Hay tag, HEAD esta mas adelante  | `0.2.0+3-gc3eb8fe`  | `200`     |
+ * | Sin tag, o sin git               | `0.0.0-c3eb8fe`     | `1`       |
+ */
+fun versionDelTag(): Pair<String, Int> {
+    // `--long` fuerza el formato completo aun sobre el tag exacto, asi que hay
+    // un solo formato que interpretar en vez de dos. `--match v*` deja afuera
+    // cualquier tag que no sea de version.
+    val descripcion = salidaDe("git", "describe", "--tags", "--long", "--match", "v*")
+    val hash = salidaDe("git", "rev-parse", "--short", "HEAD")
+
+    val forma = Regex("""^v(\d+)\.(\d+)\.(\d+)-(\d+)-g([0-9a-f]+)$""")
+    val partes = descripcion?.let { forma.find(it) }
+        ?: return Pair("0.0.0-${hash ?: "desconocido"}", 1)
+
+    val (mayor, menor, parche, distancia, corto) = partes.destructured
+
+    // El limite esta aceptado y escrito en research D3: con `*100` entre
+    // tramos, una parte de tres cifras se comeria a la de al lado y dos
+    // versiones distintas darian el mismo entero. Aca se planta a proposito:
+    // solo puede pasar sobre un tag que alguien creo a mano, y un choque
+    // silencioso de `versionCode` rompe FR-001 sin que nada avise.
+    listOf(mayor, menor, parche).forEach {
+        if (it.toInt() > 99) {
+            throw GradleException(
+                "El tag $descripcion tiene una parte mayor que 99, y la cuenta " +
+                    "de versionCode (mayor*10000 + menor*100 + parche) no lo soporta.",
+            )
+        }
+    }
+
+    val codigo = mayor.toInt() * 10000 + menor.toInt() * 100 + parche.toInt()
+    val nombre = if (distancia == "0") {
+        "$mayor.$menor.$parche"
+    } else {
+        "$mayor.$menor.$parche+$distancia-g$corto"
+    }
+    return Pair(nombre, codigo)
+}
+
+val (nombreDeVersion, codigoDeVersion) = versionDelTag()
+
 android {
     namespace = "uy.flashurbano.repartidor"
     compileSdk = 36
@@ -16,8 +109,9 @@ android {
         // fuera anterior a 8, la app no instala.
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // Derivados del tag, arriba. Ver `versionDelTag()`.
+        versionCode = codigoDeVersion
+        versionName = nombreDeVersion
     }
 
     buildTypes {

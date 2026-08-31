@@ -101,5 +101,11 @@ fun PantallaIngreso(
                 Text(if (estado.codigoPedido) "Entrar" else "Mandame el código")
             }
         }
+
+        // Esta pantalla **se ve una vez en la vida**, asi que por si sola no
+        // alcanzaria para que Diego pueda decir que version tiene. Por eso el
+        // mismo pie va tambien al final de la lista de pedidos, que es lo que
+        // el si mira todos los dias.
+        PieDeVersion()
     }
 }
