@@ -72,6 +72,7 @@ fun PantallaPedidos(
     deshacer: Deshacer?,
     sinRed: Boolean,
     alElegirSeccion: (Seccion) -> Unit,
+    alEntregar: (Pedido) -> Unit,
     alReintentar: () -> Unit,
     alMover: (Pedido, String) -> Unit,
     alDescartarAviso: () -> Unit,
@@ -232,6 +233,7 @@ fun PantallaPedidos(
                                         // de tocarla, en vez de fallar al tocar.
                                         habilitada = !sinRed,
                                         alMover = alMover,
+                                        alEntregar = alEntregar,
                                     )
                                 }
                             }
@@ -303,6 +305,7 @@ private fun AccionesDe(
     yendo: Boolean,
     habilitada: Boolean,
     alMover: (Pedido, String) -> Unit,
+    alEntregar: (Pedido) -> Unit,
 ) {
     when (seccion) {
         Seccion.PENDIENTES -> Acciones(
@@ -314,13 +317,21 @@ private fun AccionesDe(
             alMover = alMover,
         )
 
+        // **La accion de entregar NO mueve el estado: abre la hoja.**
+        //
+        // Es el unico camino hacia `entrega` que existe en la app, y tiene que
+        // seguir siendolo: desde `016` el servicio devuelve 400 si se mueve a
+        // ese estado sin decir quien recibio. Una segunda llamada suelta a
+        // `alMover(pedido, ENTREGA)` no fallaria al compilar — **fallaria en la
+        // calle, con Diego parado en una puerta**.
         Seccion.TOMADOS -> Acciones(
             pedido = pedido,
             yendo = yendo,
             habilitada = habilitada,
-            avanzar = "Entregado" to Estados.ENTREGA,
+            avanzar = null,
             deshacer = "Deshacer" to Estados.CREACION,
             alMover = alMover,
+            avanzarAparte = "Entregado" to { alEntregar(pedido) },
         )
 
         // Un entregado no tiene para donde avanzar; lo unico que puede hacer
@@ -609,6 +620,9 @@ private fun Acciones(
     avanzar: Pair<String, String>?,
     deshacer: Pair<String, String>?,
     alMover: (Pedido, String) -> Unit,
+    // Una accion que **no es un cambio de estado directo**: hoy la unica es
+    // entregar, que abre la hoja de quien recibio en vez de mover.
+    avanzarAparte: Pair<String, () -> Unit>? = null,
 ) {
     // **`yendo` y `habilitada` no son lo mismo, y confundirlos miente.**
     //
@@ -628,11 +642,12 @@ private fun Acciones(
         ) { Text(deshacer.first) }
     }
 
-    if (avanzar == null) return
+    val etiqueta = avanzar?.first ?: avanzarAparte?.first
+    if (etiqueta == null) return
 
     // El verde es de "cerrado", no de marca: distingue entregar de tomar sin
     // tener que leer el boton.
-    val fondo = if (avanzar.second == Estados.ENTREGA) {
+    val fondo = if (avanzarAparte != null) {
         MaterialTheme.colorScheme.tertiary
     } else {
         MaterialTheme.colorScheme.primary
@@ -646,7 +661,9 @@ private fun Acciones(
             // que el servicio conteste no hay nada hecho, y volver a tocar manda
             // una segunda peticion que puede llegar despues de un deshacer y
             // pisarlo.
-            .clickable(enabled = sePuedeTocar) { alMover(pedido, avanzar.second) },
+            .clickable(enabled = sePuedeTocar) {
+                if (avanzar != null) alMover(pedido, avanzar.second) else avanzarAparte?.second?.invoke()
+            },
         color = if (sePuedeTocar) fondo else MaterialTheme.colorScheme.outline,
         contentColor = MaterialTheme.colorScheme.onPrimary,
     ) {
@@ -662,7 +679,7 @@ private fun Acciones(
                 )
             } else {
                 Text(
-                    avanzar.first,
+                    etiqueta,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )

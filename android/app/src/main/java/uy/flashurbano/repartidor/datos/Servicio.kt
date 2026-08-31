@@ -50,7 +50,17 @@ private data class PeticionVerificar(val email: String, val codigo: String)
 private data class RespuestaSesion(val credencial: String)
 
 @Serializable
-private data class PeticionEstado(val estado: String)
+private data class PeticionEstado(val estado: String, val receptor: Receptor? = null)
+
+/**
+ * Quien recibio el paquete, tal como lo manda la app.
+ *
+ * **El documento va vacio si no se dio**, no ausente: el servicio lo trata igual
+ * —lo guarda nulo— y mandar siempre la misma forma evita que la app tenga que
+ * decidir entre dos cuerpos distintos parada en una puerta.
+ */
+@Serializable
+data class Receptor(val nombre: String, val documento: String = "")
 
 @Serializable
 private data class RespuestaPedido(val pedido: Pedido)
@@ -100,16 +110,22 @@ class Servicio(
      * Devuelve **el pedido como quedo en el servicio**, no como la app cree que
      * quedo. Es lo que permite cumplir FR-008 sin adivinar.
      */
+    /**
+     * @param receptor quien recibio el paquete. **Obligatorio al entregar**
+     *   desde `016`: el servicio devuelve 400 sin el. Se ignora en los otros
+     *   estados, asi que el llamador no tiene que saber en que transicion esta.
+     */
     suspend fun cambiarEstado(
         credencial: String,
         id: String,
         estado: String,
+        receptor: Receptor? = null,
     ): Resultado<Pedido> =
         llamar(
             Request.Builder()
                 .url("$baseUrl/admin/pedidos/$id/estado")
                 .header("Authorization", "Bearer $credencial")
-                .patch(json.encodeToString(PeticionEstado(estado)).comoJson()),
+                .patch(json.encodeToString(PeticionEstado(estado, receptor)).comoJson()),
         ) { cuerpo -> json.decodeFromString<RespuestaPedido>(cuerpo).pedido }
 
     /**

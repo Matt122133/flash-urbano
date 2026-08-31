@@ -12,7 +12,9 @@ import uy.flashurbano.repartidor.datos.Motivo
 import uy.flashurbano.repartidor.datos.Resultado
 import uy.flashurbano.repartidor.datos.Seccion
 import uy.flashurbano.repartidor.datos.seccionDe
+import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
+import uy.flashurbano.repartidor.datos.Receptor
 import uy.flashurbano.repartidor.datos.Servicio
 
 /** En que parte de la app estamos. */
@@ -123,6 +125,37 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
         _deshacer.value = null
     }
 
+    /**
+     * El pedido que se esta entregando, mientras la hoja esta abierta.
+     *
+     * **Nulo mientras no se este entregando nada, y esa es toda la maquina de
+     * estados que hace falta**: no hay un booleano aparte que pueda quedar en
+     * desacuerdo con el pedido.
+     */
+    private val _entregando = MutableStateFlow<Pedido?>(null)
+    val entregando: StateFlow<Pedido?> = _entregando.asStateFlow()
+
+    /** Diego toco "Entregado": se abre la hoja. **Todavia no se movio nada.** */
+    fun pedirEntrega(pedido: Pedido) {
+        _entregando.value = pedido
+    }
+
+    /**
+     * Cerro la hoja sin confirmar.
+     *
+     * **El pedido NO cambia de estado** (FR-004). Es lo que hace que la hoja sea
+     * el paso de confirmacion y no un tramite despues del hecho.
+     */
+    fun cancelarEntrega() {
+        _entregando.value = null
+    }
+
+    /** Confirmo quien recibio: recien ahora se mueve. */
+    fun confirmarEntrega(pedido: Pedido, nombre: String, documento: String) {
+        _entregando.value = null
+        mover(pedido, Estados.ENTREGA, Receptor(nombre.trim(), documento.trim()))
+    }
+
     /** Volver el pedido a donde estaba, y sacar el aviso. */
     fun revertir(cual: Deshacer) {
         _deshacer.value = null
@@ -205,7 +238,18 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
      *   deshace un deshacer no se puede deshacer**: encadenarlos dejaria a Diego
      *   rebotando entre dos estados sin saber cual es el bueno.
      */
-    fun mover(pedido: Pedido, destino: String, recordable: Boolean = true) {
+    /**
+     * @param receptor quien recibio, **obligatorio al entregar** desde `016`.
+     *   Mover a `entrega` sin el da 400: por eso el unico camino hacia ese
+     *   estado pasa por `confirmarEntrega()`, y la tarjeta ya no lo ofrece
+     *   directo.
+     */
+    fun mover(
+        pedido: Pedido,
+        destino: String,
+        receptor: Receptor? = null,
+        recordable: Boolean = true,
+    ) {
         if (_moviendo.value.contains(pedido.id)) return
 
         val estadoAnterior = pedido.estado
@@ -222,7 +266,7 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
 
-            when (val r = servicio.cambiarEstado(guardada, pedido.id, destino)) {
+            when (val r = servicio.cambiarEstado(guardada, pedido.id, destino, receptor)) {
                 is Resultado.Ok -> {
                     // Se reemplaza por **lo que devolvio el servicio**, no por
                     // lo que la app pidio. Si el servicio hubiera decidido otra

@@ -87,3 +87,6 @@ val IconoTelefono: ImageVector = trazo(
     "a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7" +
     "A2 2 0 0 1 22 16.92z",
 )
+
+/** El tilde de confirmar. */
+val IconoTilde: ImageVector = trazo("tilde", "M20 6 9 17l-5-5")
