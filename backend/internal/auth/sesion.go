@@ -125,23 +125,45 @@ func (s *Sesiones) Crear(ctx context.Context, usuarioID string) (*Sesion, string
 // la consulta**, no en Go. La diferencia importa: filtrar despues de traer la
 // fila deja abierta la puerta a que alguien agregue un camino que se olvide de
 // mirar `revocada_en`, y ese descuido es FR-018 roto sin que nada falle.
+//
+// **Desde `017` esta consulta ademas escribe**, y por eso es un UPDATE y no un
+// SELECT: anota que version de la app declaro quien presenta la credencial. Va
+// con el **mismo WHERE**, asi que la propiedad de arriba se conserva entera y
+// no hay un segundo viaje a la base — es el mismo que ya se hacia.
+//
+// El costo, dicho de frente: cada pedido autenticado pasa de leer una fila a
+// escribirla. Con un repartidor no se nota, y se revierte volviendo al SELECT y
+// dejando las dos columnas quietas.
 func (s *Sesiones) Resolver(ctx context.Context, token string) (*Sesion, error) {
 	if token == "" {
 		return nil, ErrSesionInvalida
 	}
 
+	// **El COALESCE es lo mas facil de romper de todo `017`, y falla en
+	// silencio.** El sitio web usa esta misma consulta y no manda version: sin
+	// el, cada vez que Diego mirara sus pedidos desde el navegador se borraria
+	// lo que la app habia anotado, y la unica senal seria una columna que a
+	// veces esta vacia sin motivo aparente.
+	//
+	// `NULLIF(..., '')` es lo que hace que "no declarada" y "no mandada" sean
+	// el mismo caso: los dos dejan la fila como estaba.
 	const sql = `
-		SELECT id, usuario_id, creada_en, expira_en, token_hash
-		FROM sesiones
+		UPDATE sesiones
+		SET version_app      = COALESCE(NULLIF($2, ''), version_app),
+		    version_vista_en = CASE
+		                           WHEN NULLIF($2, '') IS NULL THEN version_vista_en
+		                           ELSE now()
+		                       END
 		WHERE token_hash = $1
 		  AND revocada_en IS NULL
-		  AND expira_en > now()`
+		  AND expira_en > now()
+		RETURNING id, usuario_id, creada_en, expira_en, token_hash`
 
 	var ses Sesion
 	var guardado []byte
 	esperado := hashDelToken(token)
 
-	err := s.pool.QueryRow(ctx, sql, esperado).
+	err := s.pool.QueryRow(ctx, sql, esperado, httpx.VersionDeclarada(ctx)).
 		Scan(&ses.ID, &ses.UsuarioID, &ses.CreadaEn, &ses.ExpiraEn, &guardado)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSesionInvalida

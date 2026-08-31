@@ -3,7 +3,10 @@ package auth
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -441,5 +444,148 @@ func TestLaRenovacionNoTocaUnaSesionRevocada(t *testing.T) {
 	}
 	if !enLaBase.Equal(creada.ExpiraEn) {
 		t.Errorf("la revocada movio su vencimiento de %s a %s", creada.ExpiraEn, enLaBase)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 017 — que version de la app declara cada sesion
+// ---------------------------------------------------------------------------
+
+// conVersion arma el contexto como lo deja el middleware de httpx.
+func conVersion(version string) context.Context {
+	peticion := httptest.NewRequest(http.MethodGet, "/admin/pedidos", nil)
+	peticion.Header.Set(httpx.CabeceraVersion, version)
+
+	var ctx context.Context
+	httpx.ConVersion(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		ctx = r.Context()
+	})).ServeHTTP(httptest.NewRecorder(), peticion)
+	return ctx
+}
+
+// versionGuardada lee lo que quedo anotado en la fila de la sesion.
+func versionGuardada(t *testing.T, pool *db.Pool, token string) (string, *time.Time) {
+	t.Helper()
+
+	var version *string
+	var vistaEn *time.Time
+	err := pool.QueryRow(context.Background(),
+		`SELECT version_app, version_vista_en FROM sesiones WHERE token_hash = $1`,
+		hashDelToken(token)).Scan(&version, &vistaEn)
+	if err != nil {
+		t.Fatalf("leyendo la version guardada: %v", err)
+	}
+	if version == nil {
+		return "", vistaEn
+	}
+	return *version, vistaEn
+}
+
+// TestLaVersionDeclaradaQuedaEnLaSesion es SC-006 en una prueba: se puede saber
+// que version corre sin preguntarle nada a Diego.
+func TestLaVersionDeclaradaQuedaEnLaSesion(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	// Recien creada, todavia no declaro nada. NULL es la verdad, no un hueco.
+	if v, vistaEn := versionGuardada(t, pool, token); v != "" || vistaEn != nil {
+		t.Fatalf("una sesion recien creada ya tenia version %q / %v", v, vistaEn)
+	}
+
+	if _, err := ses.Resolver(conVersion("0.2.0"), token); err != nil {
+		t.Fatalf("resolviendo con version: %v", err)
+	}
+
+	v, vistaEn := versionGuardada(t, pool, token)
+	if v != "0.2.0" {
+		t.Errorf("quedo guardada la version %q, queria 0.2.0", v)
+	}
+	if vistaEn == nil {
+		t.Error("quedo la version pero no cuando se la vio; sin eso no se distingue una version vieja de un telefono que dejo de usarse")
+	}
+}
+
+// TestUnPedidoSinCabeceraNoBorraLaVersion es **la guarda del COALESCE**, y la
+// mas facil de romper de todo `017`.
+//
+// El sitio web usa esta misma consulta y no manda version. Sin el COALESCE,
+// cada vez que Diego mirara sus pedidos desde el navegador se borraria lo que
+// la app habia anotado, y la unica senal seria una columna que a veces esta
+// vacia sin motivo aparente.
+func TestUnPedidoSinCabeceraNoBorraLaVersion(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	if _, err := ses.Resolver(conVersion("0.2.0"), token); err != nil {
+		t.Fatalf("resolviendo con version: %v", err)
+	}
+	_, antes := versionGuardada(t, pool, token)
+
+	// Ahora la misma sesion desde el sitio: sin cabecera ninguna.
+	if _, err := ses.Resolver(context.Background(), token); err != nil {
+		t.Fatalf("resolviendo sin version: %v", err)
+	}
+
+	v, despues := versionGuardada(t, pool, token)
+	if v != "0.2.0" {
+		t.Errorf("un pedido sin cabecera dejo la version en %q; tenia que quedar 0.2.0", v)
+	}
+	if antes == nil || despues == nil || !antes.Equal(*despues) {
+		t.Errorf("un pedido sin cabecera movio la marca de tiempo: %v -> %v", antes, despues)
+	}
+}
+
+// TestUnaCabeceraBasuraNoEnsuciaLaSesion cierra el otro extremo: lo que no pasa
+// el validador se trata igual que "no declarada", y no llega crudo a la base.
+func TestUnaCabeceraBasuraNoEnsuciaLaSesion(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	if _, err := ses.Resolver(conVersion("0.2.0"), token); err != nil {
+		t.Fatalf("resolviendo con version: %v", err)
+	}
+
+	for _, basura := range []string{"la ultima", strings.Repeat("x", 5000), "0.2.0'; DROP TABLE sesiones;--"} {
+		if _, err := ses.Resolver(conVersion(basura), token); err != nil {
+			t.Fatalf("resolviendo con la cabecera %.20q: %v", basura, err)
+		}
+		if v, _ := versionGuardada(t, pool, token); v != "0.2.0" {
+			t.Fatalf("la cabecera %.20q dejo la version en %q; tenia que quedar 0.2.0", basura, v)
+		}
+	}
+}
+
+// TestLaVersionNoResucitaUnaSesionRevocada es la comprobacion de que el UPDATE
+// conserva el WHERE del SELECT que reemplazo.
+//
+// Es la propiedad que el comentario de `Resolver` defiende, y la que se podria
+// perder sin que nada mas fallara al pasar de leer a escribir: un UPDATE que se
+// olvidara de `revocada_en` no solo devolveria la sesion cortada, ademas le
+// escribiria encima.
+func TestLaVersionNoResucitaUnaSesionRevocada(t *testing.T) {
+	ses, _, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+	if err := ses.Revocar(context.Background(), token); err != nil {
+		t.Fatalf("revocando: %v", err)
+	}
+
+	if _, err := ses.Resolver(conVersion("0.2.0"), token); !errors.Is(err, ErrSesionInvalida) {
+		t.Errorf("una sesion revocada se resolvio al declarar version: %v", err)
 	}
 }

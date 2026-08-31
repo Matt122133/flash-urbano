@@ -237,6 +237,13 @@ fun PantallaPedidos(
                                     )
                                 }
                             }
+
+                            // **El lugar que cumple FR-003.** Diego llega
+                            // desplazando, sin instrucciones y sin salir de la
+                            // app, y no cuesta un milimetro de pantalla
+                            // permanente: vive dentro de lo que ya se
+                            // desplazaba.
+                            item { PieDeVersion() }
                         }
                     }
                 }
@@ -287,6 +294,13 @@ private fun SeccionVacia(seccion: Seccion) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp),
         )
+
+        // Tambien aca, y no solo al final de la lista. Con las tres secciones
+        // vacias —Diego a las ocho de la mañana, sin nada asignado todavia— no
+        // hay ninguna lista que desplazar, y la version quedaria fuera de
+        // alcance salvo cerrando sesion, que es justo lo que no queremos que
+        // haga. Es el mismo pie: no hay una segunda fuente.
+        PieDeVersion()
     }
 }
 

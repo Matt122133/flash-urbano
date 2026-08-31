@@ -66,6 +66,19 @@ data class Receptor(val nombre: String, val documento: String = "")
 private data class RespuestaPedido(val pedido: Pedido)
 
 /**
+ * La cabecera con la que la app dice que version es.
+ *
+ * Es lo unico que la app declara de si misma, y es a proposito: ni modelo, ni
+ * fabricante, ni version de Android, ni identificador de dispositivo (FR-011).
+ * Para contestar "que version corre el telefono de Diego" el resto sobra, y un
+ * dato que no hace falta no se guarda.
+ *
+ * El contrato completo —que hace el servicio con cada forma que puede llegar—
+ * esta en `specs/017-version-de-la-app/contracts/cabecera-version.md`.
+ */
+const val CABECERA_VERSION = "X-App-Version"
+
+/**
  * Habla con el servicio. **Dos llamadas y el ingreso**, que es por lo que aca no
  * hay Retrofit (research D4).
  */
@@ -140,7 +153,17 @@ class Servicio(
         leer: (String) -> T,
     ): Resultado<T> = withContext(Dispatchers.IO) {
         try {
-            cliente.newCall(peticion.build()).execute().use { respuesta ->
+            // **La version va aca y no en cada llamada**, que es lo que hace
+            // cierto "en todos los pedidos" sin depender de que nadie se
+            // olvide: las cuatro pasan por este embudo. Va tambien en las de
+            // ingreso, donde hoy no sirve de nada — mandarla en unas si y en
+            // otras no es la clase de asimetria que despues nadie recuerda por
+            // que existe.
+            val pedido = peticion
+                .header(CABECERA_VERSION, BuildConfig.VERSION_NAME)
+                .build()
+
+            cliente.newCall(pedido).execute().use { respuesta ->
                 val cuerpo = respuesta.body?.string().orEmpty()
                 when {
                     respuesta.isSuccessful -> Resultado.Ok(leer(cuerpo))

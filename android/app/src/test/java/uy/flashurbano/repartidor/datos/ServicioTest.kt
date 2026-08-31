@@ -8,6 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import uy.flashurbano.repartidor.BuildConfig
 
 /**
  * El cliente contra un servidor de verdad en JVM.
@@ -204,5 +205,75 @@ class ServicioTest {
         val r = servicio.cambiarEstado("cred", "no-existe", "entrega") as Resultado.Fallo
         assertEquals(Motivo.DEL_SERVICIO, r.motivo)
         assertEquals("no hay tal pedido", r.detalle)
+    }
+
+    /**
+     * **La version viaja en las CUATRO llamadas**, no solo en las
+     * autenticadas.
+     *
+     * Mandarla en unas si y en otras no es la clase de asimetria que despues
+     * nadie recuerda por que existe, y que alguien "arregla" en la direccion
+     * equivocada.
+     */
+    @Test
+    fun `la version va en todas las llamadas`() = runTest {
+        repeat(4) { servidor.enqueue(MockResponse().setResponseCode(200).setBody(unaLista)) }
+
+        servicio.pedirCodigo("a@b.com")
+        servicio.verificarCodigo("a@b.com", "123456")
+        servicio.pedidos("cred")
+        servicio.cambiarEstado("cred", "1", "entrega", Receptor("Quien Sea"))
+
+        repeat(4) {
+            val recibido = servidor.takeRequest()
+            assertEquals(
+                "la llamada a ${recibido.path} no declaro la version",
+                BuildConfig.VERSION_NAME,
+                recibido.getHeader(CABECERA_VERSION),
+            )
+        }
+    }
+
+    /**
+     * **El control positivo de FR-011**: que del telefono no viaja nada mas.
+     *
+     * Sin esto, "no mandamos datos del dispositivo" seria una afirmacion que
+     * nada comprobaria — una guarda negativa sin control. El dia que alguien
+     * agregue de buena fe un `X-Device-Model` para depurar algo, **esta prueba
+     * se pone en rojo y obliga a decidirlo a proposito** en vez de que se cuele.
+     *
+     * La lista blanca es corta y deliberada. `Host`, `Connection`,
+     * `Accept-Encoding` y `User-Agent` los pone OkHttp solo y no dicen nada del
+     * telefono; `Content-Type` y `Content-Length` los pone el cuerpo.
+     */
+    @Test
+    fun `no viaja del telefono nada mas que la version`() = runTest {
+        val permitidas = setOf(
+            "authorization",
+            "x-app-version",
+            "host",
+            "connection",
+            "accept-encoding",
+            "user-agent",
+            "content-type",
+            "content-length",
+        )
+
+        repeat(2) { servidor.enqueue(MockResponse().setResponseCode(200).setBody(unaLista)) }
+        servicio.pedidos("cred")
+        servicio.cambiarEstado("cred", "1", "entrega", Receptor("Quien Sea"))
+
+        repeat(2) {
+            val recibido = servidor.takeRequest()
+            val inesperadas = recibido.headers.names()
+                .map { it.lowercase() }
+                .filterNot { it in permitidas }
+
+            assertTrue(
+                "la app mando cabeceras no previstas en ${recibido.path}: $inesperadas. " +
+                    "Si es a proposito, revisa FR-011 antes de agregarla a la lista.",
+                inesperadas.isEmpty(),
+            )
+        }
     }
 }

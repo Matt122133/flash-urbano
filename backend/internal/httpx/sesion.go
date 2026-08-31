@@ -66,11 +66,17 @@ func TokenDeLaCredencial(r *http.Request) string {
 // Los motivos por los que una credencial puede no servir dan **la misma
 // respuesta**. Distinguirlos le diria a quien prueba credenciales cual de sus
 // intentos estuvo cerca.
+//
+// **Va envuelto en ConVersion** desde `017`, y no montado aparte en las rutas.
+// El unico que lee la version declarada es el resolvedor de sesion que se llama
+// aca abajo, asi que ponerlo en el unico camino que lo consume es lo que hace
+// imposible olvidarse de cablearlo: una ruta nueva con `conSesion` lo hereda, y
+// una sin credencial no lo necesita porque nadie la leeria.
 func ConSesion[T any](
 	resolver func(ctx context.Context, token string) (T, error),
 	siguiente http.Handler,
 ) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return ConVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := TokenDeLaCredencial(r)
 		if token == "" {
 			Error(w, http.StatusUnauthorized, MsgNoAutorizado)
@@ -93,7 +99,7 @@ func ConSesion[T any](
 
 		ctx := context.WithValue(r.Context(), claveUsuario, usuario)
 		siguiente.ServeHTTP(w, r.WithContext(ctx))
-	})
+	}))
 }
 
 // UsuarioDe devuelve quien hizo el pedido.
