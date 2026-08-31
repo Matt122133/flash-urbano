@@ -124,7 +124,7 @@ mirando la pantalla y mirando la base, y que las dos digan lo mismo.
       ante una no esperada (**FR-011**). Sin esto, "no viaja nada del teléfono"
       es una afirmación que nada comprobaría el día que alguien agregue una
       cabecera de buena fe: es una guarda negativa sin control positivo.
-- [ ] T016 [US1] Ejecutar el **nivel 2** del quickstart (Q5 a Q8) en el emulador
+- [x] T016 [US1] Ejecutar el **nivel 2** del quickstart (Q5 a Q8) en el emulador
       contra el servicio local (**SC-006**, **SC-007**). **Q6 se mira en la
       base, no en la pantalla**: una pantalla correcta con un dato distinto
       llegando al servicio es la forma exacta en que FR-012 se rompe sin que
@@ -137,13 +137,9 @@ mirando la pantalla y mirando la base, y que las dos digan lo mismo.
       cabecera basura y una de 5000 caracteres dieron **200** y la fila intacta.
       Y un binario de trabajo (`0.0.0-ef2e896`) quedo anotado distinto, que es
       FR-006 sobre el servicio real.
-      **FALTA Q5**, la mitad de la pantalla: que la version se vea al final de
-      la lista y al pie del ingreso, y que **el texto coincida** con lo que
-      llego a la base (SC-007). Eso necesita el emulador, y el ingreso pide un
-      codigo por mail que no se puede leer desde una sesion. **Es justo la clase
-      de paso que en `012`, `015` y `016` encontro defectos que compilaban
-      perfecto**, asi que no se da por bueno: queda pendiente y se hace con el
-      emulador a mano, o directamente en Q10 sobre el telefono.
+      **Q5 CONFIRMADO por Mateo el 2026-08-31**, sobre el telefono real y no en
+      el emulador: instalo `v0.2.0` y la version **se ve al final de todas las
+      listas**. Con eso el nivel 2 queda completo.
 
 ---
 
@@ -205,8 +201,11 @@ ninguna suba nada.
       dos patas estén verdes **y que el conteo de `SKIP` de Go sea 0** con
       `TEST_DATABASE_URL` puesta. Un verde con saltos no dice nada sobre la
       migración `0007`.
-- [ ] T027 **TUYA** Desplegar la migración `0007` a producción y **comprobar que
-      el servicio arranca**. Las migraciones se aplican al arrancar, así que una
+- [x] T027 **TUYA** Desplegar la migración `0007` a producción y **comprobar que
+      el servicio arranca**. **HECHO el 2026-08-31**, y medido: el despliegue
+      vivo es el commit `9f8514d` —el merge del PR #30— con `status: SUCCESS`, y
+      `GET /salud` devuelve `{"estado":"ok","base":"ok"}`. Como las migraciones
+      se aplican al arrancar, un servicio Online prueba que `0007` corrio. Las migraciones se aplican al arrancar, así que una
       que falle deja el servicio abajo. Es el paso que el 2026-08-12 se dio por
       sentado y tumbó producción.
 - [ ] T028 **TUYA** Ejecutar Q10: publicar una versión de verdad, mandarle el
@@ -214,6 +213,19 @@ ninguna suba nada.
       desinstalar, que él **no volvió a ingresar** (**FR-009**, **SC-003**),
       que la pantalla muestra la nueva (**SC-001**) y que la consulta contesta
       sola (**SC-006**).
+      **PARCIAL al 2026-08-31: el mecanismo esta probado de punta a punta en
+      PRODUCCION, pero sobre el telefono de Mateo, no el de Diego.**
+      `v0.2.0` se publico con el script, se instalo, y la consulta contra la
+      base de Railway devolvio `mateo.tambasco12@gmail.com | 0.2.0 |
+      2026-08-31 15:23:37+00` — **SC-006 comprobado sobre el producto real**.
+      Las otras seis sesiones vivas quedaron en NULL, que es lo correcto: son
+      del sitio web, y el navegador no declara version. Tambien se confirmo que
+      la version se ve al final de todas las listas (SC-001).
+      **Falta lo que solo puede pasar en el telefono de Diego**: que la
+      actualizacion entre **encima de la que el tiene**, sin desinstalar y sin
+      que vuelva a ingresar (FR-009, SC-003). Es lo unico que prueba que la
+      firma es la misma contra una instalacion que no salio de esta maquina, y
+      **no se puede dar por bueno desde aca**.
 - [ ] T029 **TUYA** Ejecutar Q11: que alguien publique una versión leyendo
       **sólo** `docs/processes/app-repartidor.md` (**SC-004**). Lo que haya que
       preguntar es un agujero del documento.
