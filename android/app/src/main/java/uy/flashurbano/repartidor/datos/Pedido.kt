@@ -103,3 +103,21 @@ fun seccionDe(estado: String): Seccion = when (estado) {
     Estados.ACEPTACION -> Seccion.TOMADOS
     else -> Seccion.PENDIENTES
 }
+
+/**
+ * Si la app conoce este estado.
+ *
+ * **Es lo que FR-011 necesita, y no lo que FR-011 decia.** El requisito hablaba
+ * de mostrar el estado crudo "cuando no coincide con la seccion", y eso no se
+ * puede dar nunca: la seccion se calcula CON `seccionDe(estado)`, asi que
+ * siempre coinciden por construccion — un estado desconocido cae en PENDIENTES
+ * y queda listado en PENDIENTES.
+ *
+ * Lo que de verdad hay que detectar es que el estado **no sea ninguno de los
+ * tres que la app conoce**, que es el caso que `012` quiso cubrir eligiendo
+ * texto en vez de un enum: el dia que el servicio sume un cuarto estado, ese
+ * pedido tiene que verse raro en vez de disimularse.
+ */
+fun esEstadoConocido(estado: String): Boolean = estado == Estados.CREACION ||
+    estado == Estados.ACEPTACION ||
+    estado == Estados.ENTREGA

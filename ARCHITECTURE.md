@@ -213,6 +213,31 @@ default; components that need interactivity (forms, nav toggle) are marked
   automated net. Its test includes a guard that it never reaches `components/`,
   with a positive control.
 
+- `android/app/src/main/java/uy/flashurbano/repartidor/ui/tema/` — the app's
+  colour scheme, added by `015`. **Before it existed the app rendered in Material
+  3's reference purple**, which is what the client meant by "medio fea". Two
+  things to know before touching it: dynamic colour (Material You) is turned
+  **off on purpose** — it derives the palette from the phone's wallpaper, which
+  is how the brand disappeared in the first place; and **every colour role is
+  declared, including ones nothing uses yet**. That is not tidiness: an
+  undeclared role is not a missing value, it is the reference purple waiting for
+  someone to use the component that reads it. It bit twice during `015`, in
+  `surfaceContainer` (the navigation bar) and `inversePrimary` (the snackbar
+  action), and neither was visible to the automated test.
+
+- `android/app/src/test/.../ui/tema/ContrasteTest.kt` — computes the WCAG
+  contrast ratio of every text/background pair in the theme and fails below
+  4.5:1. It caught two real defects before they reached a screen: white on the
+  brand orange (2.80:1) and the muted grey on the app background (4.42:1 — it
+  passed on white and failed on grey). **Read its stated limit before trusting
+  it**: it tests the palette, not that a screen uses those colours.
+
+- `android/.../pantallas/BarraDestinos.kt` — the bottom navigation added by
+  `015`. Three sibling lists, no `androidx.navigation`: they share one
+  ViewModel and the same loaded data. **"Back" now exits the app from any tab**,
+  which is what a navigation bar does on Android; the `BackHandler` that used to
+  return from Entregados went with the screen.
+
 - `backend/internal/pedidos/` — orders. Two things worth knowing before
   touching it: the order **copies** profile data rather than referencing it, so
   someone moving house does not rewrite where a courier went six months ago;
