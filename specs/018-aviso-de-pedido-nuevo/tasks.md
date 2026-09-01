@@ -476,6 +476,65 @@ pedido de punta a punta.
 - [ ] T037 Quickstart nivel 3 **en el teléfono de Mateo**: Q14a y Q15
       (**SC-001**, **SC-002**, **SC-006**, **SC-009**, **SC-010**). No depende de
       nadie más y se puede correr el mismo día.
+      **Corrida el 2026-09-01 en el teléfono de Mateo** —un **Redmi con HyperOS,
+      Android 16**, con Google Play Services 26.32.34— contra el backend local. Salió
+      **mucho más de lo que esta tarea pedía**, así que queda acá el detalle y T036
+      hereda lo que ya no hace falta repetir en el emulador.
+
+      **Cómo se apuntó el teléfono al backend local**, que el quickstart no decía y
+      ahora sí: `adb reverse tcp:8080 tcp:8080` más
+      `installDebug -PurlDeDebug=http://localhost:8080`. Sin IP de LAN, sin tocar el
+      firewall, y sin dejar la dirección de la red de nadie escrita en el repo.
+
+      Lo que quedó **medido**, no supuesto:
+
+      - **El canal**: `mImportance=4` y `mBypassDnd=false` en `dumpsys notification`.
+        Eso es **FR-006 comprobado**: suena y aparece encima, y respeta el No molestar
+        del sistema.
+      - **El permiso** se pide solo al abrir por primera vez (`GrantPermissionsActivity`
+        encima de la app).
+      - **El servicio está bien declarado**: el log dice
+        `Invoking onNewToken` → `onServiceConnected: ...datos.AvisosService`. Era el
+        modo de falla que no se descubre compilando.
+      - **El token viaja y se guarda**: apareció en el DataStore de la app y, tras la
+        siguiente llamada, en `sesiones.push_token`. La versión también
+        (`0.2.0+7-g3910cad`), o sea que `017` sigue funcionando al lado.
+      - **Q8 / SC-009**: el aviso llegó con la app en segundo plano y el texto es
+        exactamente `Pedido nuevo FU-0007` / `Entrega en Avenida Brasil`. Sin número,
+        sin esquina, sin nombres, sin teléfonos, sin importe.
+      - **SC-006 con control positivo**: repetir el `Idempotency-Key` dio `200` y
+        **cero avisos nuevos**; con una clave distinta dio `201` y **un aviso más**.
+        Sin la segunda mitad, la primera no probaba nada.
+      - **FR-018 + FR-013 + FR-014 de una sola vez**: con **dos** sesiones
+        administradoras vivas y **el token de una muerto**, el teléfono bueno recibió
+        igual, el token muerto **quedó en `NULL`**, y el registro lo escribió con el
+        código: `avisos: el proveedor declaro muerto un token al avisar del pedido
+        FU-0010; se borra`.
+      - **SC-008**: revocada la sesión, el pedido siguiente **no avisó**, y el
+        registro dijo `el pedido FU-0011 no tiene a quien avisarle`. Sale del `WHERE`,
+        sin código escrito para eso.
+      - **La credencial contra Google de verdad**: hay una prueba nueva
+        (`proveedor_real_test.go`) que se saltea sin `FCM_CREDENCIAL_BASE64` y que, con
+        ella, comprueba que Google emite el token de acceso, acepta el proyecto
+        `flash-urbano-283d6` y lee el mensaje — y otra que fija que **ese proyecto es
+        el mismo que declara el `google-services.json` de la app**, que es el error que
+        compila, pasa todo y no entrega un solo aviso.
+
+      **Dos hallazgos operativos, los dos anotados en `app-repartidor.md`**:
+
+      1. **"Forzar detención" apaga los avisos** hasta que alguien abra la app. Se vio
+         de las dos formas: con la app detenida a la fuerza el servicio contestó `201`,
+         no registró ningún fallo y **no llegó nada**; en segundo plano normal llegó en
+         segundos. Deslizarla de recientes **no** la detiene, así que el uso normal
+         está a salvo.
+      2. **La primera registración tardó dos minutos y medio.** En una instalación
+         limpia, "no llegó todavía" y "está mal configurado" se ven idénticos.
+
+      **Lo que NO se pudo correr, y por qué**: HyperOS bloquea la inyección de toques
+      por `adb` —pide "Depuración USB (ajustes de seguridad)", que exige cuenta Mi— así
+      que **Q9** (tocar el aviso y caer en ese pedido) y **Q10** (el renglón con la app
+      abierta, y que la lista no se mueva) necesitan dedo humano. Quedan pendientes y
+      son las dos únicas de este nivel que faltan.
 - [ ] T038 Quickstart nivel 3 **en el teléfono de Diego**: Q14 y Q16 — los dos
       gestos del Samsung y la prueba de varios días sin abrir la app. **Es la
       única que el teléfono de Mateo no puede cerrar**, porque lo que se prueba

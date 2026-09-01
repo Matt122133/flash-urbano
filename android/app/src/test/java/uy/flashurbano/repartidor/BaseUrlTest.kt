@@ -14,6 +14,13 @@ import org.junit.Test
  * es donde de verdad se colaria.
  */
 class BaseUrlTest {
+    /**
+     * **Si esta prueba falla con una URL distinta, no hay nada roto**: el build
+     * se hizo con `-PurlDeDebug=...`, que es como se apunta un telefono fisico
+     * al backend local (nivel 3 del quickstart de `018`). Que se ponga en rojo
+     * es lo correcto — un `verify:` no puede dar verde sobre una compilacion que
+     * apunta a otro lado. Compilar sin la propiedad la devuelve a verde.
+     */
     @Test
     fun `debug apunta al backend local por el alias del emulador`() {
         assertEquals("http://10.0.2.2:8080", BuildConfig.BASE_URL)

@@ -194,6 +194,47 @@ documentación y no un cartel, y por eso la única verificación de verdad es la
 prueba de varios días del quickstart de `018` (Q16): dejar el teléfono sin abrir
 la app y ver si un pedido de la mañana siguiente lo hace sonar.
 
+#### 3. Y una tercera, que muerde y no es obvia: **"Forzar detención" apaga los avisos**
+
+**Medido el 2026-09-01 en un Redmi con HyperOS.** Si la app queda en estado
+*detenida* —lo que produce **"Forzar detención"** desde los ajustes, o el
+administrador de tareas del fabricante— Android **no le entrega nada** hasta que
+alguien la vuelva a abrir. No es un defecto de la app ni del servicio: el envío
+sale bien, el registro no anota ningún error, y el aviso simplemente no aparece.
+
+Se comprobó de las dos formas, en la misma sesión y con el mismo pedido de
+prueba:
+
+- con la app **detenida a la fuerza**: el servicio contestó `201`, no registró
+  ningún fallo, y **no llegó nada**;
+- con la app **en segundo plano normal** —abierta y mandada al inicio, que es lo
+  que hace Diego cien veces por día—: el aviso apareció en segundos.
+
+**Deslizar la app de recientes NO la detiene**, así que el uso normal está a
+salvo. Lo que hay que evitar es el botón de forzar detención, y saber que si
+alguien lo tocó, los avisos vuelven recién cuando se abra la app.
+
+### Cuánto tarda la primera vez (`018`)
+
+**Medido el 2026-09-01: dos minutos y medio** entre instalar la app y que el
+teléfono tuviera su identificador de avisos. En una instalación limpia, Firebase
+tiene que registrar el aparato contra Google antes de que exista a dónde
+mandarle nada, y eso no es instantáneo.
+
+Importa para no diagnosticar mal: **si recién instalaste y el aviso no llega,
+esperá unos minutos y creá otro pedido antes de tocar nada**. El síntoma de "no
+llegó todavía" y el de "está mal configurado" son idénticos en el primer minuto.
+
+Cómo mirar si el teléfono ya tiene su identificador, con el cable puesto:
+
+```bash
+adb shell run-as uy.flashurbano.repartidor \
+  cat files/datastore/credencial.preferences_pb
+```
+
+Si ahí aparece `push_token`, el teléfono ya está listo. El valor viaja al
+servicio en la siguiente llamada que haga la app, no en el momento de obtenerlo.
+
 ---
 
 ## 2. Publicar una versión y hacérsela llegar (`017`)

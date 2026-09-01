@@ -126,7 +126,27 @@ android {
         // garantiza que no pueda colarse en `release`.
         debug {
             // Como el emulador ve el `localhost` de esta maquina.
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080\"")
+            //
+            // **Se puede pisar desde la linea de comandos, y hace falta para
+            // probar en un telefono de verdad** (nivel 3 del quickstart de
+            // `018`): `10.0.2.2` es una direccion que **solo existe dentro del
+            // emulador**, asi que un telefono fisico no llega al backend local
+            // por ningun lado y el quickstart no decia como resolverlo.
+            //
+            // La via con el cable ya puesto, sin IP de LAN y sin tocar el
+            // firewall:
+            //
+            //     adb reverse tcp:8080 tcp:8080
+            //     .\gradlew.bat installDebug -PurlDeDebug=http://localhost:8080
+            //
+            // `adb reverse` hace que el `localhost` DEL TELEFONO salga por la
+            // maquina. Se cae al desconectar el cable y hay que repetirlo; es
+            // el precio de no depender de una IP que cambia sola.
+            //
+            // **El default no cambia**: sin la propiedad, el emulador anda
+            // exactamente igual que antes.
+            val urlDeDebug = (findProperty("urlDeDebug") as String?) ?: "http://10.0.2.2:8080"
+            buildConfigField("String", "BASE_URL", "\"$urlDeDebug\"")
         }
         release {
             buildConfigField(

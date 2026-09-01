@@ -198,7 +198,13 @@ func (c *ClienteFCM) Mandar(ctx context.Context, token string, m Mensaje) error 
 	detalle, _ := io.ReadAll(io.LimitReader(respuesta.Body, 4096))
 
 	if esTokenMuerto(respuesta.StatusCode, detalle) {
-		return fmt.Errorf("%w: el proveedor respondio %d", ErrTokenMuerto, respuesta.StatusCode)
+		// **El detalle va tambien en este error, y no solo en el de abajo.**
+		// Un token muerto termina en una linea de registro que dice que se
+		// borro un destinatario; sin el motivo del proveedor, esa linea no
+		// distingue "la app se desinstalo" de "el token era de otro proyecto",
+		// que se arreglan en lugares completamente distintos.
+		return fmt.Errorf("%w: el proveedor respondio %d: %s",
+			ErrTokenMuerto, respuesta.StatusCode, strings.TrimSpace(string(detalle)))
 	}
 	return fmt.Errorf("el proveedor de avisos respondio %d: %s",
 		respuesta.StatusCode, strings.TrimSpace(string(detalle)))
