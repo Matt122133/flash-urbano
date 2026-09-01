@@ -137,10 +137,21 @@ de la Fase 3 sería código que no se puede probar.
       app con el permiso de avisos negado, que declara versión y no token—, que
       una cabecera basura no ensucie la fila ni devuelva error, y que una sesión
       revocada no acepte un token nuevo.
-- [ ] T010 [P] En `android/app/src/main/java/uy/flashurbano/repartidor/datos/Servicio.kt`,
+- [x] T010 [P] En `android/app/src/main/java/uy/flashurbano/repartidor/datos/Servicio.kt`,
       mandar la cabecera en `llamar()`, al lado de `CABECERA_VERSION`; leer el
       token de FCM al arrancar y cuando el proveedor lo renueve, y guardarlo en
       `datos/Credencial.kt` — **FR-012**, sin ningún otro dato del aparato.
+      **Hecha el 2026-09-01.** El token entra a `Servicio` como **función y no como
+      valor**, y esa es la decisión que importa: el proveedor lo renueva sin avisar,
+      así que un valor congelado al construir el `Servicio` haría que desde la primera
+      renovación se anote una dirección que ya no entrega — y los avisos se apagarían
+      **sin que nada falle**. Hay una prueba que fija exactamente eso.
+      **Sin token no se manda la cabecera**, en vez de mandarla vacía: del lado del
+      servicio dan lo mismo, pero en el cable una cabecera vacía se lee como un dato
+      que se perdió, y esto tiene que leerse como lo que es — todavía no hay token.
+      La guarda de FR-011 de `017` —que del teléfono no viaje nada más— ganó la
+      cabecera nueva en su lista blanca **y se la ejercita con token declarado**, para
+      no dar por buena una entrada que ninguna petición produce.
 - [x] T011 [P] Consulta de destinatarios en `backend/internal/avisos/`: los
       `push_token` de **todas** las sesiones vivas de una dirección
       administradora, filtrando `revocada_en IS NULL AND expira_en > now()`.
@@ -271,24 +282,57 @@ que el teléfono avisa sin que nadie lo toque.
       el caso donde un aviso de más pasaría desapercibido.
       Va con una tercera que el plan no pedía: un pedido **rechazado** tampoco
       avisa. Si no se guardó nada, no hay nada que anunciar.
-- [ ] T020 [P] [US1] En `android/app/src/main/AndroidManifest.xml`,
+- [x] T020 [P] [US1] En `android/app/src/main/AndroidManifest.xml`,
       `POST_NOTIFICATIONS`, pedido en runtime desde `MainActivity.kt`; y **un**
       canal de importancia alta `pedidos-nuevos` — suena, aparece encima y
       **respeta el No molestar del sistema**, que es **FR-006** sin escribir
       ninguna franja horaria.
-- [ ] T021 [US1] Crear
+      **Hecha el 2026-09-01.** El canal se crea **desde los dos lados** —la pantalla
+      y el servicio de avisos—: crearlo dos veces no es un error, y cubre el caso en
+      que un aviso arranque el proceso antes de que alguien haya abierto la app.
+      **Si el nombre del canal no coincide con el que manda el servicio, Android
+      entrega el aviso con la importancia por defecto y nada falla**: no suena, no
+      aparece encima, y el feature se pierde en silencio. Por eso la constante está
+      escrita en un solo lugar de cada lado, las dos apuntando al contrato.
+- [x] T021 [US1] Crear
       `android/app/src/main/java/uy/flashurbano/repartidor/datos/AvisosService.kt`
       (subclase de `FirebaseMessagingService`) y **declararlo en
       `AndroidManifest.xml`**: sin esa declaración no llega nada, y es el
       artefacto que sostiene T022 y T023. Ahí vive también `onNewToken`, que
       alimenta a T010.
-- [ ] T022 [US1] Recepción con la app en segundo plano o cerrada: lo dibuja el
+      **Hecha el 2026-09-01.** `onNewToken` guarda con `runBlocking`, y no es un
+      atajo: Android lo llama en un hilo de fondo suyo y el método tiene que terminar
+      habiendo guardado — volver antes con una corrutina suelta es cómo se pierde un
+      token en un proceso que el sistema mata a los dos segundos.
+      **Se usan dos APIs deprecadas a propósito, y está medido por qué.** El reemplazo
+      (`register()` / `onRegistered()`) **está apagado por defecto**: desensamblando el
+      AAR con `javap -c`, lo primero que hace `register()` es devolver
+      `IllegalStateException("API disabled. Please enable it by adding
+      firebase_messaging_installation_id_enabled=true...")`. Migrar no es cambiar dos
+      llamadas, es optar por otro modelo de registro, y eso pide su propia
+      comprobación en un teléfono. Anotado en el tracker con su disparador.
+- [x] T022 [US1] Recepción con la app en segundo plano o cerrada: lo dibuja el
       sistema, y **tocarlo abre la app en la lista, en ese pedido**, leyendo
       `data.pedido` (**FR-001**, **FR-004**, **SC-003**).
-- [ ] T023 [US1] Recepción con la app **en primer plano**: no se dibuja solo;
+      **Escrita el 2026-09-01, y sin comprobar en un aparato**: eso es Q8 y Q9.
+      Va por el intent que abre la actividad **y también por `onNewIntent`** — sin
+      eso, tocar el aviso con la app ya abierta la trae al frente en la pantalla donde
+      estaba, que es la mitad de FR-004 que se pierde en silencio, porque desde afuera
+      se ve igual: la app se abre.
+      El pedido queda **destacado con un borde**, no con otro fondo: en esa pantalla
+      los colores ya significan estados de un pedido, y esto sólo dice "por acá
+      entraste".
+- [x] T023 [US1] Recepción con la app **en primer plano**: no se dibuja solo;
       aparece el renglón *"1 pedido nuevo — tocá para actualizar"* y **la lista
       no se reordena sola** hasta que Diego lo toque (**FR-016**). Prueba de
       estado en `pantallas/` de que la lista no cambia sin la acción.
+      **Hecha el 2026-09-01.** Lo que llega del aviso es **un contador, no la lista**,
+      y ahí está toda la decisión: `AvisosEnVivo` sube un entero y con él aparece el
+      renglón; la lista se mueve cuando Diego lo toca, y no antes.
+      La propiedad de FR-016 queda entonces **estructural** —lo que se dibuja sale de
+      `EstadoPantalla`, que sólo escribe `cargar()`— y lo que las pruebas de JVM fijan
+      es el contador y su texto, con el singular y el plural, que es lo primero que él
+      va a leer a las siete de la mañana.
 
 ---
 
@@ -297,14 +341,31 @@ que el teléfono avisa sin que nadie lo toque.
 **Test independiente**: negar el permiso y comprobar que la app lo dice, con una
 salida para arreglarlo.
 
-- [ ] T024 [US2] En `android/app/src/main/java/uy/flashurbano/repartidor/pantallas/Principal.kt`,
+- [x] T024 [US2] En `android/app/src/main/java/uy/flashurbano/repartidor/pantallas/Principal.kt`,
       un renglón que aparezca **sólo** cuando el permiso está negado o las
       notificaciones de la app están apagadas, y que lleve a los ajustes del
       sistema (**FR-008**, **SC-005**).
-- [ ] T025 [US2] Que ese renglón **desaparezca** al conceder el permiso, y que en
+      **Hecha el 2026-09-01**, y con **dos textos y no uno**: el permiso negado y
+      las notificaciones apagadas desde el sistema se arreglan en lugares distintos,
+      y mandar a Diego al equivocado lo deja dando vueltas por una pantalla donde no
+      está lo que busca. El renglón lleva a los ajustes **de esta app**, no a la
+      lista general del teléfono.
+- [x] T025 [US2] Que ese renglón **desaparezca** al conceder el permiso, y que en
       estado normal **no ocupe pantalla** — es lo que `015` estuvo sacando.
-- [ ] T026 [P] [US2] Prueba de JVM sobre la decisión de mostrarlo o no, separada
+      **Hecha el 2026-09-01.** Se vuelve a preguntar en cada `ON_RESUME`: sin eso,
+      Diego concede el permiso desde los ajustes, vuelve, y el cartel sigue ahí hasta
+      que cierre y abra — o sea, un cartel sobre algo que ya arregló.
+      En estado normal el bloque **no existe**, y eso es distinto de existir vacío:
+      un renglón en blanco ocupa alto y empuja la lista hacia abajo.
+- [x] T026 [P] [US2] Prueba de JVM sobre la decisión de mostrarlo o no, separada
       del dibujo: los dos estados que la disparan y el que no.
+      **Hecha el 2026-09-01**, y con una cuarta que el plan no pedía: **el orden de
+      las dos preguntas**. Desde Android 13, negar el permiso también deja las
+      notificaciones apagadas, así que los dos booleanos vienen en falso a la vez;
+      preguntar primero por el sistema haría que un permiso negado se reportara como
+      "andá a los ajustes a prenderlas", que es el consejo equivocado. Va con una
+      prueba de que los dos textos **no son iguales**, para que nadie los unifique y
+      deje una distinción que no distingue.
 
 ---
 
@@ -367,15 +428,49 @@ pedido de punta a punta.
 
 ## Fase 6: Pulido y transversales
 
-- [ ] T033 `docs/processes/app-repartidor.md`: los **dos gestos del teléfono**
+- [x] T033 `docs/processes/app-repartidor.md`: los **dos gestos del teléfono**
       que no se arreglan desde el código (**FR-011**, **SC-007**) — conceder el
       permiso de notificaciones, y dejar la app en *Apps que nunca duermen* de
       Samsung. Van dentro del procedimiento de instalación, no como nota al pie.
-- [ ] T034 `docs/tech-debt-tracker.md`: cerrar o reescribir la fila `High` del
+      **Hecha el 2026-09-01 — y el teléfono NO es un Samsung.** Este repo tiene
+      **medido** el 2026-08-26 con `adb shell getprop`, en el mismo documento, que el
+      de Diego es un **Redmi con HyperOS**, y hay una sección entera sobre las trabas
+      de instalación de Xiaomi. `018` dice "Samsung" en cinco lugares —spec, plan,
+      quickstart y el ADR— y eso **no es un detalle de redacción**: en HyperOS son
+      **dos** ajustes separados (*Ahorro de batería → Sin restricciones* e *Inicio
+      automático*), y las instrucciones de Samsung mandan a Diego a una pantalla que
+      su teléfono no tiene. Seguirlas al pie de la letra produce exactamente el
+      síntoma que este feature existe para evitar, y en silencio.
+      El documento quedó escrito para HyperOS, con los equivalentes de Samsung y de
+      Android sin capa al lado. **Cuál de las dos afirmaciones es la buena hay que
+      confirmárselo a Mateo** antes de T038; anotado como fila `High` en el tracker.
+- [x] T034 `docs/tech-debt-tracker.md`: cerrar o reescribir la fila `High` del
       2026-08-14 (**FR-015**). Hoy afirma que la app Android no existe, y existe.
-- [ ] T035 Correr el `verify:` completo con `TEST_DATABASE_URL` puesta, y
+      **Reescrita el 2026-09-01, y NO cerrada.** Lo que estaba vencido —que la app
+      no existe— se corrigió. Lo que la cierra de verdad es ver el aviso llegar a un
+      teléfono, y eso no es observable desde un `verify:`: hasta Q14/Q16 la fila **se
+      queda en `High`**, porque un aviso que se manda y no llega deja el circuito
+      igual de abierto que no mandarlo, con el agravante de que ahora parece
+      resuelto.
+      Se agregaron dos filas más: la del fabricante equivocado (T033) y la de las dos
+      APIs deprecadas de Firebase (T021).
+- [x] T035 Correr el `verify:` completo con `TEST_DATABASE_URL` puesta, y
       **mirar el conteo de `SKIP`**: sin esa variable las pruebas contra Postgres
       se saltean solas y el verde no dice nada de la migración (quickstart Q1).
+      **Corrido el 2026-09-01, con las dos patas y mirando el conteo.**
+
+      - `backend`: `go vet` limpio y **265 pruebas en verde con `TEST_DATABASE_URL`
+        puesta y CERO `SKIP`**. Sin la variable el mismo comando también sale `ok` y
+        no dice nada de la migración ni de la consulta de destinatarios — que es la
+        fila del tracker del 2026-08-22, y por eso el número que importa acá es el
+        cero, no el verde.
+      - `android`: `.\gradlew.bat assembleDebug testDebugUnitTest` en
+        `BUILD SUCCESSFUL`, **62 pruebas de JVM, 0 fallas y 0 warnings**.
+
+      **Y este verde no prueba el feature**, cosa que hay que decir antes de que
+      alguien lo lea como garantía (research D7): compila la app y corre pruebas de
+      JVM. Que el aviso llegue con el teléfono en el bolsillo se mide en T036 a T038
+      y en ningún otro lado.
 - [ ] T036 Quickstart nivel 2 en el emulador `Medium_Phone_API_36.0`
       (`google_apis_playstore`, medido): Q7 a Q13.
 - [ ] T037 Quickstart nivel 3 **en el teléfono de Mateo**: Q14a y Q15

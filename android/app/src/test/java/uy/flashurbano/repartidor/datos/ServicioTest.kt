@@ -5,6 +5,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -247,10 +248,13 @@ class ServicioTest {
      * telefono; `Content-Type` y `Content-Length` los pone el cuerpo.
      */
     @Test
-    fun `no viaja del telefono nada mas que la version`() = runTest {
+    fun `no viaja del telefono nada mas que la version y el token de avisos`() = runTest {
         val permitidas = setOf(
             "authorization",
             "x-app-version",
+            // `018`: a donde entregarle un aviso a este telefono, y nada mas.
+            // Sigue sin viajar modelo, fabricante ni identificador de aparato.
+            "x-app-push-token",
             "host",
             "connection",
             "accept-encoding",
@@ -260,6 +264,10 @@ class ServicioTest {
         )
 
         repeat(2) { servidor.enqueue(MockResponse().setResponseCode(200).setBody(unaLista)) }
+        // **Con token declarado**, que es el caso completo: asi la lista blanca
+        // se ejercita entera en vez de dar por buena una entrada que ninguna
+        // peticion produce.
+        val servicio = conToken("token-de-este-telefono")
         servicio.pedidos("cred")
         servicio.cambiarEstado("cred", "1", "entrega", Receptor("Quien Sea"))
 
@@ -275,5 +283,93 @@ class ServicioTest {
                 inesperadas.isEmpty(),
             )
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // 018 — a donde mandarle los avisos a este telefono
+    // -----------------------------------------------------------------------
+
+    /** Un Servicio que declara el token que se le diga. */
+    private fun conToken(token: String) = Servicio(
+        baseUrl = servidor.url("/").toString().trimEnd('/'),
+        tokenDeAvisos = { token },
+    )
+
+    /**
+     * **El token viaja en las CUATRO llamadas**, por el mismo embudo que la
+     * version y por el mismo motivo: "en todas" no puede depender de que nadie
+     * se olvide de una.
+     */
+    @Test
+    fun `el token de avisos va en todas las llamadas`() = runTest {
+        repeat(4) { servidor.enqueue(MockResponse().setResponseCode(200).setBody(unaLista)) }
+        val servicio = conToken("token-de-este-telefono")
+
+        servicio.pedirCodigo("a@b.com")
+        servicio.verificarCodigo("a@b.com", "123456")
+        servicio.pedidos("cred")
+        servicio.cambiarEstado("cred", "1", "entrega", Receptor("Quien Sea"))
+
+        repeat(4) {
+            val recibido = servidor.takeRequest()
+            assertEquals(
+                "la llamada a ${recibido.path} no declaro el token de avisos",
+                "token-de-este-telefono",
+                recibido.getHeader(CABECERA_PUSH_TOKEN),
+            )
+        }
+    }
+
+    /**
+     * **Sin token no se manda la cabecera, en vez de mandarla vacia.**
+     *
+     * Del lado del servicio los dos casos dan lo mismo —el `COALESCE` deja la
+     * fila como estaba— pero en el cable una cabecera vacia se lee como un dato
+     * que se perdio, y esto tiene que leerse como lo que es: **todavia no hay
+     * token**. Es el estado real de la app antes de que Diego conceda el
+     * permiso de avisos.
+     */
+    @Test
+    fun `sin token la cabecera no viaja`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(200).setBody(unaLista))
+
+        conToken("").pedidos("cred")
+
+        assertNull(
+            "se mando la cabecera de token estando vacia",
+            servidor.takeRequest().getHeader(CABECERA_PUSH_TOKEN),
+        )
+    }
+
+    /**
+     * **El token se lee en CADA llamada, no una vez al construir el Servicio.**
+     *
+     * Es el defecto mas caro de este archivo y el mas facil de introducir: el
+     * proveedor renueva el token sin avisar, y un valor congelado al arrancar
+     * haria que desde esa renovacion el servicio anote una direccion que ya no
+     * entrega. Los avisos se apagarian **sin que nada falle** — ni un error, ni
+     * un renglon en el registro, ni una prueba en rojo salvo esta.
+     */
+    @Test
+    fun `el token se relee en cada llamada`() = runTest {
+        repeat(2) { servidor.enqueue(MockResponse().setResponseCode(200).setBody(unaLista)) }
+
+        var actual = "el-viejo"
+        val servicio = Servicio(
+            baseUrl = servidor.url("/").toString().trimEnd('/'),
+            tokenDeAvisos = { actual },
+        )
+
+        servicio.pedidos("cred")
+        assertEquals("el-viejo", servidor.takeRequest().getHeader(CABECERA_PUSH_TOKEN))
+
+        // El proveedor lo renovo entre una llamada y la otra.
+        actual = "el-nuevo"
+        servicio.pedidos("cred")
+        assertEquals(
+            "el Servicio se quedo con el token de cuando se construyo",
+            "el-nuevo",
+            servidor.takeRequest().getHeader(CABECERA_PUSH_TOKEN),
+        )
     }
 }

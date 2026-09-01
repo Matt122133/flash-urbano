@@ -3,6 +3,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Avisos de pedido nuevo (018). Desde Android 13 esto ademas se pide en
+         tiempo de ejecucion: declararlo aca solo habilita a preguntar. Si Diego
+         dice que no, la app lo dice en pantalla y ofrece los ajustes (FR-008),
+         porque la unica alternativa seria que el aviso no llegue y nadie sepa
+         por que. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Sin `android:usesCleartextTraffic` y sin `networkSecurityConfig`: lo que
          necesita texto plano es SOLO el `debug` contra el backend local, y por
          eso se declara en `src/debug/`. Ver research D5. -->
@@ -21,6 +28,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- **Sin esta declaracion no llega ningun aviso, y nada falla.** El
+             sistema instancia esta clase el solo cuando el proveedor entrega un
+             mensaje; si no la encuentra declarada, no hay a quien entregarselo.
+             Compila perfecto sin esto. -->
+        <service
+            android:name=".datos.AvisosService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- El canal por defecto que usa el sistema si un mensaje llegara sin
+             `channel_id`. El servicio siempre lo manda, asi que esto es la red
+             de abajo: sin ella, un mensaje sin canal cae en uno de importancia
+             baja que no suena. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="pedidos-nuevos" />
     </application>
 
 </manifest>

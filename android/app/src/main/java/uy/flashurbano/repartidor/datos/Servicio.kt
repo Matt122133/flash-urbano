@@ -79,12 +79,43 @@ private data class RespuestaPedido(val pedido: Pedido)
 const val CABECERA_VERSION = "X-App-Version"
 
 /**
+ * La cabecera con la que la app dice a donde mandarle los avisos.
+ *
+ * Va al lado de [CABECERA_VERSION] y por el mismo camino, pero **el dato es
+ * distinto en naturaleza**: la version describe al software, el token
+ * direcciona a un telefono. Sigue sin viajar nada mas del aparato — ni modelo,
+ * ni fabricante, ni identificador de dispositivo (FR-012).
+ *
+ * **Vacia o ausente es valido y significa "no tengo nada nuevo que declarar"**:
+ * el servicio deja la fila como estaba. Ese es el caso de una app a la que le
+ * negaron el permiso de avisos, y tambien el del sitio web, que no manda esta
+ * cabecera nunca.
+ *
+ * El contrato completo esta en
+ * `specs/018-aviso-de-pedido-nuevo/contracts/cabecera-push-token.md`.
+ */
+const val CABECERA_PUSH_TOKEN = "X-App-Push-Token"
+
+/**
  * Habla con el servicio. **Dos llamadas y el ingreso**, que es por lo que aca no
  * hay Retrofit (research D4).
  */
 class Servicio(
     private val baseUrl: String = BuildConfig.BASE_URL,
     private val cliente: OkHttpClient = clientePorDefecto(),
+    /**
+     * De donde sale el token de avisos, leido **en cada llamada**.
+     *
+     * Es una funcion y no un valor porque el token cambia solo: el proveedor lo
+     * renueva sin avisar, y la app lo guarda cuando eso pasa. Un valor pasado
+     * al construir el `Servicio` seria el que habia al arrancar la app, y a
+     * partir de la primera renovacion el servicio estaria anotando una
+     * direccion que ya no entrega.
+     *
+     * Por defecto vacio: las pruebas y cualquier uso sin avisos no tienen que
+     * saber que esto existe.
+     */
+    private val tokenDeAvisos: suspend () -> String = { "" },
 ) {
     /** Pide que le manden un codigo al mail. */
     suspend fun pedirCodigo(email: String): Resultado<Unit> =
@@ -159,8 +190,19 @@ class Servicio(
             // ingreso, donde hoy no sirve de nada — mandarla en unas si y en
             // otras no es la clase de asimetria que despues nadie recuerda por
             // que existe.
+            // **El token va aca por lo mismo que la version**: las cuatro
+            // llamadas pasan por este embudo, asi que "en todas" no depende de
+            // que nadie se olvide.
+            //
+            // Si esta vacio **no se manda la cabecera**, en vez de mandarla en
+            // blanco. Del lado del servicio dan lo mismo —los dos casos dejan
+            // la fila como estaba—, pero una cabecera vacia en el cable se lee
+            // como un dato que se perdio, y esto tiene que leerse como lo que
+            // es: todavia no hay token.
+            val token = tokenDeAvisos()
             val pedido = peticion
                 .header(CABECERA_VERSION, BuildConfig.VERSION_NAME)
+                .apply { if (token.isNotBlank()) header(CABECERA_PUSH_TOKEN, token) }
                 .build()
 
             cliente.newCall(pedido).execute().use { respuesta ->

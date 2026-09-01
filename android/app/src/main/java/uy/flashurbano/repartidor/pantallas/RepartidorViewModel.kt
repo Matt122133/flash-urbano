@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import uy.flashurbano.repartidor.datos.AvisosEnVivo
 import uy.flashurbano.repartidor.datos.Credencial
 import uy.flashurbano.repartidor.datos.Motivo
 import uy.flashurbano.repartidor.datos.Resultado
@@ -16,6 +17,7 @@ import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
 import uy.flashurbano.repartidor.datos.Receptor
 import uy.flashurbano.repartidor.datos.Servicio
+import uy.flashurbano.repartidor.datos.pedirTokenDeAvisos
 
 /** En que parte de la app estamos. */
 sealed interface Destino {
@@ -46,8 +48,15 @@ data class Deshacer(
  */
 class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val servicio = Servicio()
     private val credencial = Credencial(app)
+
+    // **El token se lee en cada llamada, no una vez al construir esto.** El
+    // proveedor lo renueva sin avisar; un valor congelado al arrancar haria que
+    // desde la primera renovacion el servicio anote una direccion que ya no
+    // entrega, y los avisos se apagarian sin que nada falle.
+    private val servicio = Servicio(
+        tokenDeAvisos = { credencial.leerPushToken().orEmpty() },
+    )
 
     private val _destino = MutableStateFlow<Destino>(Destino.Arrancando)
     val destino: StateFlow<Destino> = _destino.asStateFlow()
@@ -120,6 +129,59 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
     private val _sinRed = MutableStateFlow(false)
     val sinRed: StateFlow<Boolean> = _sinRed.asStateFlow()
 
+    /**
+     * Cuantos pedidos entraron mientras Diego miraba la app (018).
+     *
+     * **Es un contador y no la lista, y esa es toda la decision.** Un pedido que
+     * aparece solo justo cuando el esta por tocar *tomar* le mueve la fila
+     * debajo del dedo, y el toque cae en el pedido equivocado. La lista se
+     * mueve cuando el toca el renglon, y no antes (FR-016).
+     */
+    val pedidosNuevos: StateFlow<Int> = AvisosEnVivo.nuevos
+
+    /**
+     * Si los avisos van a llegar a este telefono, y si no, por que no.
+     *
+     * Lo escribe la pantalla —es lo unico que puede preguntarle al sistema— y
+     * lo vuelve a escribir cada vez que Diego vuelve a la app, para que el
+     * renglon desaparezca solo al volver de los ajustes (FR-008).
+     */
+    private val _avisos = MutableStateFlow(LleganLosAvisos.SI)
+    val avisos: StateFlow<LleganLosAvisos> = _avisos.asStateFlow()
+
+    fun mirarSiLleganLosAvisos(permisoConcedido: Boolean, habilitadasEnElSistema: Boolean) {
+        _avisos.value = lleganLosAvisos(permisoConcedido, habilitadasEnElSistema)
+    }
+
+    /**
+     * El codigo del pedido que hay que dejar a la vista.
+     *
+     * Se llena cuando Diego **toca un aviso** (FR-004): abrir la app en la lista
+     * y que el tenga que buscar cual de doce es el que le acaba de sonar seria
+     * dejar el trabajo a mitad de camino.
+     */
+    private val _destacado = MutableStateFlow("")
+    val destacado: StateFlow<String> = _destacado.asStateFlow()
+
+    /**
+     * Diego toco el aviso de un pedido, o el renglon de pedidos nuevos.
+     *
+     * **Es el unico camino por el que la lista se mueve por un aviso.** Recarga,
+     * limpia el contador, y deja la pestana en Pendientes, que es donde nace
+     * todo pedido.
+     */
+    fun abrirDesdeUnAviso(codigo: String = "") {
+        _destacado.value = codigo
+        _seccion.value = Seccion.PENDIENTES
+        AvisosEnVivo.vistos()
+        cargar()
+    }
+
+    /** El destaque dura hasta que Diego hace otra cosa. */
+    fun descartarDestacado() {
+        _destacado.value = ""
+    }
+
     /** El aviso se fue —lo toco, o se lo llevo el tiempo—. */
     fun descartarDeshacer() {
         _deshacer.value = null
@@ -164,6 +226,14 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
+        // **Se pide en cada arranque y no solo la primera vez.** `onNewToken`
+        // avisa cuando el proveedor lo renueva, pero no si eso paso con la app
+        // sin abrir o antes de que existiera esta version: el unico momento en
+        // que se puede recuperar de eso es aca.
+        pedirTokenDeAvisos { token ->
+            viewModelScope.launch { credencial.guardarPushToken(token) }
+        }
+
         viewModelScope.launch {
             if (credencial.leer() == null) {
                 _destino.value = Destino.Ingreso()
@@ -175,6 +245,12 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cargar() {
+        // Lo que se estaba anunciando como nuevo esta por bajarse. Va aca y no
+        // solo en `abrirDesdeUnAviso` porque tocar *Actualizar* tambien trae
+        // esos pedidos, y dejar el renglon prendido diria que hay algo que ya
+        // se esta viendo.
+        AvisosEnVivo.vistos()
+
         viewModelScope.launch {
             _pantalla.value = EstadoPantalla.Cargando
             val guardada = credencial.leer()
