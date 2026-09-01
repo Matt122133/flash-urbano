@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import uy.flashurbano.repartidor.datos.Direccion
 import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
+import uy.flashurbano.repartidor.datos.textoDePedidosNuevos
 import uy.flashurbano.repartidor.datos.esEstadoConocido
 import uy.flashurbano.repartidor.datos.fechaCorta
 import uy.flashurbano.repartidor.datos.Seccion
@@ -71,6 +72,9 @@ fun PantallaPedidos(
     aviso: String,
     deshacer: Deshacer?,
     sinRed: Boolean,
+    pedidosNuevos: Int,
+    avisos: LleganLosAvisos,
+    destacado: String,
     alElegirSeccion: (Seccion) -> Unit,
     alEntregar: (Pedido) -> Unit,
     alReintentar: () -> Unit,
@@ -78,6 +82,8 @@ fun PantallaPedidos(
     alDescartarAviso: () -> Unit,
     alRevertir: (Deshacer) -> Unit,
     alDescartarDeshacer: () -> Unit,
+    alTraerLosNuevos: () -> Unit,
+    alIrALosAjustes: () -> Unit,
 ) {
     // Los numeros de los badges salen de la MISMA lista que ya se cargo, no de
     // una consulta aparte: son `size` sobre lo que la pantalla ya tiene.
@@ -130,6 +136,66 @@ fun PantallaPedidos(
                     onClick = alReintentar,
                     modifier = Modifier.defaultMinSize(minHeight = Toques.ACTUALIZAR),
                 ) { Text("Actualizar") }
+            }
+
+            // **La franja de pedidos nuevos: es lo que hace visible el aviso
+            // que llego con la app abierta** (018, FR-016).
+            //
+            // Que sea un renglon que hay que TOCAR y no una recarga automatica
+            // es la decision entera: un pedido que se acomoda solo justo cuando
+            // Diego esta por tocar *tomar* le mueve la fila debajo del dedo.
+            // Aca la lista se mueve cuando el lo decide.
+            //
+            // Sin pedidos nuevos **este bloque no existe**, y eso es distinto de
+            // existir vacio: un renglon en blanco ocupa alto y empuja la lista
+            // hacia abajo, que es lo que `015` estuvo sacando.
+            val textoNuevos = textoDePedidosNuevos(pedidosNuevos)
+            if (textoNuevos.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = alTraerLosNuevos),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ) {
+                    Text(
+                        textoNuevos,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+            }
+
+            // **La franja de avisos mudos** (FR-008, US2).
+            //
+            // Existe porque la decision de no tener un segundo canal —nada de
+            // mail— solo es aceptable si el silencio se ve. Un aviso que no
+            // llega y una jornada sin pedidos se parecen demasiado.
+            //
+            // Los dos motivos llevan al mismo lugar del sistema pero **dicen
+            // cosas distintas**: ver `textoDeAvisosMudos`.
+            val textoMudo = textoDeAvisosMudos(avisos)
+            if (textoMudo.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = alIrALosAjustes),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text(
+                            textoMudo,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Text(
+                            "Tocá acá para arreglarlo",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
 
             // **La franja de sin conexion: no rompe la pantalla** (FR-016).
@@ -224,7 +290,11 @@ fun PantallaPedidos(
                             ),
                         ) {
                             items(pedidos, key = { it.id }) { pedido ->
-                                TarjetaPedido(pedido) {
+                                // **FR-004**: Diego toco un aviso y viene a ver
+                                // ESE pedido. Abrir la lista y que tenga que
+                                // buscar cual de doce es el que le sono seria
+                                // dejar el trabajo a mitad de camino.
+                                TarjetaPedido(pedido, destacada = pedido.codigo == destacado) {
                                     AccionesDe(
                                         seccion = seccion,
                                         pedido = pedido,
@@ -395,12 +465,24 @@ private fun Centrado(contenido: @Composable ColumnScope.() -> Unit) {
  * direccion parado en una puerta.
  */
 @Composable
-fun TarjetaPedido(pedido: Pedido, debajo: @Composable () -> Unit = {}) {
+fun TarjetaPedido(
+    pedido: Pedido,
+    destacada: Boolean = false,
+    debajo: @Composable () -> Unit = {},
+) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        // **El destaque es el borde y nada mas**: mismo fondo, mismo texto,
+        // misma altura. Un color de fondo distinto se leeria como un estado del
+        // pedido —y los estados de un pedido ya tienen significado en esta
+        // pantalla—, cuando lo unico que dice es "por aca entraste".
+        border = if (destacada) {
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        },
     ) {
         Column(modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp)) {
 

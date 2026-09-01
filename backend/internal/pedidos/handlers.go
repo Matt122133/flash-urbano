@@ -1,11 +1,13 @@
 package pedidos
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/Matt122133/flash-urbano/backend/internal/avisos"
 	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
 	"github.com/Matt122133/flash-urbano/backend/internal/usuarios"
 )
@@ -16,6 +18,24 @@ import (
 // el paquete. En el cuerpo invitaria a guardarla como si fuera un atributo del
 // pedido.
 const CabeceraIdempotencia = "Idempotency-Key"
+
+// plazoDelAviso acota cuanto puede tardar el aviso de un pedido nuevo.
+//
+// **Nadie lo espera**: el cliente ya recibio su respuesta. El plazo no protege
+// una espera humana, evita que una goroutine quede colgada para siempre contra
+// un proveedor que no contesta.
+const plazoDelAviso = 30 * time.Second
+
+// Avisador es lo que hace sonar el telefono cuando entra un pedido.
+//
+// **La interfaz se declara aca, del lado que la consume**, y tiene un solo
+// metodo que no devuelve nada. Eso ultimo es deliberado: si devolviera un
+// error, tarde o temprano alguien lo propagaria a la respuesta del cliente, y
+// FR-009 dice que el cliente no espera por el aviso ni ve ningun error suyo.
+// Sin valor de retorno, ese camino no existe.
+type Avisador interface {
+	Avisar(ctx context.Context, p avisos.PedidoNuevo)
+}
 
 // zonaHorariaUruguay es DONDE ocurre el retiro, y por eso donde se decide si su
 // fecha ya paso.
@@ -39,10 +59,30 @@ type Handlers struct {
 	// a que sean las 23:59. Sin esto, la prueba de zona horaria no se puede
 	// escribir, y es justo la que cubre el bug que nadie ve de dia.
 	ahora func() time.Time
+
+	// avisador hace sonar el telefono de Diego. Nunca es nil: sin credencial se
+	// cablea `avisos.Mudo`, que es un tipo y no un nulo justamente para que
+	// nadie tenga que acordarse de comprobarlo aca.
+	avisador Avisador
+
+	// enSegundoPlano lanza el aviso fuera del camino de la respuesta.
+	//
+	// **Se inyecta porque si no, esto no se puede probar.** Con un `go` pelado,
+	// una prueba que comprueba cuantos avisos salieron compite contra el
+	// planificador y se pone intermitente; en las pruebas se reemplaza por una
+	// que corre en el acto. Lo que NO cambia es el contexto: ese es propio en
+	// los dos casos.
+	enSegundoPlano func(func())
 }
 
-func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool) *Handlers {
-	return &Handlers{repo: repo, esAdmin: esAdmin, ahora: time.Now}
+func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool, avisador Avisador) *Handlers {
+	return &Handlers{
+		repo:           repo,
+		esAdmin:        esAdmin,
+		ahora:          time.Now,
+		avisador:       avisador,
+		enSegundoPlano: func(f func()) { go f() },
+	}
 }
 
 // peticionCrear es el cuerpo de POST /pedidos.
@@ -198,6 +238,38 @@ func (h *Handlers) Crear(w http.ResponseWriter, r *http.Request) {
 		estado = http.StatusCreated
 	}
 	httpx.JSON(w, estado, respuestaCrear{Pedido: pedido})
+
+	// **Solo si el pedido es nuevo de verdad** (FR-003). La idempotencia que ya
+	// existia es la que hace cierto "un aviso, no dos" sin construir nada: un
+	// reintento del navegador reusa la clave, `esNuevo` es false, y no hay
+	// segundo aviso. Va aca abajo y no arriba porque el cliente ya se fue.
+	if esNuevo {
+		h.avisarDelPedido(pedido)
+	}
+}
+
+// avisarDelPedido saca el aviso del camino de la respuesta.
+//
+// **La trampa que este metodo existe para no pisar** (research D3): llevarse
+// `r.Context()` a la goroutine compila perfecto y hace que el aviso **no salga
+// nunca**, porque ese contexto se cancela apenas el handler devuelve. El
+// sintoma no es un error: es silencio, casi siempre, e intermitente en pruebas
+// locales rapidas. Por eso el contexto se arma de cero.
+//
+// **Lo que se le pasa al avisador son dos campos y no el pedido**: el pedido
+// entero trae nombres, telefonos, el numero de puerta y el precio, y ninguno
+// de esos puede terminar en una pantalla bloqueada (FR-005, Principio V). Lo
+// que no cruza esta linea no puede salir en el aviso.
+func (h *Handlers) avisarDelPedido(p *Pedido) {
+	h.enSegundoPlano(func() {
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoDelAviso)
+		defer cancelar()
+
+		h.avisador.Avisar(ctx, avisos.PedidoNuevo{
+			Codigo:       p.Codigo,
+			EntregaCalle: p.Entrega.Calle,
+		})
+	})
 }
 
 // aNuevo valida la peticion y la convierte. Devuelve el motivo del rechazo, o

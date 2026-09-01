@@ -67,16 +67,21 @@ func TokenDeLaCredencial(r *http.Request) string {
 // respuesta**. Distinguirlos le diria a quien prueba credenciales cual de sus
 // intentos estuvo cerca.
 //
-// **Va envuelto en ConVersion** desde `017`, y no montado aparte en las rutas.
-// El unico que lee la version declarada es el resolvedor de sesion que se llama
-// aca abajo, asi que ponerlo en el unico camino que lo consume es lo que hace
-// imposible olvidarse de cablearlo: una ruta nueva con `conSesion` lo hereda, y
-// una sin credencial no lo necesita porque nadie la leeria.
+// **Va envuelto en ConVersion y ConPushToken** —el primero desde `017`, el
+// segundo desde `018`— y no montados aparte en las rutas. Los unicos que leen
+// esas dos cabeceras son el resolvedor de sesion que se llama aca abajo, asi
+// que ponerlas en el unico camino que las consume es lo que hace imposible
+// olvidarse de cablearlas: una ruta nueva con `conSesion` las hereda, y una sin
+// credencial no las necesita porque nadie las leeria.
+//
+// Van **las dos, y son independientes**: ninguna mira lo que la otra dejo. Una
+// app puede declarar version y no token —permiso de avisos negado— y eso es
+// informacion util, no un error.
 func ConSesion[T any](
 	resolver func(ctx context.Context, token string) (T, error),
 	siguiente http.Handler,
 ) http.Handler {
-	return ConVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return ConVersion(ConPushToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := TokenDeLaCredencial(r)
 		if token == "" {
 			Error(w, http.StatusUnauthorized, MsgNoAutorizado)
@@ -99,7 +104,7 @@ func ConSesion[T any](
 
 		ctx := context.WithValue(r.Context(), claveUsuario, usuario)
 		siguiente.ServeHTTP(w, r.WithContext(ctx))
-	}))
+	})))
 }
 
 // UsuarioDe devuelve quien hizo el pedido.

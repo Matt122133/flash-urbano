@@ -20,6 +20,9 @@ func entornoCompleto(t *testing.T) {
 	t.Setenv("PORT", "")
 	t.Setenv("SESION_DURACION", "")
 	t.Setenv("RASTRO_RETENCION", "")
+	// **Vacia a proposito**: el entorno "completo" de este paquete es el que
+	// permite arrancar, y la credencial de avisos no hace falta para eso.
+	t.Setenv("FCM_CREDENCIAL_BASE64", "")
 }
 
 func TestCargarConEntornoCompleto(t *testing.T) {
@@ -207,5 +210,69 @@ func TestDuracionValidaPisaElDefault(t *testing.T) {
 	}
 	if cfg.RastroRetencion != 24*time.Hour {
 		t.Errorf("rastro: quiero 24h, dio %s", cfg.RastroRetencion)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 018 - la credencial de avisos es la unica opcional de verdad
+// ---------------------------------------------------------------------------
+
+// TestSinLaCredencialDeAvisosElServicioArranca es **FR-010**, y existe por una
+// caida de produccion que ya pagamos.
+//
+// Cada variable que este paquete lee es obligatoria y su ausencia frena el
+// arranque, que es lo correcto para todas ellas. **Esta es la excepcion, y la
+// excepcion es el requisito**: avisar de un pedido es accesorio al lado de
+// tomarlo, y un servicio que se niega a levantar por una funcion accesoria
+// convierte un aviso que no suena en un sitio que no anda.
+func TestSinLaCredencialDeAvisosElServicioArranca(t *testing.T) {
+	entornoCompleto(t)
+
+	cfg, err := Cargar()
+	if err != nil {
+		t.Fatalf("sin FCM_CREDENCIAL_BASE64 no cargo: %v", err)
+	}
+	if cfg.FCMCredencialBase64 != "" {
+		t.Errorf("aparecio una credencial de la nada: %q", cfg.FCMCredencialBase64)
+	}
+}
+
+// TestLaCredencialDeAvisosNoAparecePorNingunLadoEnElErrorDeFaltantes cierra el
+// camino indirecto.
+//
+// Que hoy se lea con `os.Getenv` pelado es lo que la mantiene fuera de la lista
+// de faltantes. Si alguna vez alguien la pasa por `obligatoria` "para
+// validarla", esta prueba se pone roja antes de que el cambio llegue a Railway
+// y el servicio deje de levantar.
+func TestLaCredencialDeAvisosNoAparecePorNingunLadoEnElErrorDeFaltantes(t *testing.T) {
+	entornoCompleto(t)
+	t.Setenv("DATABASE_URL", "")
+
+	_, err := Cargar()
+	if err == nil {
+		t.Fatal("faltando DATABASE_URL igual cargo")
+	}
+	if strings.Contains(err.Error(), "FCM_CREDENCIAL_BASE64") {
+		t.Errorf("la credencial de avisos se reporto como faltante: %v", err)
+	}
+}
+
+// TestLaCredencialDeAvisosSeLimpiaPeroNoSeValida.
+//
+// Se recorta el espacio en blanco —pegar desde una terminal deja un salto de
+// linea, y con el la decodificacion falla por un caracter invisible— y **nada
+// mas**: que adentro haya una credencial legible lo decide quien sabe leerla.
+// Validarla aca la volveria obligatoria de hecho, porque una vencida impediria
+// arrancar.
+func TestLaCredencialDeAvisosSeLimpiaPeroNoSeValida(t *testing.T) {
+	entornoCompleto(t)
+	t.Setenv("FCM_CREDENCIAL_BASE64", "  no-soy-una-credencial-de-verdad\n")
+
+	cfg, err := Cargar()
+	if err != nil {
+		t.Fatalf("una credencial con formato invalido impidio cargar: %v", err)
+	}
+	if cfg.FCMCredencialBase64 != "no-soy-una-credencial-de-verdad" {
+		t.Errorf("quedo %q, queria el valor recortado", cfg.FCMCredencialBase64)
 	}
 }

@@ -143,6 +143,98 @@ Si no hay cable, el archivo se le pasa por el medio que sea y el resto es igual.
 Diego, medido el 2026-08-26 con `adb shell getprop ro.build.version.release`: un
 **Redmi con Android 16 (API 36)**, muy por encima del piso.
 
+### Los dos gestos que hay que dar en el teléfono, o los avisos no llegan (`018`)
+
+**Instalar la app no alcanza para que suene.** Desde `018` el servicio le manda
+un aviso al teléfono cuando entra un pedido, y hay **dos cosas que sólo se
+arreglan tocando el teléfono** — ninguna se puede hacer desde el código, y las
+dos fallan en silencio: no hay error, no hay cartel, simplemente no llega nada.
+
+Van acá, dentro de la instalación, y no como nota al pie: son parte de dejar la
+app funcionando, no un ajuste opcional para después.
+
+#### 1. Conceder el permiso de notificaciones
+
+La primera vez que se abre la app, Android pregunta. **Hay que decir que sí.**
+
+Si se dijo que no, la app lo dice en la pantalla principal con un renglón rojo
+que lleva derecho a los ajustes — pero conviene no llegar ahí: **Android sólo
+pregunta una vez por instalación**, y a la segunda negativa ni siquiera muestra
+el cartel.
+
+Para comprobarlo sin adivinar:
+
+```bash
+adb shell dumpsys package uy.flashurbano.repartidor | grep POST_NOTIFICATIONS
+```
+
+#### 2. Sacar la app del ahorro de batería
+
+Éste es el que muerde a los días, no el primer día: el sistema **duerme** las
+apps que no se abren seguido, y una app dormida no recibe avisos aunque el
+permiso esté concedido y el servicio los mande bien.
+
+**Dónde está depende del fabricante, y el de Diego no es el del caso típico.**
+El suyo es un **Redmi con HyperOS**, medido el 2026-08-26, donde son **dos
+ajustes separados** y hay que dar los dos:
+
+- **Ajustes → Aplicaciones → Flash Urbano → Ahorro de batería → Sin
+  restricciones.**
+- **Ajustes → Aplicaciones → Flash Urbano → Inicio automático**, activado. En
+  HyperOS/MIUI esto es aparte del anterior, y sin él el sistema no levanta la
+  app para entregarle un aviso cuando está cerrada.
+
+En un Samsung el equivalente es **Ajustes → Batería → Límites de uso en segundo
+plano → Apps que nunca duermen**, y en un Android sin capa del fabricante,
+**Ajustes → Aplicaciones → Flash Urbano → Batería → Sin restricciones**.
+
+**Lo que no hay es forma de comprobarlo desde la app** (research D6 de `018`): no
+existe una API confiable que diga "el fabricante te durmió". Por eso esto es
+documentación y no un cartel, y por eso la única verificación de verdad es la
+prueba de varios días del quickstart de `018` (Q16): dejar el teléfono sin abrir
+la app y ver si un pedido de la mañana siguiente lo hace sonar.
+
+#### 3. Y una tercera, que muerde y no es obvia: **"Forzar detención" apaga los avisos**
+
+**Medido el 2026-09-01 en un Redmi con HyperOS.** Si la app queda en estado
+*detenida* —lo que produce **"Forzar detención"** desde los ajustes, o el
+administrador de tareas del fabricante— Android **no le entrega nada** hasta que
+alguien la vuelva a abrir. No es un defecto de la app ni del servicio: el envío
+sale bien, el registro no anota ningún error, y el aviso simplemente no aparece.
+
+Se comprobó de las dos formas, en la misma sesión y con el mismo pedido de
+prueba:
+
+- con la app **detenida a la fuerza**: el servicio contestó `201`, no registró
+  ningún fallo, y **no llegó nada**;
+- con la app **en segundo plano normal** —abierta y mandada al inicio, que es lo
+  que hace Diego cien veces por día—: el aviso apareció en segundos.
+
+**Deslizar la app de recientes NO la detiene**, así que el uso normal está a
+salvo. Lo que hay que evitar es el botón de forzar detención, y saber que si
+alguien lo tocó, los avisos vuelven recién cuando se abra la app.
+
+### Cuánto tarda la primera vez (`018`)
+
+**Medido el 2026-09-01: dos minutos y medio** entre instalar la app y que el
+teléfono tuviera su identificador de avisos. En una instalación limpia, Firebase
+tiene que registrar el aparato contra Google antes de que exista a dónde
+mandarle nada, y eso no es instantáneo.
+
+Importa para no diagnosticar mal: **si recién instalaste y el aviso no llega,
+esperá unos minutos y creá otro pedido antes de tocar nada**. El síntoma de "no
+llegó todavía" y el de "está mal configurado" son idénticos en el primer minuto.
+
+Cómo mirar si el teléfono ya tiene su identificador, con el cable puesto:
+
+```bash
+adb shell run-as uy.flashurbano.repartidor \
+  cat files/datastore/credencial.preferences_pb
+```
+
+Si ahí aparece `push_token`, el teléfono ya está listo. El valor viaja al
+servicio en la siguiente llamada que haga la app, no en el momento de obtenerlo.
+
 ---
 
 ## 2. Publicar una versión y hacérsela llegar (`017`)

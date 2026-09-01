@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
+	"github.com/Matt122133/flash-urbano/backend/internal/avisos"
 	"github.com/Matt122133/flash-urbano/backend/internal/usuarios"
 )
 
@@ -119,7 +120,25 @@ func unMomento(iso string) func() time.Time {
 }
 
 // escenario deja todo listo: repositorio, dos usuarios, un admin y el servidor.
+//
+// Las veinticinco pruebas que lo usan no saben nada de avisos y no tienen por
+// que: se quedan con esta firma y el avisador les queda espiado y mudo. Solo
+// las pruebas de `018` piden el espia, con `escenarioConAvisos`.
 func escenario(t *testing.T, reloj func() time.Time) (*httptest.Server, *Repositorio, map[string]string) {
+	t.Helper()
+	srv, repo, ids, _ := escenarioConAvisos(t, reloj)
+	return srv, repo, ids
+}
+
+// escenarioConAvisos es escenario mas el espia de avisos.
+//
+// **El aviso corre en el acto y no en una goroutine**, porque `enSegundoPlano`
+// se reemplaza por una que llama derecho. Sin eso, cualquier prueba que cuente
+// avisos competiria contra el planificador y seria intermitente — que en una
+// suite es peor que no tenerla. Que el aviso salga de verdad **fuera** del
+// camino de la respuesta se prueba aparte, con el `go` de verdad, en
+// TestElClienteNoEsperaPorElAviso.
+func escenarioConAvisos(t *testing.T, reloj func() time.Time) (*httptest.Server, *Repositorio, map[string]string, *avisadorFalso) {
 	t.Helper()
 
 	repo, repoU, _ := repositorioDePrueba(t)
@@ -136,7 +155,9 @@ func escenario(t *testing.T, reloj func() time.Time) (*httptest.Server, *Reposit
 		return u
 	}
 
-	h := NuevosHandlers(repo, laConfigurada("diego@example.com"))
+	espia := &avisadorFalso{}
+	h := NuevosHandlers(repo, laConfigurada("diego@example.com"), espia)
+	h.enSegundoPlano = func(f func()) { f() }
 	if reloj != nil {
 		h.ahora = reloj
 	}
@@ -147,7 +168,7 @@ func escenario(t *testing.T, reloj func() time.Time) (*httptest.Server, *Reposit
 		"tok-diego": traer(diego),
 	})
 
-	return srv, repo, map[string]string{"ana": ana, "beto": beto, "diego": diego}
+	return srv, repo, map[string]string{"ana": ana, "beto": beto, "diego": diego}, espia
 }
 
 func laConfigurada(direcciones ...string) func(string) bool {
@@ -543,12 +564,12 @@ func TestSerAdministradorSaleDelEntorno(t *testing.T) {
 	}
 	credenciales := map[string]*usuarios.Usuario{"tok-ana": u}
 
-	sin := monta(t, NuevosHandlers(repo, laConfigurada("otro@example.com")), credenciales)
+	sin := monta(t, NuevosHandlers(repo, laConfigurada("otro@example.com"), avisos.Mudo{}), credenciales)
 	if estado, _ := pedir(t, sin, "GET", "/admin/pedidos", "tok-ana", "", ""); estado != http.StatusForbidden {
 		t.Errorf("sin estar configurada: quiero 403, dio %d", estado)
 	}
 
-	con := monta(t, NuevosHandlers(repo, laConfigurada("ana@example.com")), credenciales)
+	con := monta(t, NuevosHandlers(repo, laConfigurada("ana@example.com"), avisos.Mudo{}), credenciales)
 	if estado, _ := pedir(t, con, "GET", "/admin/pedidos", "tok-ana", "", ""); estado != http.StatusOK {
 		t.Errorf("con la configuracion cambiada: quiero 200, dio %d", estado)
 	}

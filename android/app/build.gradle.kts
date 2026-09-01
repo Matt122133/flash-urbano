@@ -3,6 +3,10 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Aplicado desde T003, cuando `google-services.json` entro al repo: este
+    // plugin se planta si no lo encuentra. Es lo que convierte ese archivo en
+    // la configuracion que Firebase lee en tiempo de ejecucion.
+    alias(libs.plugins.google.services)
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +126,27 @@ android {
         // garantiza que no pueda colarse en `release`.
         debug {
             // Como el emulador ve el `localhost` de esta maquina.
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080\"")
+            //
+            // **Se puede pisar desde la linea de comandos, y hace falta para
+            // probar en un telefono de verdad** (nivel 3 del quickstart de
+            // `018`): `10.0.2.2` es una direccion que **solo existe dentro del
+            // emulador**, asi que un telefono fisico no llega al backend local
+            // por ningun lado y el quickstart no decia como resolverlo.
+            //
+            // La via con el cable ya puesto, sin IP de LAN y sin tocar el
+            // firewall:
+            //
+            //     adb reverse tcp:8080 tcp:8080
+            //     .\gradlew.bat installDebug -PurlDeDebug=http://localhost:8080
+            //
+            // `adb reverse` hace que el `localhost` DEL TELEFONO salga por la
+            // maquina. Se cae al desconectar el cable y hay que repetirlo; es
+            // el precio de no depender de una IP que cambia sola.
+            //
+            // **El default no cambia**: sin la propiedad, el emulador anda
+            // exactamente igual que antes.
+            val urlDeDebug = (findProperty("urlDeDebug") as String?) ?: "http://10.0.2.2:8080"
+            buildConfigField("String", "BASE_URL", "\"$urlDeDebug\"")
         }
         release {
             buildConfigField(
@@ -167,9 +191,12 @@ android {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+    implementation("com.google.firebase:firebase-analytics")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
 
     implementation(platform(libs.androidx.compose.bom))
@@ -186,6 +213,17 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
+
+    // Los avisos de pedido nuevo (018). El BOM fija la version de cada artefacto,
+    // asi que `firebase-messaging` va sin numero.
+    //
+    // El plugin `google-services` NO esta aplicado todavia: se planta si no
+    // encuentra `google-services.json`, que sale de la consola de Firebase
+    // (T003). Sin el, esto compila y baja los artefactos —que es lo que la Fase 1
+    // existe para comprobar— pero Firebase no se inicializa en tiempo de
+    // ejecucion. Todavia no hay nada que inicializar.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

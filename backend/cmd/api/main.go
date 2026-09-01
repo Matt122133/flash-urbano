@@ -14,7 +14,10 @@
 //   - **Mover un pedido de estado.** El esquema acepta los tres desde hoy, pero
 //     no hay endpoint que escriba mas que 'creacion': eso lo hace la app
 //     Android, y construir el camino sin quien lo use deja codigo sin ejercitar.
-//   - **Avisarle a Diego.** La notificacion de pedido nuevo vive en la app.
+// Desde 018 SI le avisa a Diego cuando entra un pedido, por push y al telefono.
+// El aviso sale **fuera del camino de la respuesta** y **solo si el pedido es
+// nuevo de verdad**; si falta la credencial, el servicio arranca igual y se
+// queda sin avisos (FR-010).
 package main
 
 import (
@@ -28,6 +31,7 @@ import (
 	"time"
 
 	"github.com/Matt122133/flash-urbano/backend/internal/auth"
+	"github.com/Matt122133/flash-urbano/backend/internal/avisos"
 	"github.com/Matt122133/flash-urbano/backend/internal/config"
 	"github.com/Matt122133/flash-urbano/backend/internal/correo"
 	"github.com/Matt122133/flash-urbano/backend/internal/db"
@@ -90,6 +94,10 @@ func correr() error {
 	// eso es lo unico que las pruebas reemplazan por el doble de correo.Falso.
 	enviador := correo.NuevoResend(cfg.CorreoAPIKey, cfg.CorreoRemitente)
 
+	// Quien hace sonar el telefono de Diego (018). Nunca es nil: sin credencial
+	// —o con una que no sirve— devuelve un avisador mudo y el servicio arranca.
+	avisador := construirAvisador(ctx, cfg, pool)
+
 	// Las purgas necesitan quien las dispare. Una funcion de limpieza que no
 	// llama nadie deja crecer la tabla para siempre, y es un fallo que no
 	// avisa.
@@ -124,7 +132,7 @@ func correr() error {
 			auth:     auth.NuevosHandlers(verificadorGoogle, repoUsuarios, sesiones, registro),
 			codigo:   auth.NuevosHandlersCodigo(codigos, limites, enviador, repoUsuarios, sesiones, registro),
 			usuarios: usuarios.NuevosHandlers(repoUsuarios, cfg.EsAdmin),
-			pedidos:  pedidos.NuevosHandlers(repoPedidos, cfg.EsAdmin),
+			pedidos:  pedidos.NuevosHandlers(repoPedidos, cfg.EsAdmin, avisador),
 			resolver: sesiones.ResolverUsuario(repoUsuarios),
 		})),
 
@@ -255,4 +263,41 @@ func salud(pool *db.Pool) http.HandlerFunc {
 
 		httpx.JSON(w, http.StatusOK, respuesta{Estado: "ok", Base: "ok"})
 	}
+}
+
+// construirAvisador arma quien manda los avisos, o uno que no manda ninguno.
+//
+// **Es la unica dependencia del servicio que puede faltar sin impedir el
+// arranque**, y esa asimetria es el requisito, no una comodidad (FR-010). El
+// resto de la configuracion se valida en `config.Cargar` y si falta, el proceso
+// termina; esto se degrada.
+//
+// **Los dos caminos de fallo llevan al mismo lugar, y el segundo es el que
+// importa**: que la variable no este es lo obvio, pero una credencial vencida,
+// pegada a medias o de otro proyecto tambien tiene que dejar al servicio
+// levantar. Si esto devolviera un error y `arrancar` lo propagara, una
+// credencial rota seria un servicio caido — o sea la funcion accesoria
+// tumbando la principal, que es exactamente la caida de produccion que ya
+// pagamos una vez.
+//
+// En los dos casos queda **anotado en el registro**, porque el sintoma de un
+// avisador mudo es que no pasa nada, y eso no se distingue de "todavia no entro
+// ningun pedido" sin mirar aca.
+func construirAvisador(ctx context.Context, cfg *config.Config, pool *db.Pool) pedidos.Avisador {
+	if cfg.FCMCredencialBase64 == "" {
+		log.Print("avisos: sin FCM_CREDENCIAL_BASE64, el servicio arranca SIN avisos de pedido nuevo")
+		return avisos.Mudo{}
+	}
+
+	cliente, err := avisos.NuevoClienteFCM(ctx, cfg.FCMCredencialBase64)
+	if err != nil {
+		log.Printf("avisos: la credencial no sirve, el servicio arranca SIN avisos de pedido nuevo: %v", err)
+		return avisos.Mudo{}
+	}
+
+	// **Las direcciones administradoras son las mismas que gobiernan el panel**,
+	// y salen del mismo lugar. Que el aviso y el permiso de ver los pedidos se
+	// resuelvan con la misma lista es lo que impide que algun dia le llegue un
+	// aviso a alguien que no puede abrir el pedido que le anuncian.
+	return avisos.NuevoAvisador(avisos.NuevosDestinatarios(pool, cfg.AdminEmails), cliente)
 }
