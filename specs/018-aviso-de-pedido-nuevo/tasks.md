@@ -35,16 +35,27 @@ con un `grep` y no sólo leyendo.
 
 ## Fase 1: Preparación — bajar y compilar antes de escribir lógica
 
-- [ ] T001 En `android/gradle/libs.versions.toml` y `android/app/build.gradle.kts`,
+- [x] T001 En `android/gradle/libs.versions.toml` y `android/app/build.gradle.kts`,
       agregar el plugin `google-services` y la dependencia de
       `firebase-messaging` (BOM de Firebase), **sin escribir ninguna lógica**.
       Correr `.\gradlew.bat assembleDebug` y confirmar que resuelve y compila.
       Es la primera dependencia de Google de esta app.
-      **A medias el 2026-08-31**: la dependencia entró (BOM `34.18.0`, versiones
-      preguntadas a `dl.google.com` y no adivinadas), **resolvió, bajó y compiló
-      en verde** — que es el riesgo que esta tarea existía para medir. El plugin
-      quedó **declarado y sin aplicar**: se planta si no encuentra
-      `google-services.json`, así que se aplica junto con T003.
+      **Cerrada el 2026-09-01**, en dos mitades. La del 2026-08-31: la
+      dependencia entró (BOM `34.18.0`, versiones preguntadas a `dl.google.com`
+      y no adivinadas), **resolvió, bajó y compiló en verde** — que es el riesgo
+      que esta tarea existía para medir. La de hoy: con `google-services.json`
+      ya en el árbol (T003), **el plugin se aplica** y
+      `assembleDebug testDebugUnitTest` sale `BUILD SUCCESSFUL`.
+
+      **Una trampa que dejó el asistente de Firebase de Android Studio**, y que
+      vale anotar porque se va a repetir: agregó `id("com.google.gms.google-
+      services") version "4.5.0"` a mano en los dos `build.gradle.kts` y, en el
+      del módulo, además un `id("com.android.application")` que **duplicaba** el
+      `alias(libs.plugins.android.application)` que ya estaba. Corregido a la
+      forma del repo: `alias(libs.plugins.google.services) apply false` en la
+      raíz y aplicado por alias en `app/`, con la versión donde vive, que es el
+      catálogo. Un número de versión pegado en dos archivos es exactamente lo
+      que el catálogo existe para evitar.
 - [x] T002 [P] En `backend/go.mod`, agregar `golang.org/x/oauth2` (hoy indirecta)
       y `cloud.google.com/go/compute/metadata` con `go mod tidy`, y confirmar con
       `go list -m all` que **no entra nada más** — medido: la vía elegida agrega
@@ -53,14 +64,24 @@ con un `grep` y no sólo leyendo.
       (`cloud.google.com/go/compute/metadata v0.3.0`), porque `x/oauth2` ya
       estaba. Los dos quedan `// indirect` hasta que T014 los importe, que es lo
       correcto: todavía no hay código que los use. `go vet` y `go test` en verde.
-- [ ] T003 Crear el proyecto en la consola de Firebase con el `applicationId` que
+- [x] T003 Crear el proyecto en la consola de Firebase con el `applicationId` que
       ya tiene la app (`uy.flashurbano.repartidor`), bajar `google-services.json`
       a `android/app/`, **y versionarlo** (viaja dentro del APK, que ya es
       público; research D8).
-- [ ] T004 Generar la credencial de **service account** y dejarla **fuera del
+      **Hecho el 2026-09-01**: proyecto `flash-urbano-283d6`, con el paquete
+      `uy.flashurbano.repartidor` — comprobado leyendo el archivo, no asumido.
+      El plugin lo encuentra y el build pasa en verde (T001).
+- [x] T004 Generar la credencial de **service account** y dejarla **fuera del
       repo**: variable de entorno local y en Railway, junto a `CORREO_API_KEY`.
       Confirmar con `git status` que no aparece ningún archivo de credencial sin
       ignorar (research D8).
+      **Hecha el 2026-09-01** del lado de Mateo: la credencial está en su
+      máquina y **no** en el repo. La variable se llama **`FCM_CREDENCIAL_BASE64`**
+      y lleva el JSON en base64, no crudo — `backend/dev.sh` carga el `.env` con
+      `. ./.env`, o sea que lo **interpreta el shell**, y un JSON de service
+      account trae llaves, comillas, saltos de línea y `$` adentro de la clave
+      privada. El sufijo del nombre está para que nadie pegue el JSON pelado.
+      **En Railway todavía no**: va cuando se despliegue.
 - [x] T005 ADR en `docs/decisions/push-as-the-only-alert.md` + su línea en
       `docs/README.md`. **Ya escrito** en la sesión del 2026-08-31, antes de
       ejecutar, como exige la fase Decide.
@@ -74,34 +95,80 @@ con un `grep` y no sólo leyendo.
 **Bloquea todo lo demás.** Sin token guardado no hay a quién avisarle, y todo lo
 de la Fase 3 sería código que no se puede probar.
 
-- [ ] T006 Migración `backend/migrations/0008_aviso_de_pedido_nuevo.sql`:
+- [x] T006 Migración `backend/migrations/0008_aviso_de_pedido_nuevo.sql`:
       `ALTER TABLE sesiones ADD COLUMN push_token text`, nullable y sin
       `DEFAULT`, con el comentario que explique por qué va en `sesiones` y no en
       una tabla de dispositivos (data-model).
-- [ ] T007 [P] En `backend/internal/httpx/`, la cabecera `X-App-Push-Token`:
+      **Hecha el 2026-09-01**, y **corrida contra un Postgres de verdad**: las
+      226 pruebas del backend pasan con `TEST_DATABASE_URL` puesta y **cero
+      `SKIP`**, así que este verde sí dice algo de la migración.
+- [x] T007 [P] En `backend/internal/httpx/`, la cabecera `X-App-Push-Token`:
       constante, validación de largo (≤512) y forma, y el descarte **silencioso**
       de lo mal formado — un token raro no puede devolver 400 ni dejar a Diego
       sin trabajar (contrato `cabecera-push-token.md`).
-- [ ] T008 En `backend/internal/auth/sesion.go`, sumar `push_token` al
+      **Hecha el 2026-09-01** en `internal/httpx/push.go`, con
+      `ConPushToken` encadenado dentro de `ConSesion` al lado de `ConVersion`
+      —o sea en el único camino que lo consume, que es lo que hace imposible
+      olvidarse de cablearlo.
+      **La forma se valida laxa a propósito**, y el archivo explica por qué: los
+      dos errores no cuestan lo mismo. Un validador estricto de más rechaza un
+      token bueno el día que el proveedor cambie el formato, y eso apaga los
+      avisos **en silencio**; uno laxo de más deja entrar basura a una columna
+      que sólo se usa como dirección opaca, que el proveedor rechaza y FR-013
+      limpia. El segundo error se arregla solo; el primero no se descubre.
+- [x] T008 En `backend/internal/auth/sesion.go`, sumar `push_token` al
       `UPDATE ... RETURNING` de `Resolver` **con `COALESCE(NULLIF($n, ''),
       push_token)`**, igual que la versión (**FR-012**, research D1).
-- [ ] T009 Prueba en `backend/internal/auth/` de que **una llamada sin la
+      **Hecha el 2026-09-01**: una cabecera más y un `SET` más, sin endpoint
+      nuevo y sin un segundo viaje a la base.
+- [x] T009 Prueba en `backend/internal/auth/` de que **una llamada sin la
       cabecera no borra el token guardado** — el caso del sitio web. **Con
       control positivo**: sacar el `COALESCE` a propósito y ver la prueba en
       rojo antes de dejarla (quickstart Q2). Es el defecto más barato de
       introducir y el más caro de diagnosticar.
+      **Hecha y comprobada en rojo el 2026-09-01.** Con el `COALESCE` sacado a
+      propósito del `UPDATE`, **tres** pruebas se ponen rojas
+      (`TestUnaLlamadaSinCabeceraNoBorraElPushToken`,
+      `TestLaVersionYElPushTokenSonIndependientes` y
+      `TestUnPushTokenBasuraNoEnsuciaLaSesion`), y vuelven a verde al reponerlo.
+      Sin ese paso la guarda no valía nada.
+      Van además tres pruebas que el plan no pedía y que cubren el resto del
+      contrato: que la versión y el token **no se pisen** —el caso real de una
+      app con el permiso de avisos negado, que declara versión y no token—, que
+      una cabecera basura no ensucie la fila ni devuelva error, y que una sesión
+      revocada no acepte un token nuevo.
 - [ ] T010 [P] En `android/app/src/main/java/uy/flashurbano/repartidor/datos/Servicio.kt`,
       mandar la cabecera en `llamar()`, al lado de `CABECERA_VERSION`; leer el
       token de FCM al arrancar y cuando el proveedor lo renueve, y guardarlo en
       `datos/Credencial.kt` — **FR-012**, sin ningún otro dato del aparato.
-- [ ] T011 [P] Consulta de destinatarios en `backend/internal/avisos/`: los
+- [x] T011 [P] Consulta de destinatarios en `backend/internal/avisos/`: los
       `push_token` de **todas** las sesiones vivas de una dirección
       administradora, filtrando `revocada_en IS NULL AND expira_en > now()`.
       **Devuelve un conjunto, no una fila** (**FR-018**): hay dos teléfonos.
       Las direcciones salen de `config.EsAdmin`, no de una columna.
-- [ ] T012 Prueba de que **revocar la sesión saca al teléfono del conjunto**
+      **Hecha el 2026-09-01** en `internal/avisos/destinatarios.go`. Recibe la
+      lista de direcciones ya normalizada en vez del `*config.Config` entero:
+      este paquete no tiene por qué saber leer variables de entorno.
+      Trae además `Olvidar`, que es la mitad de base de **T031** (borra el token
+      que el proveedor declaró muerto **sin tocar la sesión**: que un token se
+      muera no dice nada sobre si la credencial sirve). Lo que le falta a T031 es
+      el otro extremo — reconocer esa respuesta del proveedor, que es T014.
+- [x] T012 Prueba de que **revocar la sesión saca al teléfono del conjunto**
       (**FR-007**, **SC-008**). Sale gratis del filtro de T011; la prueba fija
       que siga siendo cierto.
+      **Hecha el 2026-09-01**, con cinco pruebas más alrededor. Dos merecen
+      nombrarse: que **dos** teléfonos administradores devuelvan **dos** tokens
+      —FR-018 medido, no asumido: una implementación con `QueryRow` en vez de
+      `Query` pasaría cualquier prueba escrita con un teléfono solo—, y que
+      **un cliente no reciba avisos**. Esta última es la guarda de privacidad de
+      la consulta: cualquier cliente identificado tiene sesión en la misma tabla,
+      y lo único que lo separa de Diego es el `JOIN` con la lista de direcciones
+      administradoras. Hoy ningún cliente puede tener token porque el sitio no
+      manda la cabecera; la prueba existe para que la separación viva en el
+      `WHERE` y no en ese hecho accidental.
+      Las pruebas hacen declarar el token **por la cabecera**, pasando por
+      `Resolver` y por el middleware, y no escribiendo la columna a mano: así
+      cubren el camino real y no una versión idealizada de él.
 
 ---
 
@@ -110,35 +177,100 @@ de la Fase 3 sería código que no se puede probar.
 **Test independiente**: con la app cerrada, crear un pedido desde el sitio y ver
 que el teléfono avisa sin que nadie lo toque.
 
-- [ ] T013 [P] [US1] En `backend/internal/avisos/`, el **armado del mensaje**,
+- [x] T013 [P] [US1] En `backend/internal/avisos/`, el **armado del mensaje**,
       puro y sin red: título `Pedido nuevo <código>` y cuerpo `Entrega en <calle
       de entrega>`, sin número, sin esquina, sin nombres, sin teléfonos y **sin
       ningún importe** (**FR-005**, Principio V). Prueba con control positivo:
       un `entrega_calle` con número tiene que hacerla fallar (quickstart Q3).
-- [ ] T014 [US1] En `backend/internal/avisos/`, el **envío**: token de acceso con
+      **Hecha el 2026-09-01**, y con **el control positivo cambiado**, porque el
+      que pedía el quickstart era incorrecto y vale explicar por qué.
+
+      El armador recibe `PedidoNuevo{Codigo, EntregaCalle}` y **no el pedido
+      entero**: así FR-005 no depende de que quien escriba el mensaje se
+      acuerde de qué no incluir — el nombre, el teléfono, el número de puerta y
+      el precio **no cruzan la firma**, y el compilador lo sostiene. El control
+      positivo es entonces una recompilación: se le agregó `EntregaNumero` a la
+      estructura y se lo concatenó al cuerpo, y dos pruebas se pusieron rojas.
+
+      **Lo que el quickstart pedía —fallar ante una calle que contiene un
+      número— habría sido un defecto**: `18 de Julio`, `8 de Octubre` y
+      `26 de Marzo` son calles principales de Montevideo y su nombre **es** un
+      número. Hay una prueba que fija que no se las mutile. FR-005 se cumple por
+      **qué campos se leen**, no censurando el texto de uno.
+- [x] T014 [US1] En `backend/internal/avisos/`, el **envío**: token de acceso con
       `x/oauth2/google` y `POST` a la API HTTP v1 de FCM. Mensaje híbrido
       (`notification` + `data`), `priority: HIGH`, `ttl: 86400s` y
       `channel_id: pedidos-nuevos` (**FR-001**, **FR-002**, **FR-017**, contrato
       `mensaje-de-aviso.md`).
-- [ ] T015 [US1] El envío **recorre el conjunto** de destinatarios y manda un
+      **Hecha el 2026-09-01** en `internal/avisos/fcm.go`, probada contra un
+      servidor de mentira. **Ningún módulo nuevo**: `go mod tidy` sólo movió
+      `x/oauth2` de indirecta a directa — research D2 predijo +2 y el costo real
+      fue **0**. El identificador del proyecto sale de la propia credencial y no
+      de una variable aparte: son el mismo dato, y en dos lugares algún día no
+      coinciden.
+
+      **La decisión que más se pensó no está en el plan**: qué respuestas del
+      proveedor borran el token. `INVALID_ARGUMENT` es también lo que contesta
+      ante un **mensaje** mal armado, o sea ante un defecto nuestro, así que
+      tratarlo como token muerto haría que **un despliegue con el JSON torcido
+      borrara los tokens de los dos teléfonos en el primer pedido**, dejando a
+      Diego mudo hasta reinstalar la app. Sólo cuenta como muerto si el
+      proveedor **nombra al token** como el campo en falta. La asimetría está
+      probada caso por caso.
+- [x] T015 [US1] El envío **recorre el conjunto** de destinatarios y manda un
       mensaje por token. Un destinatario que falla **no corta el recorrido**
       (**FR-018**), y el resultado de cada uno se evalúa aparte.
-- [ ] T016 [US1] Prueba de T015: con **dos** sesiones administradoras vivas se
+      **Hecha el 2026-09-01** en `internal/avisos/avisador.go`. `Avisar` **no
+      devuelve error a propósito**: si lo devolviera, tarde o temprano alguien
+      lo propagaría a la respuesta del cliente, que es justo lo que FR-009
+      prohíbe. Sin valor de retorno ese camino no existe.
+- [x] T016 [US1] Prueba de T015: con **dos** sesiones administradoras vivas se
       mandan **dos** mensajes, y con el primero fallando el segundo sale igual
       (**SC-010**).
-- [ ] T017 [US1] Cablear el enviador en `backend/cmd/api/main.go`: construirlo
+      **Hecha el 2026-09-01, y sin base de datos**: el avisador recibe la
+      libreta como interfaz, así que esta prueba corre siempre y no se saltea
+      sola en un `verify:` sin `TEST_DATABASE_URL` — que es el agujero que el
+      tracker viene anotando desde `010`. La consulta de verdad se prueba
+      aparte, contra Postgres.
+      El que falla es **el primero** a propósito: con el orden que devuelva la
+      base, "el que falla" puede ser cualquiera.
+- [x] T017 [US1] Cablear el enviador en `backend/cmd/api/main.go`: construirlo
       desde la configuración y pasárselo a `pedidos.NuevosHandlers`, cuya firma
       cambia (hoy es `NuevosHandlers(repoPedidos, cfg.EsAdmin)`, línea 126). **Si
       la credencial no está, se cablea un enviador que no manda nada** — el
       servicio arranca igual (**FR-010**).
-- [ ] T018 [US1] Disparo en `backend/internal/pedidos/handlers.go`, dentro de
+      **Hecha el 2026-09-01**, con un camino de degradación más de los que el
+      plan pedía: **una credencial rota también da un avisador mudo**, no un
+      error. La variable ausente es el caso obvio; una credencial vencida,
+      pegada a medias o de otro proyecto es el que va a pasar de verdad, y meses
+      después. Los cinco casos están probados en `cmd/api/main_test.go`.
+      `avisos.Mudo` es **un tipo y no un nil**: con el nulo, cada lugar que
+      avisa tendría que acordarse de comprobarlo, y el día que alguien se olvide
+      el síntoma es un panic en el camino de crear un pedido.
+- [x] T018 [US1] Disparo en `backend/internal/pedidos/handlers.go`, dentro de
       `Crear` y **sólo si `esNuevo`** (**FR-003**, research D4). Fuera del camino
       de la respuesta, en una goroutine **con `context.Background()` y plazo
       propio** — llevarse `r.Context()` compila perfecto y hace que el aviso no
       salga nunca (research D3).
-- [ ] T019 [US1] Prueba de que un `POST /pedidos` repetido con **la misma** clave
+      **Hecha el 2026-09-01, y la trampa de D3 se comprobó en rojo**: se le pasó
+      `r.Context()` a `avisarDelPedido` y `TestElAvisoNoSeLlevaElContextoDeLaPeticion`
+      falló con `context canceled`. Sin ese paso la prueba no valía nada — y
+      hubo que escribirla dos veces: la primera guardaba el contexto y lo miraba
+      después, y **siempre lo veía cancelado**, con la implementación buena y
+      con la mala, porque `avisarDelPedido` cancela el suyo con un `defer` al
+      terminar. Lo que hay que capturar es cómo estaba **cuando se lo iba a
+      usar**.
+      `enSegundoPlano` se inyecta para que las pruebas que cuentan avisos no
+      compitan contra el planificador; las dos que necesitan la goroutine de
+      verdad la usan.
+- [x] T019 [US1] Prueba de que un `POST /pedidos` repetido con **la misma** clave
       de idempotencia **no** dispara un segundo aviso (**FR-003**, **SC-006**,
       quickstart Q4).
+      **Hecha el 2026-09-01**, mirando el contador del espía y no la respuesta
+      HTTP: el 200 del reintento ya estaba probado desde `007`, y es exactamente
+      el caso donde un aviso de más pasaría desapercibido.
+      Va con una tercera que el plan no pedía: un pedido **rechazado** tampoco
+      avisa. Si no se guardó nada, no hay nada que anunciar.
 - [ ] T020 [P] [US1] En `android/app/src/main/AndroidManifest.xml`,
       `POST_NOTIFICATIONS`, pedido en runtime desde `MainActivity.kt`; y **un**
       canal de importancia alta `pedidos-nuevos` — suena, aparece encima y
@@ -181,21 +313,55 @@ salida para arreglarlo.
 **Test independiente**: dejar al servicio sin poder mandar avisos y crear un
 pedido de punta a punta.
 
-- [ ] T027 [US3] En `backend/internal/config/config.go`, leer la credencial de
+- [x] T027 [US3] En `backend/internal/config/config.go`, leer la credencial de
       FCM **fuera de la lista de obligatorias**. Si falta, el servicio arranca y
       deja anotado que no va a mandar avisos (**FR-010**).
-- [ ] T028 [US3] Prueba de arranque sin la credencial: `GET /salud` responde
+      **Hecha el 2026-09-01**: se lee con `os.Getenv` pelado y **después** del
+      corte por faltantes, así que no puede sumar a esa lista por ningún camino.
+      Hay una prueba que se pone roja si algún día alguien la pasa por
+      `obligatoria` "para validarla".
+- [x] T028 [US3] Prueba de arranque sin la credencial: `GET /salud` responde
       `ok` (**SC-004**, quickstart Q5). Es la que impide repetir la caída de
       producción que ya nos costó una vez.
-- [ ] T029 [US3] Prueba de que un envío que falla **no rompe la creación del
+      **Hecha el 2026-09-01, y en dos lugares en vez de uno**, porque `GET
+      /salud` no es donde se decide: en `internal/config` que `Cargar` no exija
+      la variable, y en `cmd/api/main_test.go` que **los cinco caminos de
+      credencial rota devuelvan `avisos.Mudo` y no un error**. Lo que tumba un
+      servicio no es que falte una variable: es que la construcción de una
+      dependencia devuelva un error y alguien lo propague hasta `main`.
+      **Falta el `/salud` de verdad**, que es el nivel 1 del quickstart (Q5) y
+      se corre a mano; queda en T035.
+- [x] T029 [US3] Prueba de que un envío que falla **no rompe la creación del
       pedido** ni hace esperar al cliente (**FR-009**).
-- [ ] T030 [US3] Registro del fallo **con el código del pedido** (**FR-014**):
+      **Hecha el 2026-09-01.** La de "no hace esperar" es la más linda del
+      archivo: el avisador se queda **trabado** y el `POST` tiene que volver
+      igual. Si el aviso estuviera en el camino de la respuesta, esa prueba no
+      falla con un mensaje — **se cuelga**, que también es una falla y bien
+      ruidosa.
+      La garantía de fondo es estructural y conviene decirla: `Avisar` no
+      devuelve nada, así que **no existe** un camino por el que un fallo de
+      envío llegue a la respuesta.
+- [x] T030 [US3] Registro del fallo **con el código del pedido** (**FR-014**):
       como el error ya no viaja en la respuesta, el registro es la única señal
       que queda para comprobar un "no me llegó".
-- [ ] T031 [US3] Ante un token que el proveedor declara muerto, **borrar ese
+      **Hecha el 2026-09-01.** Cuatro renglones, todos con el código: no se pudo
+      buscar destinatarios, no hay ninguno, se borró un token muerto, y falló un
+      envío. El de "no hay ninguno" **no es un error** y se anota igual: es la
+      única pista de un "no me llegó" cuya causa está en el teléfono y no en el
+      servicio.
+- [x] T031 [US3] Ante un token que el proveedor declara muerto, **borrar ese
       `push_token`** y no reintentarlo (**FR-013**, quickstart Q11).
-- [ ] T032 [P] [US3] `backend/.env.example`: el nombre de la variable nueva, y
+      **Hecha el 2026-09-01**, en sus dos mitades: `Olvidar` borra el token **sin
+      tocar la sesión** —que un token se muera no dice nada sobre si la
+      credencial sirve; revocarla dejaría a Diego afuera de la app por haber
+      reinstalado la app— y `esTokenMuerto` decide cuándo. Ver la nota de T014
+      sobre por qué `INVALID_ARGUMENT` casi nunca alcanza.
+      Falta sólo verlo contra el proveedor de verdad, que es Q11.
+- [x] T032 [P] [US3] `backend/.env.example`: el nombre de la variable nueva, y
       nada más.
+      **Hecha el 2026-09-01**, en una sección propia: *"Opcional SIN valor por
+      defecto: si falta, la función no existe"*. No entraba en ninguna de las
+      dos que había, y esa es justamente la información.
 
 ---
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "453414537997",
+    "project_id": "flash-urbano-283d6",
+    "storage_bucket": "flash-urbano-283d6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:453414537997:android:8efea5e26fc3b867ce3e44",
+        "android_client_info": {
+          "package_name": "uy.flashurbano.repartidor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAc1BmI2vUoCEo6FOICv1TckGp-X-O3bHo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

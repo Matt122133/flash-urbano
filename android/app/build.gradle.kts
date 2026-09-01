@@ -3,6 +3,10 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Aplicado desde T003, cuando `google-services.json` entro al repo: este
+    // plugin se planta si no lo encuentra. Es lo que convierte ese archivo en
+    // la configuracion que Firebase lee en tiempo de ejecucion.
+    alias(libs.plugins.google.services)
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +171,8 @@ android {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+    implementation("com.google.firebase:firebase-analytics")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

@@ -51,6 +51,27 @@ type Config struct {
 
 	SesionDuracion  time.Duration
 	RastroRetencion time.Duration
+
+	// FCMCredencialBase64 autoriza a mandar los avisos de pedido nuevo (018).
+	//
+	// **Es la unica variable OPCIONAL de esta estructura, y esa excepcion es el
+	// requisito** (FR-010): si falta, el servicio arranca y se queda sin avisos.
+	// Un servicio que se niega a levantar por una funcion accesoria ya nos tumbo
+	// produccion una vez, y avisar de un pedido es accesorio al lado de tomarlo.
+	//
+	// **En base64 y no como JSON crudo.** `backend/dev.sh` carga el `.env` con
+	// `. ./.env`, o sea que lo interpreta el shell; un JSON de service account
+	// tiene llaves, comillas, saltos de linea y `$` adentro de la clave privada.
+	// Pegado crudo ahi no rompe el arranque: rompe el archivo. El sufijo del
+	// nombre esta para que nadie pegue el JSON pelado y pase media hora
+	// buscando por que.
+	//
+	// **No se valida aca.** Que sea base64 y que adentro haya una credencial
+	// legible lo decide `avisos.NuevoClienteFCM`, que es quien sabe leerla; esto
+	// solo la trae. Validarla aca la volveria obligatoria de hecho: una
+	// credencial vencida impediria arrancar, que es exactamente lo que FR-010
+	// prohibe.
+	FCMCredencialBase64 string
 }
 
 // EsAdmin dice si una direccion es administradora.
@@ -111,6 +132,11 @@ func Cargar() (*Config, error) {
 		return nil, fmt.Errorf(
 			"faltan variables de entorno obligatorias: %s", strings.Join(faltantes, ", "))
 	}
+
+	// **Despues del corte por faltantes, y a proposito.** Se lee con os.Getenv
+	// pelado y no con `obligatoria`: no suma a `faltantes`, asi que su ausencia
+	// no puede impedir el arranque por ningun camino (FR-010).
+	cfg.FCMCredencialBase64 = strings.TrimSpace(os.Getenv("FCM_CREDENCIAL_BASE64"))
 
 	var err error
 	if cfg.SesionDuracion, err = duracionODefecto("SESION_DURACION", SesionPorDefecto); err != nil {

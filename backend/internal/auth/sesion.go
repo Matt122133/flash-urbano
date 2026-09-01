@@ -127,9 +127,16 @@ func (s *Sesiones) Crear(ctx context.Context, usuarioID string) (*Sesion, string
 // mirar `revocada_en`, y ese descuido es FR-018 roto sin que nada falle.
 //
 // **Desde `017` esta consulta ademas escribe**, y por eso es un UPDATE y no un
-// SELECT: anota que version de la app declaro quien presenta la credencial. Va
-// con el **mismo WHERE**, asi que la propiedad de arriba se conserva entera y
-// no hay un segundo viaje a la base — es el mismo que ya se hacia.
+// SELECT: anota que version de la app declaro quien presenta la credencial, y
+// **desde `018` tambien a donde mandarle los avisos**. Va con el **mismo
+// WHERE**, asi que la propiedad de arriba se conserva entera y no hay un
+// segundo viaje a la base — es el mismo que ya se hacia.
+//
+// Que el token del telefono se anote **aca y no por un endpoint propio** es lo
+// que hace verdadero FR-007 sin escribir una linea para eso: el mismo WHERE que
+// niega una credencial revocada es el que deja de refrescar su token, y la
+// consulta de destinatarios filtra por lo mismo. Revocar la sesion de un
+// telefono perdido le apaga los avisos como efecto colateral.
 //
 // El costo, dicho de frente: cada pedido autenticado pasa de leer una fila a
 // escribirla. Con un repartidor no se nota, y se revierte volviendo al SELECT y
@@ -147,13 +154,23 @@ func (s *Sesiones) Resolver(ctx context.Context, token string) (*Sesion, error) 
 	//
 	// `NULLIF(..., '')` es lo que hace que "no declarada" y "no mandada" sean
 	// el mismo caso: los dos dejan la fila como estaba.
+	//
+	// **En `018` el mismo COALESCE pasa de molesto a critico.** Sobre la version
+	// perderlo cuesta un diagnostico; sobre `push_token` cuesta el feature
+	// entero: cada visita de Diego al sitio desde el navegador le borraria el
+	// token a su propio telefono y los avisos moririan en silencio, sin que
+	// nada falle ni quede registrado. Es el defecto mas barato de introducir de
+	// todo el feature y el mas caro de encontrar, y por eso tiene una prueba
+	// que se comprobo en rojo con el COALESCE sacado a proposito
+	// (TestUnaLlamadaSinCabeceraNoBorraElPushToken).
 	const sql = `
 		UPDATE sesiones
 		SET version_app      = COALESCE(NULLIF($2, ''), version_app),
 		    version_vista_en = CASE
 		                           WHEN NULLIF($2, '') IS NULL THEN version_vista_en
 		                           ELSE now()
-		                       END
+		                       END,
+		    push_token       = COALESCE(NULLIF($3, ''), push_token)
 		WHERE token_hash = $1
 		  AND revocada_en IS NULL
 		  AND expira_en > now()
@@ -163,7 +180,8 @@ func (s *Sesiones) Resolver(ctx context.Context, token string) (*Sesion, error) 
 	var guardado []byte
 	esperado := hashDelToken(token)
 
-	err := s.pool.QueryRow(ctx, sql, esperado, httpx.VersionDeclarada(ctx)).
+	err := s.pool.QueryRow(ctx, sql, esperado,
+		httpx.VersionDeclarada(ctx), httpx.PushTokenDeclarado(ctx)).
 		Scan(&ses.ID, &ses.UsuarioID, &ses.CreadaEn, &ses.ExpiraEn, &guardado)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSesionInvalida

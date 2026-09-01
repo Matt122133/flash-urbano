@@ -589,3 +589,221 @@ func TestLaVersionNoResucitaUnaSesionRevocada(t *testing.T) {
 		t.Errorf("una sesion revocada se resolvio al declarar version: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 018 - a donde se le manda el aviso a cada telefono
+// ---------------------------------------------------------------------------
+
+// conCabeceras arma el contexto como lo dejan los dos middlewares de httpx,
+// encadenados en el mismo orden en que los encadena ConSesion.
+//
+// Cualquiera de las dos puede ir vacia, y eso **no** es un caso raro: el sitio
+// web no manda ninguna de las dos, y una app con el permiso de avisos negado
+// declara version y no declara token.
+func conCabeceras(version, push string) context.Context {
+	peticion := httptest.NewRequest(http.MethodGet, "/admin/pedidos", nil)
+	if version != "" {
+		peticion.Header.Set(httpx.CabeceraVersion, version)
+	}
+	if push != "" {
+		peticion.Header.Set(httpx.CabeceraPushToken, push)
+	}
+
+	var ctx context.Context
+	httpx.ConVersion(httpx.ConPushToken(http.HandlerFunc(
+		func(_ http.ResponseWriter, r *http.Request) {
+			ctx = r.Context()
+		}))).ServeHTTP(httptest.NewRecorder(), peticion)
+	return ctx
+}
+
+// conPushToken es conCabeceras con la version vacia: el caso de la app cuando
+// lo unico que cambio es el token.
+func conPushToken(push string) context.Context { return conCabeceras("", push) }
+
+// pushGuardado lee el token que quedo anotado en la fila de la sesion.
+//
+// Devuelve vacio cuando la columna esta en NULL, que es lo que corresponde a
+// una sesion que nunca declaro ninguno - todas las del sitio web, para siempre.
+func pushGuardado(t *testing.T, pool *db.Pool, token string) string {
+	t.Helper()
+
+	var push *string
+	err := pool.QueryRow(context.Background(),
+		`SELECT push_token FROM sesiones WHERE token_hash = $1`,
+		hashDelToken(token)).Scan(&push)
+	if err != nil {
+		t.Fatalf("leyendo el push_token guardado: %v", err)
+	}
+	if push == nil {
+		return ""
+	}
+	return *push
+}
+
+// unTokenDeProveedor tiene la forma real de lo que manda el proveedor: una parte
+// corta, dos puntos, y una larga de base64 con guiones y guiones bajos.
+const unTokenDeProveedor = "cXyZ01_ab-Q:APA91bH" +
+	"kR2t7QmVzZXJ0LWRlLXBydWViYS1xdWUtbm8tZXMtdW4tdG9rZW4tcmVhbA" +
+	"_wdE3xN0pQr-sTuVwXyZ0123456789abcdefghijklmnop"
+
+// TestElPushTokenDeclaradoQuedaEnLaSesion es la mitad fundacional del feature:
+// sin un destinatario guardado no hay a quien mandarle nada.
+func TestElPushTokenDeclaradoQuedaEnLaSesion(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	// Recien creada no puede afirmar un token que la app todavia no declaro.
+	if p := pushGuardado(t, pool, token); p != "" {
+		t.Fatalf("una sesion recien creada ya tenia push_token %q", p)
+	}
+
+	if _, err := ses.Resolver(conPushToken(unTokenDeProveedor), token); err != nil {
+		t.Fatalf("resolviendo con push token: %v", err)
+	}
+
+	if p := pushGuardado(t, pool, token); p != unTokenDeProveedor {
+		t.Errorf("quedo guardado %q, queria el token declarado", p)
+	}
+}
+
+// TestUnaLlamadaSinCabeceraNoBorraElPushToken es **la guarda del COALESCE**, y
+// la prueba mas importante de `018`.
+//
+// El sitio web resuelve sesiones con esta misma consulta y no manda la cabecera
+// nunca. Sin el COALESCE, cada visita de Diego al sitio desde el navegador le
+// borraria el token a su propio telefono: los avisos dejarian de llegar sin que
+// nada falle, nada se registre y nada aparezca en rojo. Es el defecto mas
+// barato de introducir de todo el feature y el mas caro de diagnosticar.
+//
+// **Se comprobo en rojo** sacando el COALESCE del UPDATE de Resolver, que es lo
+// unico que convierte a una guarda negativa en una prueba (quickstart Q2).
+func TestUnaLlamadaSinCabeceraNoBorraElPushToken(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	if _, err := ses.Resolver(conPushToken(unTokenDeProveedor), token); err != nil {
+		t.Fatalf("resolviendo con push token: %v", err)
+	}
+
+	// La misma sesion desde el navegador: sin ninguna de las dos cabeceras.
+	if _, err := ses.Resolver(context.Background(), token); err != nil {
+		t.Fatalf("resolviendo sin cabeceras: %v", err)
+	}
+
+	if p := pushGuardado(t, pool, token); p != unTokenDeProveedor {
+		t.Errorf("una llamada sin cabecera dejo el push_token en %q; tenia que quedar el declarado", p)
+	}
+}
+
+// TestLaVersionYElPushTokenSonIndependientes fija lo que el contrato promete:
+// viajan juntas y no se pisan.
+//
+// El caso de la segunda mitad **existe hoy**: una app a la que Diego le nego el
+// permiso de avisos declara version y no declara token. Si escribir la version
+// borrara el token, el unico sintoma seria que los avisos se apagan cuando
+// alguien revisa que version corre.
+func TestLaVersionYElPushTokenSonIndependientes(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	if _, err := ses.Resolver(conCabeceras("0.2.0", unTokenDeProveedor), token); err != nil {
+		t.Fatalf("resolviendo con las dos cabeceras: %v", err)
+	}
+
+	// Solo version: el token tiene que sobrevivir.
+	if _, err := ses.Resolver(conCabeceras("0.3.0", ""), token); err != nil {
+		t.Fatalf("resolviendo solo con version: %v", err)
+	}
+	if p := pushGuardado(t, pool, token); p != unTokenDeProveedor {
+		t.Errorf("declarar solo la version dejo el push_token en %q", p)
+	}
+
+	// Solo token: la version tiene que sobrevivir, y el token actualizarse.
+	if _, err := ses.Resolver(conCabeceras("", "otro-token-de-proveedor"), token); err != nil {
+		t.Fatalf("resolviendo solo con push token: %v", err)
+	}
+	if v, _ := versionGuardada(t, pool, token); v != "0.3.0" {
+		t.Errorf("declarar solo el push token dejo la version en %q", v)
+	}
+	if p := pushGuardado(t, pool, token); p != "otro-token-de-proveedor" {
+		t.Errorf("el push token no se actualizo, quedo en %q", p)
+	}
+}
+
+// TestUnPushTokenBasuraNoEnsuciaLaSesion cierra el otro extremo: lo que no pasa
+// el validador se trata igual que "no declarado" y no llega crudo a la base.
+//
+// **Ninguno de estos casos puede devolver un error**, y esa es la mitad
+// importante de la prueba: un token raro no puede dejar a Diego sin poder
+// trabajar. La peticion sigue, y lo que se descarta es el dato.
+func TestUnPushTokenBasuraNoEnsuciaLaSesion(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+
+	if _, err := ses.Resolver(conPushToken(unTokenDeProveedor), token); err != nil {
+		t.Fatalf("resolviendo con push token: %v", err)
+	}
+
+	basuras := []string{
+		strings.Repeat("x", httpx.LargoMaximoPushToken+1), // pasa el tope: se descarta entero
+		"un token con espacios",
+		"token\ncon\nsaltos",
+		"token'; DROP TABLE sesiones;--",
+		"token-con-acento-\u00f1",
+	}
+	for _, basura := range basuras {
+		if _, err := ses.Resolver(conPushToken(basura), token); err != nil {
+			t.Fatalf("resolviendo con la cabecera %.20q: %v", basura, err)
+		}
+		if p := pushGuardado(t, pool, token); p != unTokenDeProveedor {
+			t.Fatalf("la cabecera %.20q dejo el push_token en %q; tenia que quedar el bueno", basura, p)
+		}
+	}
+}
+
+// TestElPushTokenNoResucitaUnaSesionRevocada es FR-007 y SC-008 medidos donde
+// se deciden: **en el WHERE**.
+//
+// Es la propiedad por la que el token vive en `sesiones` y no en una tabla de
+// dispositivos. Revocar la sesion de un telefono perdido tiene que apagarle los
+// avisos, y lo que lo garantiza es que el UPDATE que refresca el token no
+// alcance esa fila. Uno que se olvidara de `revocada_en` le seguiria anotando
+// el token a un telefono al que ya se le corto el acceso.
+func TestElPushTokenNoResucitaUnaSesionRevocada(t *testing.T) {
+	ses, pool, usuarioID := sesionesDePrueba(t, time.Hour)
+
+	_, token, err := ses.Crear(context.Background(), usuarioID)
+	if err != nil {
+		t.Fatalf("creando la sesion: %v", err)
+	}
+	if _, err := ses.Resolver(conPushToken(unTokenDeProveedor), token); err != nil {
+		t.Fatalf("resolviendo con push token: %v", err)
+	}
+	if err := ses.Revocar(context.Background(), token); err != nil {
+		t.Fatalf("revocando: %v", err)
+	}
+
+	if _, err := ses.Resolver(conPushToken("token-nuevo-despues-de-revocar"), token); !errors.Is(err, ErrSesionInvalida) {
+		t.Errorf("una sesion revocada se resolvio al declarar push token: %v", err)
+	}
+	if p := pushGuardado(t, pool, token); p != unTokenDeProveedor {
+		t.Errorf("una sesion revocada acepto un push_token nuevo: quedo %q", p)
+	}
+}

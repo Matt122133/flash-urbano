@@ -1,0 +1,73 @@
+-- 0008 — a donde se le manda el aviso de pedido nuevo, de 018-aviso-de-pedido-nuevo.
+--
+-- Hasta hoy el pedido se guarda y ahi se queda: nada le avisa a Diego, y el
+-- retraso entre que entra un pedido y que el lo sabe es lo que tarde en
+-- acordarse de abrir la app. El aviso push cierra ese tramo, y para mandarlo
+-- hace falta una sola cosa que la base todavia no tiene: **una direccion de
+-- entrega para el mensaje**.
+--
+-- Eso es esta columna, y nada mas que eso.
+--
+-- --------------------------------------------------------------------------
+-- Por que va en `sesiones` y no en una tabla de dispositivos
+-- --------------------------------------------------------------------------
+--
+-- Porque la pregunta que hay que contestar es **"a quien le mando este
+-- aviso"**, y la respuesta es *"a las sesiones vivas de un administrador"*. Eso
+-- es una consulta sobre `sesiones`, sin JOIN con nada nuevo.
+--
+-- Una tabla `dispositivos` le daria identidad propia a un telefono —cuando se
+-- vio por primera vez, que modelo, que historial— que es exactamente lo que
+-- FR-012 prohibe, y creceria para responder algo que hoy tiene UNA sola
+-- respuesta. Es el mismo argumento con el que `0007` puso la version aca.
+--
+-- Y sale gratis la propiedad mas valiosa del feature: **revocar la sesion corta
+-- los avisos sin una linea de codigo que lo implemente** (FR-007, SC-008).
+-- `Resolver` solo escribe sobre filas con `revocada_en IS NULL AND expira_en >
+-- now()`, y la consulta de destinatarios filtra por lo mismo. El procedimiento
+-- de telefono perdido que ya existe en `docs/processes/app-repartidor.md`
+-- —revocar la sesion a mano en la base— apaga los avisos como efecto colateral.
+--
+-- --------------------------------------------------------------------------
+-- Por que NULLABLE y sin DEFAULT
+-- --------------------------------------------------------------------------
+--
+-- Igual que `0006` y `0007`, y por la misma leccion del 2026-08-12: una columna
+-- nullable no le exige nada a las filas que ya estan, y `sesiones` tiene filas
+-- reales — entre ellas la del telefono de Diego, que si esta migracion la
+-- rompiera lo dejaria afuera de la app.
+--
+-- **La mayoria de las filas de `sesiones` nunca van a tener token.** Las del
+-- sitio web no lo tienen y no lo van a tener nunca: un navegador no es un
+-- telefono al que se le pueda entregar un aviso. `NULL` dice eso con exactitud.
+--
+-- Sin DEFAULT por lo mismo que `0007`: haria que una sesion recien creada
+-- afirme un token que la app todavia no declaro.
+ALTER TABLE sesiones
+    ADD COLUMN push_token text;
+
+-- --------------------------------------------------------------------------
+-- Lo que esta migracion NO hace, y por que
+-- --------------------------------------------------------------------------
+--
+-- **No hay `push_token_visto_en`.** La version si llevaba su marca de tiempo
+-- porque la pregunta era "ya actualizo?", que necesita saber CUANDO se vio.
+-- Aca la pregunta es "a donde mando?", y una direccion vieja no se detecta
+-- mirando una fecha: se detecta porque **el proveedor la rechaza**, que es lo
+-- que FR-013 usa para limpiarla.
+--
+-- **No hay indice.** La consulta que esto habilita recorre las sesiones vivas
+-- de dos direcciones administradoras, sobre una tabla con una fila por ingreso
+-- de un operador. Un indice aca seria estructura para un problema que no
+-- existe (Principio III).
+--
+-- **No hay CHECK de formato.** El validador de `internal/httpx` acota el largo
+-- y descarta lo mal formado ANTES de escribir. Poner ademas una restriccion en
+-- la base convertiria un token raro en el fallo de la consulta que resuelve la
+-- sesion — o sea, en Diego sin poder trabajar por un defecto en el instrumento
+-- que existe para avisarle. Es la misma inversion que `0007` se nego a hacer.
+--
+-- **`pedidos` no gana ninguna columna.** El pedido gana un efecto al ser
+-- creado, no un campo. No hay `avisado_en`: quien fue avisado y cuando es una
+-- pregunta del registro (FR-014), y la columna obligaria a escribirla en el
+-- camino de la respuesta, que es justo de donde el aviso se saca a proposito.
