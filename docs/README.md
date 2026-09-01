@@ -63,6 +63,12 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
   Pages, a separate Go service and Postgres with PostGIS run on Railway.
   **Direction only, not in effect.** Flags a conflict with guest ordering that
   the backend spec must resolve.
+- [`decisions/push-as-the-only-alert.md`](decisions/push-as-the-only-alert.md)
+  — a push notification is the only automatic alert (no email, by the owner's
+  decision), delivered through Firebase: the first Google dependency in the
+  Android app, a second secret in the service, and why the Admin SDK was
+  rejected on a measurement of 76 modules against 2. Closes the `High` row that
+  blocked promoting the site.
 
 ## Processes
 

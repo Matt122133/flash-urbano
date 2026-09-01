@@ -117,15 +117,46 @@ para poder tocarle el timbre a uno.
 ### Session 2026-08-31
 
 - **P: ¿Qué muestra el aviso en la pantalla bloqueada?** (FR-005)
-  → **El código del pedido y la zona o barrio de entrega** —*"Pedido nuevo
-  FU-0142 — entrega en Pocitos"*—, sin dirección, sin nombre y sin teléfono. Es
-  el punto donde el aviso **le sirve para decidir sin abrir la app**, que es
-  para lo que se pide: el código solo no dice si le queda de paso, y la
-  dirección exacta deja la casa de un cliente legible para cualquiera que mire
-  el teléfono apoyado en un mostrador. Se descartó *"tenés un pedido nuevo"* a
-  secas —lo obliga a abrir la app siempre, que es justo el gesto que este
-  feature viene a evitar— y la dirección completa, por privacidad. Ver FR-005 y
-  SC-009.
+  → **El código del pedido y la calle de entrega, sin número y sin esquina**
+  —*"Pedido nuevo FU-0142 — entrega en Av. Brasil"*—, sin nombre y sin teléfono
+  de nadie. Es el punto donde el aviso **le sirve para decidir sin abrir la
+  app**, que es para lo que se pide: el código solo no dice si le queda de paso,
+  y la dirección exacta deja la casa de un cliente legible para cualquiera que
+  mire el teléfono apoyado en un mostrador. Se descartó *"tenés un pedido
+  nuevo"* a secas —lo obliga a abrir la app siempre, que es justo el gesto que
+  este feature viene a evitar— y la dirección completa, por privacidad. Ver
+  FR-005 y SC-009.
+
+- **P: ¿Y de dónde sale ese dato de "dónde entrega"?** (FR-005) → **De la calle
+  de entrega que el pedido ya guarda.** La primera redacción decía *"la zona o
+  barrio"* y ponía de ejemplo *"entrega en Pocitos"*: **el barrio no existe como
+  dato** —las zonas se llaman `Zona 1` a `Zona 5` y nada más— así que ese
+  ejemplo no tenía de dónde salir. Se descartó la zona sola (un área demasiado
+  grande para decidir si le queda de paso) y **la calle con su esquina**, que en
+  este producto **es** la dirección: el punto de entrega se resuelve justamente
+  de ese cruce, así que mostrarlo sería mostrar la dirección exacta con otro
+  nombre. Ninguna de las dos alternativas exigía un campo nuevo, y la elegida
+  tampoco.
+
+- **P: ¿Qué pasa si entra un pedido con la app abierta?** (FR-016) → **Llega el
+  aviso igual, y además aparece un renglón *"1 pedido nuevo — tocá para
+  actualizar"*: la lista no se mueve sola.** El motivo de que no se refresque
+  sola es de seguridad de uso, no de rendimiento: un pedido que aparece y
+  reordena la lista justo cuando Diego está por tocar *tomar* es tocar el pedido
+  equivocado, y eso es exactamente lo que `015` estuvo cuidando en esta app. Se
+  descartó no mostrar nada con la app abierta (deja vivo el caso *"la tenía
+  abierta y no me enteré"*, que US1 escenario 3 prohíbe) y refrescar la lista
+  sola. Ver FR-016.
+
+- **P: ¿Hasta cuándo vale un aviso que quedó guardado porque el teléfono estaba
+  sin red?** (FR-017) → **24 horas.** Es el horizonte que el negocio ya se puso
+  —entrega dentro de las 24 horas del retiro—, así que un aviso más viejo que
+  eso no informa: confunde, porque anuncia como nuevo algo que ya no lo es. Lo
+  que quede afuera **no se pierde**: está en la lista de pendientes, que es
+  donde corresponde mirarlo. Se descartó no vencer nunca (volver de un fin de
+  semana sin señal con quince banners viejos de golpe entrena a ignorarlos) y
+  vencer a las 4 horas (tira un pedido de la mañana que vuelve a la tarde y
+  todavía era perfectamente accionable). Ver FR-017.
 
 - **P: ¿El aviso suena a cualquier hora?** (FR-006)
   → **Sí, y respeta el *No molestar* del teléfono.** No se escribe ninguna
@@ -159,7 +190,8 @@ sitio y comprobar que el teléfono avisa sin que nadie lo toque.
 2. **Given** un aviso en pantalla, **When** Diego lo toca, **Then** la app se
    abre en la lista donde está ese pedido, sin pasos intermedios.
 3. **Given** la app **abierta** en la lista de pedidos, **When** entra un pedido,
-   **Then** Diego se entera igual, sin quedar mirando una lista vieja.
+   **Then** Diego se entera igual y la lista le ofrece actualizarse, **sin
+   reordenarse sola mientras él la está tocando**.
 4. **Given** dos pedidos que entran con segundos de diferencia, **When** llegan
    los avisos, **Then** ninguno de los dos se pierde ni se pisa con el otro.
 
@@ -221,9 +253,9 @@ desde el sitio de punta a punta.
   cubre FR-008.
 - **El teléfono manda la app a dormir** por no usarla en unos días. Mismo efecto,
   y no se arregla desde el código: es procedimiento (FR-011).
-- **El teléfono está sin red** cuando entra el pedido. El aviso tiene que llegar
-  cuando vuelva, no perderse; si pasó demasiado tiempo, el pedido igual está en
-  la lista.
+- **El teléfono está sin red** cuando entra el pedido. El aviso llega cuando la
+  red vuelva, siempre que no hayan pasado 24 horas desde que se creó el pedido
+  (FR-017). Más viejo que eso se descarta: el pedido igual está en la lista.
 - **Diego reinstala la app o cambia de teléfono.** El identificador viejo deja de
   servir y hay que reemplazarlo sin que nadie haga nada a mano.
 - **Un aviso queda dirigido a un teléfono que ya no es de Diego** (teléfono
@@ -235,8 +267,8 @@ desde el sitio de punta a punta.
   *No molestar* (FR-006). El producto no decide por él a qué hora se lo puede
   interrumpir.
 - **El teléfono queda apoyado en un mostrador y alguien lo mira.** Lo que
-  aprende es que entró un pedido a un barrio. La dirección, el nombre y el
-  teléfono del cliente quedan del otro lado del desbloqueo (FR-005).
+  aprende es que entró un pedido a una calle. El número, la esquina, el nombre y
+  el teléfono del cliente quedan del otro lado del desbloqueo (FR-005).
 - **La app está abierta justo cuando entra el pedido.** No puede quedar mostrando
   una lista vieja.
 - **El proveedor de avisos rechaza el mensaje** (identificador vencido). El
@@ -258,11 +290,12 @@ desde el sitio de punta a punta.
   pedido**, sin pasos intermedios.
 - **FR-005**: El contenido visible del aviso MUST alcanzar para que Diego decida
   **si le queda de paso, sin desbloquear el teléfono**: el código del pedido y
-  la **zona o barrio de entrega**. Ese dato de área MUST salir de lo que el
-  sistema ya sabe del pedido —hoy, la zona de cobertura— sin inventar un campo
-  nuevo ni pedirle nada más al cliente. MUST NOT incluir la dirección exacta, el
-  nombre ni el teléfono de ninguna de las dos puntas —eso queda del otro lado de
-  la pantalla bloqueada— y en ningún caso MUST incluir un importe ni ninguna
+  **la calle de entrega, sin número y sin esquina**. Ese dato MUST salir de lo
+  que el pedido ya guarda, sin inventar un campo nuevo ni pedirle nada más al
+  cliente. MUST NOT incluir el número, la esquina, el nombre ni el teléfono de
+  ninguna de las dos puntas —eso queda del otro lado de la pantalla bloqueada, y
+  la calle con su esquina identifica el punto de entrega tan bien como la
+  dirección— y en ningún caso MUST incluir un importe ni ninguna
   referencia a lo que cuesta el envío: el producto no habla de plata en ninguna
   superficie (Principio V de la constitución).
 - **FR-006**: El aviso MUST poder sonar a cualquier hora del día y MUST respetar
@@ -272,6 +305,11 @@ desde el sitio de punta a punta.
 - **FR-007**: Sólo MUST recibir estos avisos quien administra el negocio. Un
   cliente MUST NOT recibir avisos de pedidos, ni propios ni ajenos, y un teléfono
   al que se le cortó la sesión MUST dejar de recibirlos.
+- **FR-018**: El aviso MUST llegarle a **todas** las sesiones administradoras
+  vivas, no a una. Hoy hay **dos teléfonos** —el de Diego, que trabaja, y el de
+  Mateo, que verifica—, así que "el destinatario" es un conjunto y no una fila.
+  Un destinatario que falla —token muerto, teléfono sin red— MUST NOT impedir
+  que los demás reciban el aviso.
 - **FR-008**: Si la app está en condiciones de **no** recibir avisos —permiso
   negado, o el sistema no la deja— la app MUST decirlo en pantalla cuando Diego
   la abra, junto con **cómo** arreglarlo. Cuando los avisos funcionan, eso MUST
@@ -299,6 +337,16 @@ desde el sitio de punta a punta.
 - **FR-015**: La fila `High` del 2026-08-14 de `docs/tech-debt-tracker.md` MUST
   quedar cerrada o reescrita, porque su texto afirma que la app Android no existe
   y eso dejó de ser cierto.
+- **FR-016**: Con la app abierta, un pedido que entra MUST avisar igual, y la
+  lista MUST NOT reordenarse sola: MUST aparecer un aviso dentro de la pantalla
+  que diga que hay pedidos nuevos y que **Diego decide cuándo aplicar**. Una
+  lista que se reacomoda mientras él la está tocando le hace tocar el pedido
+  equivocado.
+- **FR-017**: Un aviso que no se pudo entregar porque el teléfono estaba sin red
+  MUST entregarse cuando el teléfono vuelva, **hasta 24 horas después de creado
+  el pedido**. Pasado ese plazo MUST descartarse en vez de entregarse tarde: el
+  pedido sigue estando en la lista, y un aviso viejo anunciado como nuevo es
+  peor que ninguno.
 
 ### Key Entities
 
@@ -336,13 +384,20 @@ desde el sitio de punta a punta.
 - **SC-008**: Un teléfono al que se le cortó la sesión **deja de recibir avisos**,
   comprobado provocándolo.
 - **SC-009**: Con el teléfono bloqueado, el aviso alcanza para saber **a qué
-  barrio va el pedido y cómo se llama**, sin desbloquear; y **no** deja a la
-  vista la dirección, el nombre ni el teléfono de nadie.
+  calle va el pedido y cómo se llama**, sin desbloquear; y **no** deja a la
+  vista el número, la esquina, el nombre ni el teléfono de nadie.
+- **SC-010**: Un mismo pedido le llega **a los dos teléfonos**, comprobado con
+  las dos sesiones administradoras vivas al mismo tiempo; y con uno de los dos
+  con un token muerto, **el otro recibe igual**.
 
 ## Assumptions
 
-- **Un solo repartidor, un solo teléfono.** No hay reparto de avisos entre varios
-  destinatarios ni reglas de quién recibe qué.
+- **Un solo repartidor, pero dos teléfonos.** El negocio tiene un repartidor y
+  eso no cambia. Lo que sí hay, desde el día uno, son **dos aparatos con sesión
+  administradora**: el de Diego, que trabaja, y el de Mateo, que verifica. Por
+  eso el aviso va a un conjunto de sesiones (FR-018) y no a "el teléfono". Lo
+  que sigue sin existir es una **regla de reparto**: no se decide quién recibe
+  qué; los dos reciben todo.
 - **El volumen es de decenas de pedidos por semana.** Un aviso por pedido no
   satura a nadie. Con cien pedidos por día esta decisión se revisa.
 - **La red de reserva es abrir la app.** No hay reintento por otro canal, ni

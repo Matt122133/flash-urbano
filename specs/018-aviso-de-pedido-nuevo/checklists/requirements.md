@@ -39,11 +39,18 @@ del proyecto, y están registrados en la sección Clarifications del spec:
 - **FR-006 (Q2)** → suena a cualquier hora y respeta el *No molestar* del
   teléfono; ninguna franja horaria escrita en el producto.
 
-Queda una tensión que el plan tiene que resolver, no el spec: **el dato de área
-que hoy existe es la zona de cobertura (1-5), no un barrio**. FR-005 obliga a
-usar lo que ya hay sin inventar un campo, así que si "Zona 3" no le dice nada a
-Diego leyendo el aviso, eso se decide con un dato existente o se acepta como
-está — no agregando un campo nuevo al pedido.
+El hook `before_plan` (`/speckit-clarify`) corrió el 2026-08-31 y cerró tres
+cosas más, en la misma sesión de Clarifications:
+
+- **De dónde sale el "dónde entrega" del aviso** → la calle de entrega, sin
+  número y sin esquina. Esto **corrige** la primera redacción de FR-005, que
+  decía "la zona o barrio" y ponía de ejemplo *"entrega en Pocitos"*: el barrio
+  no existe como dato en este repo —las zonas se llaman `Zona 1` a `Zona 5`— así
+  que ese ejemplo no tenía de dónde salir.
+- **Qué pasa con la app abierta** → FR-016. La lista no se reordena sola.
+- **Cuánto vale un aviso guardado** → FR-017. 24 horas.
+
+Sin marcadores abiertos y sin tensiones pendientes para el plan.
 
 Las secciones en prosa nombran archivos y valores del repo (`Principal.kt:132`,
 `targetSdk`, OkHttp/Compose/DataStore). Es contexto de por qué el problema existe
