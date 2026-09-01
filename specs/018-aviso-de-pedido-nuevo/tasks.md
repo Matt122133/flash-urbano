@@ -473,13 +473,28 @@ pedido de punta a punta.
       y en ningún otro lado.
 - [ ] T036 Quickstart nivel 2 en el emulador `Medium_Phone_API_36.0`
       (`google_apis_playstore`, medido): Q7 a Q13.
-- [ ] T037 Quickstart nivel 3 **en el teléfono de Mateo**: Q14a y Q15
+      **No se corrió en el emulador, y no por olvido**: Q7 a Q12 se corrieron sobre
+      un **teléfono de verdad** (T037), que es estrictamente más fuerte —el emulador
+      existía como sustituto barato del aparato, no al revés—. Lo único que queda sin
+      cubrir de esta tarea es **Q13** (que un aviso de más de 24 horas se descarte),
+      que pide adelantar el reloj del sistema y por eso **sólo se puede hacer en el
+      emulador**.
+
+      Se deja abierta por Q13 y nada más. **Vale decir qué se pierde mientras tanto**:
+      el `ttl: 86400s` está fijado por una prueba unitaria contra el contrato, así que
+      lo que no está comprobado es que el proveedor lo respete — que es una promesa de
+      Google, no código nuestro.
+- [x] T037 Quickstart nivel 3 **en el teléfono de Mateo**: Q14a y Q15
       (**SC-001**, **SC-002**, **SC-006**, **SC-009**, **SC-010**). No depende de
       nadie más y se puede correr el mismo día.
       **Corrida el 2026-09-01 en el teléfono de Mateo** —un **Redmi con HyperOS,
       Android 16**, con Google Play Services 26.32.34— contra el backend local. Salió
       **mucho más de lo que esta tarea pedía**, así que queda acá el detalle y T036
       hereda lo que ya no hace falta repetir en el emulador.
+      **Q9 y Q10 cerradas a mano el 2026-09-01** por Mateo, que son las dos que
+      HyperOS no dejaba automatizar: tocar el aviso **cae en ese pedido**, y con la
+      app abierta aparece el renglón **sin que la lista se mueva sola**. Con eso
+      **T037 queda completa**.
 
       **Cómo se apuntó el teléfono al backend local**, que el quickstart no decía y
       ahora sí: `adb reverse tcp:8080 tcp:8080` más
@@ -539,6 +554,26 @@ pedido de punta a punta.
       gestos del Samsung y la prueba de varios días sin abrir la app. **Es la
       única que el teléfono de Mateo no puede cerrar**, porque lo que se prueba
       es el comportamiento del fabricante.
+      **Desbloqueada el 2026-09-01**: ya hay qué instalarle y contra qué probar.
+
+      - **Producción desplegada** desde `master` (PR #31). El arranque registró
+        `migracion aplicada: 0008_aviso_de_pedido_nuevo.sql`, `/salud` contesta
+        `{"estado":"ok","base":"ok"}`, y **no** apareció el renglón de *"arranca SIN
+        avisos"*, o sea que tomó la credencial.
+      - **`FCM_CREDENCIAL_BASE64` cargada en Railway** con el CLI.
+      - **APK `v0.3.0` publicado**, con la misma clave de firma de siempre
+        (`1dbade77…8482b`), así que entra encima de la instalada sin desinstalar nada.
+
+      Lo que falta es lo que sólo puede pasar en el teléfono de Diego: que lo instale,
+      conceda el permiso, **le demos los dos gestos del ahorro de batería** del
+      runbook, y después **Q16 — la prueba de varios días sin abrir la app**, que es
+      el caso que mata a los push y no se ve el primer día.
+
+      **Antes de correrla hay que resolver de qué marca es su teléfono** (fila `High`
+      del tracker): el runbook quedó escrito para HyperOS, y si es un Honor los dos
+      gestos están en otro lado y con otro nombre. Y si ese Honor no trae Google Play
+      Services, **el push no llega nunca** y no hay ajuste que lo arregle — eso se
+      comprueba abriendo la Play Store en el aparato, antes que cualquier otra cosa.
 - [ ] T039 Q17: preguntarle a Diego si, leyendo sólo el aviso y sin desbloquear,
       **sabe si le queda de paso**. Si la respuesta es "tengo que abrir igual",
       se corrige el renglón con lo que él diga — no agregando un campo al
