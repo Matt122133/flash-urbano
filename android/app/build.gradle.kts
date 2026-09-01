@@ -187,6 +187,17 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
 
+    // Los avisos de pedido nuevo (018). El BOM fija la version de cada artefacto,
+    // asi que `firebase-messaging` va sin numero.
+    //
+    // El plugin `google-services` NO esta aplicado todavia: se planta si no
+    // encuentra `google-services.json`, que sale de la consola de Firebase
+    // (T003). Sin el, esto compila y baja los artefactos —que es lo que la Fase 1
+    // existe para comprobar— pero Firebase no se inicializa en tiempo de
+    // ejecucion. Todavia no hay nada que inicializar.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     // MockWebServer: el cliente se prueba contra un servidor de verdad en

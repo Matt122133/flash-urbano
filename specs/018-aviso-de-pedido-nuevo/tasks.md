@@ -40,10 +40,19 @@ con un `grep` y no sólo leyendo.
       `firebase-messaging` (BOM de Firebase), **sin escribir ninguna lógica**.
       Correr `.\gradlew.bat assembleDebug` y confirmar que resuelve y compila.
       Es la primera dependencia de Google de esta app.
-- [ ] T002 [P] En `backend/go.mod`, agregar `golang.org/x/oauth2` (hoy indirecta)
+      **A medias el 2026-08-31**: la dependencia entró (BOM `34.18.0`, versiones
+      preguntadas a `dl.google.com` y no adivinadas), **resolvió, bajó y compiló
+      en verde** — que es el riesgo que esta tarea existía para medir. El plugin
+      quedó **declarado y sin aplicar**: se planta si no encuentra
+      `google-services.json`, así que se aplica junto con T003.
+- [x] T002 [P] En `backend/go.mod`, agregar `golang.org/x/oauth2` (hoy indirecta)
       y `cloud.google.com/go/compute/metadata` con `go mod tidy`, y confirmar con
       `go list -m all` que **no entra nada más** — medido: la vía elegida agrega
       2 módulos y el SDK de Firebase agrega 76 (research D2).
+      **Hecho el 2026-08-31**: `go.mod` ganó **un solo renglón**
+      (`cloud.google.com/go/compute/metadata v0.3.0`), porque `x/oauth2` ya
+      estaba. Los dos quedan `// indirect` hasta que T014 los importe, que es lo
+      correcto: todavía no hay código que los use. `go vet` y `go test` en verde.
 - [ ] T003 Crear el proyecto en la consola de Firebase con el `applicationId` que
       ya tiene la app (`uy.flashurbano.repartidor`), bajar `google-services.json`
       a `android/app/`, **y versionarlo** (viaja dentro del APK, que ya es

@@ -16,6 +16,11 @@ serializationJson = "1.8.1"
 datastore = "1.1.1"
 coroutines = "1.10.2"
 junit = "4.13.2"
+# La primera dependencia de Google de esta app. Ver
+# `docs/decisions/push-as-the-only-alert.md`. Las dos versiones se preguntaron a
+# `dl.google.com/dl/android/maven2` el 2026-08-31, no se adivinaron.
+firebaseBom = "34.18.0"
+googleServices = "4.5.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -35,9 +40,17 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+# Sin `version.ref` a proposito: la version de cada artefacto la fija el BOM, que
+# es el unico lugar donde se sube.
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+# Declarado pero TODAVIA NO APLICADO en `app/build.gradle.kts`: este plugin falla
+# el build si no encuentra `google-services.json`, que sale de la consola de
+# Firebase (T003). Se aplica cuando ese archivo entre al repo.
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

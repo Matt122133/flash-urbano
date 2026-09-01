@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # La app: permiso, canal, recepcion, el renglon de la lista y el token.
   - android/
@@ -24,7 +24,7 @@ covers:
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd backend && go vet ./... && go test ./... && cd ../android && .\gradlew.bat assembleDebug testDebugUnitTest
-analyzed:
+analyzed: 2026-08-31
 ---
 
 # Implementation Plan: Que Diego se entere del pedido cuando entra
