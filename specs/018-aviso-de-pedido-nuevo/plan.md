@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La app: permiso, canal, recepcion, el renglon de la lista y el token.
   - android/
@@ -232,6 +232,33 @@ Lo que sí cubre `verify:`:
 
 Lo demás es el [`quickstart.md`](quickstart.md), sobre el teléfono de Diego:
 SC-001, SC-002, SC-003, SC-005 y SC-009 se miden ahí y en ningún otro lado.
+
+## Cómo se cerró (2026-09-01)
+
+**El feature está entregado, desplegado y comprobado en un teléfono de verdad**:
+Diego recibe el aviso de un pedido nuevo, con el código y la calle de entrega,
+sin desbloquear.
+
+`verify:` verde en las dos patas — backend con **cero fallas** y dos `SKIP` que
+son las pruebas contra el proveedor real, que se saltean solas sin
+`FCM_CREDENCIAL_BASE64` y que **corrieron en verde con ella**; Android con
+**62 pruebas de JVM**, sin fallas ni warnings.
+
+**Tres verificaciones quedan sin correr y NO se dan por hechas** — están en
+`docs/tech-debt-tracker.md` con su disparador, porque dos de ellas no se pueden
+correr el mismo día que se escribe el código:
+
+- **Q13**, el vencimiento a las 24 horas: pide adelantar el reloj, sólo en el
+  emulador.
+- **Q16**, la prueba de varios días sin abrir la app: es el caso que mata a los
+  push, y sólo lo cierra el teléfono de Diego.
+- **Q17**, preguntarle a él si el aviso le alcanza para decidir sin desbloquear.
+
+Y queda abierta una pregunta que este plan asumió mal: **de qué marca es el
+teléfono de Diego**. El plan dice Samsung, el repo tiene medido un Redmi, y el
+dueño mencionó un Honor. No es redacción — el ajuste que evita que el sistema
+duerma la app se llama distinto en cada capa, y si fuera un Honor sin Google
+Play Services el push no llegaría nunca. Fila `High` del tracker.
 
 ## Lo que queda afuera, y por qué
 

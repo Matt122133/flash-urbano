@@ -479,6 +479,7 @@ pedido de punta a punta.
       cubrir de esta tarea es **Q13** (que un aviso de más de 24 horas se descarte),
       que pide adelantar el reloj del sistema y por eso **sólo se puede hacer en el
       emulador**.
+      **DIFERIDA al tracker el 2026-09-01**, no hecha. Queda sólo Q13 y no se tildó.
 
       Se deja abierta por Q13 y nada más. **Vale decir qué se pierde mientras tanto**:
       el `ttl: 86400s` está fijado por una prueba unitaria contra el contrato, así que
@@ -555,6 +556,17 @@ pedido de punta a punta.
       única que el teléfono de Mateo no puede cerrar**, porque lo que se prueba
       es el comportamiento del fabricante.
       **Desbloqueada el 2026-09-01**: ya hay qué instalarle y contra qué probar.
+      **A medias el 2026-09-01, y la mitad que se hizo es la que importaba.** Diego
+      instaló `v0.3.0`, concedió el permiso, y **el aviso le llega**. El episodio del
+      día —"no le está llegando"— **era el permiso de notificaciones**, no el código:
+      el registro de producción no tenía una sola línea de `avisos:`, lo que partió el
+      problema en dos mitades en un comando. Ese orden de diagnóstico quedó escrito en
+      `app-repartidor.md`, porque el síntoma siempre es el mismo —silencio— y las
+      causas se arreglan en lugares distintos.
+
+      **Lo que NO se hizo y no se da por hecho**: los dos gestos del ahorro de batería
+      y **Q16, la prueba de varios días sin abrir la app**, que por definición no se
+      puede correr el mismo día. **DIFERIDA al tracker.**
 
       - **Producción desplegada** desde `master` (PR #31). El arranque registró
         `migracion aplicada: 0008_aviso_de_pedido_nuevo.sql`, `/salud` contesta
@@ -578,6 +590,8 @@ pedido de punta a punta.
       **sabe si le queda de paso**. Si la respuesta es "tengo que abrir igual",
       se corrige el renglón con lo que él diga — no agregando un campo al
       formulario del cliente.
+      **DIFERIDA al tracker el 2026-09-01**, no hecha. Es una pregunta para hacerle a
+      Diego después de unos días de uso real, no el día que lo instala.
 
 ---
 

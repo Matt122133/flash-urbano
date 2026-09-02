@@ -214,6 +214,37 @@ prueba:
 salvo. Lo que hay que evitar es el botón de forzar detención, y saber que si
 alguien lo tocó, los avisos vuelven recién cuando se abra la app.
 
+### "No me llega el aviso": cómo se averigua sin adivinar (`018`)
+
+**Pasó el 2026-09-01, el primer día que Diego tuvo la app con avisos, y era el
+permiso.** Vale escribir el orden porque el síntoma es siempre el mismo
+—silencio— y las causas se arreglan en lugares distintos.
+
+**Lo primero es mirar el registro del servicio, no el teléfono.** Parte el
+problema en dos mitades y cuesta un comando:
+
+```bash
+railway logs --service flash-urbano | grep -i avisos
+```
+
+| Lo que dice | Qué significa | Dónde se arregla |
+|---|---|---|
+| **Ninguna línea, y tampoco hay pedidos** | No entró ningún pedido. El aviso sale al **crear** un pedido: abrir la app o recargar la lista no dispara nada. | Crear un pedido de verdad desde el sitio |
+| **Ninguna línea de `avisos:`, pero sí hubo pedidos** | El envío salió bien. El problema está **en el teléfono**. | Permiso de notificaciones, o el ahorro de batería |
+| `el pedido FU-#### no tiene a quien avisarle` | El teléfono **no declaró su token**. Ver abajo. | Abrir la app y tocar *Actualizar* |
+| `no se pudo avisar del pedido FU-####: …` | Falló el envío, y el motivo va escrito en la misma línea. | Según lo que diga |
+| `el proveedor declaro muerto un token …` | La app se reinstaló o el token venció. **Se limpia solo**; el siguiente ingreso lo repone. | Nada |
+
+**Cuando el registro dice que salió bien, el orden en el teléfono es**: primero
+el permiso de notificaciones —es lo que fue el 2026-09-01, y es lo más rápido de
+descartar—, después el ahorro de batería, y sólo entonces sospechar de otra cosa.
+
+**Una trampa propia que conviene conocer**: la app obtiene su token y lo guarda,
+pero **lo declara recién en la siguiente llamada al servicio**. En una
+instalación limpia eso deja una ventana en la que el servidor todavía no sabe a
+dónde mandarle nada. Se cierra tocando *Actualizar*, o cerrando y volviendo a
+abrir. Está anotado en el tracker como deuda con su arreglo.
+
 ### Cuánto tarda la primera vez (`018`)
 
 **Medido el 2026-09-01: dos minutos y medio** entre instalar la app y que el
