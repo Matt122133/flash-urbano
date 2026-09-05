@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import type { DireccionGuardada, PedidoGuardado } from "@/lib/api";
+import { BotonImprimir } from "@/components/pedido/boton-imprimir";
+import { etiquetaDelPedido } from "@/lib/etiqueta";
 
 /**
  * Un pedido del historial: tarjeta resumida arriba, detalle al desplegar.
@@ -106,6 +108,19 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
             valor={`${pedido.destinatarioNombre} · ${pedido.destinatarioTelefono}`}
           />
         </dl>
+        {/* FR-002: reimprimir. Sin esto el feature falla en el caso mas
+            comun de todos —que la impresion no salga a la primera, o que hayan
+            cerrado la pestaña— y obligaria a crear el pedido de nuevo, que
+            ademas le ensucia la lista a Diego.
+
+            `etiquetaDelPedido` acepta el `PedidoGuardado` sin que `lib/etiqueta.ts`
+            importe `lib/api.ts`: el tipo es estructural, y esa inversion es lo que
+            deja la guarda de FR-013 en verde sin excepciones. */}
+        <BotonImprimir
+          className="mt-4"
+          etiqueta={() => etiquetaDelPedido(pedido)}
+        />
+
         <div className="mt-4 flex items-center justify-between gap-3">
           <p className="text-xs text-slate-400">
             Cargado el {formatearInstante(pedido.creadoEn)}

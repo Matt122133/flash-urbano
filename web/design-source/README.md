@@ -202,3 +202,59 @@ Mirar el `.ico` **a 16×16, al tamaño real, sin ampliar**. La pregunta no es "�
 ve algo?" sino "¿se distingue que es un camión?". Y probarlo en pestaña clara y
 oscura, **en ventana privada**: el favicon se cachea con muchas ganas y es fácil
 comprobar con satisfacción el icono anterior.
+
+## `build-silueta.js` — la silueta del camión para la etiqueta impresa
+
+```bash
+cd web
+node design-source/build-silueta.js
+```
+
+Emite **dos** archivos con el mismo píxel: `public/silueta-camion.png`, para
+poder mirarlo, y `lib/silueta-camion.ts`, que es el que se usa — el PNG embebido
+como data URI. Lo usa la etiqueta imprimible de `020`.
+
+### Por qué existe: el logo no se puede poner sobre papel blanco
+
+No es que en blanco y negro se vea mejor. Es que **la mitad del logo es blanca**.
+`logo-flash-urbano.png` está hecho para el fondo azul de la marca: *FLASH* es
+blanco, *LOGÍSTICA Y TRANSPORTE* es blanco, y **la caja del camión también**.
+Sobre una hoja blanca no queda un logo apagado — queda *URBANO* flotando y un
+contorno naranja suelto. Es la misma razón por la que `app/icon.svg` pinta un
+cuadrado azul detrás.
+
+Lo único de la marca que sobrevive fuera del azul es la **forma** del camión. El
+nombre no sale de acá: la etiqueta lo compone como texto del documento, que
+además es más nítido a cualquier tamaño y pesa cero.
+
+### Se umbrala por ALFA, no por color
+
+Es la decisión entera del script, y la contraria parece la correcta. Como el
+camión es blanco con contorno naranja, uno supone que un umbral lo dejaría hueco
+y que habría que rellenarlo. **No**: el PNG tiene canal alfa y el cuerpo blanco
+es *opaco*, así que el alfa da la silueta llena de una.
+
+### Tres cosas que conviene no perder
+
+**El camión no es una pieza sola.** Son cinco componentes conexas —caja, cabina,
+chasis y dos ruedas— y quedarse con la más grande deja **sólo la caja**. El
+filtro de componentes descarta motas, no piezas, y su umbral está bien lejos de
+la pieza real más chica.
+
+**El corte de abajo se deriva, el de la izquierda no.** Verticalmente el logo se
+separa solo: hay filas vacías entre el camión, la línea naranja y la cola de
+*TRANSPORTE*, así que el script toma la primera banda de tinta y aguanta que el
+logo cambie de alto. Horizontalmente **no hay ningún hueco** —las líneas de
+velocidad puentean el logotipo con el camión— y ahí sí hay una constante afinada
+a mano, con las cinco alternativas probadas anotadas al lado.
+
+**Ese corte es un compromiso.** La rueda de atrás empieza en el mismo `x` donde
+todavía hay líneas de velocidad, así que no existe un recorte que conserve el
+camión entero y no deje un resto. Se priorizó el camión completo: unos píxeles
+sueltos desaparecen al tamaño que esto se imprime, una rueda mordida no.
+
+### Verificar
+
+Abrir `public/silueta-camion.png` y mirar que sea **un camión macizo**, sin la
+cola de *TRANSPORTE* ni restos de la línea naranja. Si el cuerpo de la caja sale
+vacío, se umbraló por color en vez de por alfa.

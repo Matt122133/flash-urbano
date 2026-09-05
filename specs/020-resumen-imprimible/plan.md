@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # El generador de la silueta y su README.
   - web/design-source/
@@ -14,19 +14,31 @@ covers:
   # componerDireccion, no reescribirlo. Con el prefijo ancho, el sensor no lo
   # impide; con estos tres, si.
   - web/lib/etiqueta.ts
+  # GENERADO por build-silueta.js: la silueta embebida como data URI.
+  # Extendido durante la ejecucion, el 2026-09-05: al escribir el dibujo quedo
+  # claro que traer el PNG desde public/ con una request pondria un logo entre
+  # la etiqueta y la red. Embebido, generar el PDF no toca nada.
+  - web/lib/silueta-camion.ts
   - web/lib/etiqueta.test.ts
   - web/lib/etiqueta-pdf.ts
   # El boton en la confirmacion.
   - web/components/pedido-form.tsx
   # El boton en la tarjeta del historial.
   - web/components/pedido/tarjeta-pedido.tsx
+  # El boton en si, compartido por las dos pantallas. Extendido durante la
+  # ejecucion, el 2026-09-05: el plan hablaba de "los dos botones" como si
+  # fueran dos, y al escribirlos quedo claro que la carga diferida, el nombre
+  # del archivo y —sobre todo— el manejo de la falla tienen que vivir en un
+  # solo lugar, o divergen. El sensor rebotó el commit y por eso esto esta
+  # escrito en vez de suponerse.
+  - web/components/pedido/boton-imprimir.tsx
   # jspdf entra como dependencia.
   - web/package.json
   - web/package-lock.json
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd web && npm run lint && npm test && npm run build
-analyzed:
+analyzed: 2026-09-05
 ---
 
 # Implementation Plan: La etiqueta que se pega al paquete

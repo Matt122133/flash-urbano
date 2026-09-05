@@ -18,6 +18,12 @@ import {
 } from "@/lib/fechas";
 import { contiene, regionPermitida } from "@/lib/direcciones";
 import { resolverZona } from "@/lib/zona-lookup";
+// **El boton de imprimir se importa; `lib/etiqueta-pdf.ts` NO.** El pdf y su
+// libreria entran por un import dinamico adentro del boton (FR-014), asi que
+// este archivo —una de las ENTRADAS de cotizar-abierto.test.ts— no engorda ni
+// gana dependencias de red.
+import { BotonImprimir } from "@/components/pedido/boton-imprimir";
+import { etiquetaDelFormulario } from "@/lib/etiqueta";
 
 type PackageSize = "chico" | "mediano" | "grande";
 
@@ -897,6 +903,29 @@ function Confirmation({
           value={`${form.receiverName} · ${form.receiverPhone}`}
         />
       </dl>
+
+      {/* FR-001: el motivo entero del feature. Hasta aca el pedido existia con
+          un codigo en pantalla y el paquete no llevaba nada encima; Diego
+          llegaba a una puerta, recibia un bulto y tenia que preguntar de que
+          pedido era.
+
+          La etiqueta se arma AL TOCAR, no aca: `etiquetaDelFormulario` resuelve
+          una zona, y no hay por que hacerlo en cada render de esta pantalla. */}
+      <BotonImprimir
+        etiqueta={() =>
+          etiquetaDelFormulario({
+            codigo,
+            nombre: form.name,
+            telefono: form.phone,
+            retiro: form.retiro.direccion,
+            entrega: form.entrega.direccion,
+            destinatarioNombre: form.receiverName,
+            destinatarioTelefono: form.receiverPhone,
+            fechaRetiro: form.pickupDate,
+            cantidad: form.quantity,
+          })
+        }
+      />
 
       <button
         type="button"
