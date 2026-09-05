@@ -81,10 +81,20 @@ blanco que sugiera que deberia ir uno.
   PNG y no se puede reusar. Como texto ademas es nitido a cualquier tamaño, pesa
   cero y queda seleccionable.
 
-  **Cuidado al construirla**: el camion de hoy es *blanco con contorno naranja*,
-  asi que umbralar el PNG da un **contorno**, no una silueta. Hay que rellenar el
-  cuerpo. Se resuelve como el resto de los assets del repo —un generador en
-  `design-source/` y el resultado versionado— y el como lo decide el plan.
+  **Como se construye, medido y no supuesto.** El primer borrador de este spec
+  decia que umbralar el PNG daria un **contorno** y que habria que rellenar el
+  cuerpo. **Es falso**, y el error fue razonar desde el color: el camion es
+  blanco con contorno naranja, si — pero `logo-flash-urbano.png` **tiene canal
+  alfa**, y el cuerpo blanco es *opaco*. Umbralando por **alfa** en vez de por
+  color, la silueta sale llena de una. Comprobado generando el archivo: 200x245
+  px, 3,5 KB, relleno medio por fila del 83% —el resto son los huecos legitimos
+  de un camion, el bajo chasis entre las ruedas y la separacion entre cabina y
+  caja—.
+
+  Lo que si hay que resolver es **el recorte**: a la derecha del logotipo entran
+  tambien la cola de *TRANSPORTE* y un resto de la linea naranja, que hay que
+  dejar afuera. Es el mismo problema que `build-favicon.js` ya resuelve con un
+  recorte propio para los tamaños chicos.
 
 - Q: ¿El producto manda a imprimir, o entrega un archivo? → A: **Entrega un
   archivo, siempre.** El boton descarga un PDF y ahi termina la
@@ -298,8 +308,9 @@ una etiqueta que nadie usa.
   logo a color tal cual: sobre papel blanco la mitad de sus elementos son blancos
   y desaparecen.
 - **FR-020**: La silueta MUST ser un asset generado y versionado, producido por
-  un script de `design-source/` como el resto de los assets del repo, y **MUST
-  ser una silueta rellena y no un contorno**.
+  un script de `design-source/` como el resto de los assets del repo, umbralando
+  por **alfa** y no por color. El recorte MUST dejar afuera el logotipo, la cola
+  de *TRANSPORTE* y la linea naranja: sólo el camión y sus líneas de velocidad.
 
 ### Key Entities
 
