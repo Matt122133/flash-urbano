@@ -88,7 +88,9 @@ que el formulario sigue encaminando al contacto.
       `web/lib/zona-lookup.test.ts`, **sin editarlos**. Si alguno cambia de
       respuesta, el defecto esta en el trazado: se para y se mira el KML, nunca
       se actualiza la prueba para que pase.
-- [ ] T009 [US3] Comprobar la **segunda mitad de FR-006**, la que ninguna prueba
+- [ ] T009 [US3] **DIFERIDO el 2026-09-05** (ver el recuadro de [plan.md](plan.md)
+      y la fila `High` del 2026-09-05 en `docs/tech-debt-tracker.md`).
+      Comprobar la **segunda mitad de FR-006**, la que ninguna prueba
       cubre: marcar en `/pedido` una entrega fuera de toda zona y ver que el sitio
       no deja confirmar y ofrece el contacto directo, **sin nombrar una zona
       cercana ni mostrar monto alguno**. Paso 3 del [quickstart](quickstart.md).
@@ -124,7 +126,13 @@ que el formulario sigue encaminando al contacto.
       **Antes de que el plan pase a `completed`**, o el sensor de cobertura
       rebota el commit.
 
-- [ ] T015 Ejecutar el paso 4 del [quickstart](quickstart.md) con Diego delante:
+- [ ] T015 **DIFERIDO el 2026-09-05, y con el se levanto el bloqueo del merge.**
+      Decision de Mateo: no hay pedidos reales todavia, asi que un borde
+      equivocado no cuesta nada hoy. Lo que sigue escrito abajo es la razon por
+      la que la tarea existia, y sigue valiendo el dia que entre el primer
+      pedido cerca de ese borde.
+
+      Ejecutar el paso 4 del [quickstart](quickstart.md) con Diego delante:
       levantar el sitio, mirar el mapa de `/sobre-nosotros`, y confirmar que el
       borde entre zona 1 y zona 5 corre donde el lo quiso. **Contarle
       explicitamente que el cambio mueve tambien la zona 1** (~0,34 km2 pasan de

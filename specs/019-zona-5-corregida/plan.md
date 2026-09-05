@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El KML editado por el cliente y el generador. Del generador solo se toca un
   # comentario de cabecera, y esta declarado como paso: ver research D3.
@@ -18,6 +18,31 @@ analyzed: 2026-09-05
 # Implementation Plan: El borde corregido de la zona 5 llega al sitio
 
 **Branch**: `019-zona-5-corregida` | **Date**: 2026-09-05 | **Spec**: [spec.md](spec.md)
+
+> ## Cerrado el 2026-09-05 con dos verificaciones sin hacer
+>
+> `verify:` en verde —lint limpio, 176 pruebas, build de 10 rutas— y 13 de 15
+> tareas cerradas. **Las dos que faltan no se hicieron y no se dan por hechas**:
+>
+> - **T009**, que una entrega fuera de toda zona encamine al contacto (la mitad
+>   de FR-006 que ninguna prueba cubre). Es comportamiento anterior a este
+>   feature; lo que cambio es *cuales* son los puntos de afuera.
+> - **T015 / FR-008, que Diego mire el mapa y confirme el borde.** Esto **es una
+>   regla de la constitucion**, no un paso de proceso: *"Boundaries the client
+>   has not confirmed MUST NOT reach production"*. El trazado lo dibujo Mateo a
+>   partir de lo que Diego pidio, y el cambio **mueve tambien la zona 1**
+>   (~0,34 km2 pasan de 1 a 5), que es mas de lo que el pedido decia.
+>
+> **Se cierra igual, por decision de Mateo del 2026-09-05**, con el argumento de
+> que todavia no hay pedidos reales en produccion y el costo de un borde
+> equivocado es cero hoy. El plan decia que T015 bloqueaba el merge; **esa
+> condicion se levanto a proposito y queda escrita aca para que no parezca un
+> olvido**. Anotado tambien en `docs/tech-debt-tracker.md`.
+>
+> **Lo que eso deja abierto**: si el borde no es el que Diego queria, se entera
+> con el primer pedido que caiga cerca, y para entonces ya estara desplegado. El
+> arreglo sigue siendo barato —corregir el KML y regenerar— pero deja de ser
+> gratis.
 
 ## Summary
 
