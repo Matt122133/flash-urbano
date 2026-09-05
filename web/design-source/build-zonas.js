@@ -84,9 +84,19 @@ if (faltantes.length) {
   fallar(`faltan zonas en el KML: ${faltantes.map((id) => `Zona ${id}`).join(", ")}`);
 }
 
-// El orden ascendente por id no es cosmetico: resolverZona() lo recorre tal cual
-// y devuelve el primer match, y eso ES la regla de desempate sobre los bordes
-// compartidos (FR-018).
+// El orden ascendente por id no es cosmetico, pero **no es la regla de
+// desempate**. Esto decia que resolverZona() "devuelve el primer match, y eso ES
+// la regla de desempate": era cierto hasta `004` y dejo de serlo ahi. Hoy
+// `resolverZonaEntre` recorre la lista entera y **gana la zona de menor precio**
+// —respuesta del cliente del 2026-08-06—, con el id desempatando solo precios
+// iguales (hoy zonas 3 y 4, las dos $250).
+//
+// El orden sigue importando por eso ultimo: es lo que hace determinista el
+// desempate entre dos zonas del mismo precio.
+//
+// Se corrigio en `019` porque el comentario viejo ya indujo un error concreto —
+// el primer borrador de specs/019-zona-5-corregida/spec.md lo copio tal cual.
+// Ver research D3 de ese feature.
 const zonas = [...encontradas.values()].sort((a, b) => a.id - b.id);
 
 const cuerpo = zonas
@@ -132,9 +142,11 @@ export type Zona = {
 /**
  * Las cinco zonas, ordenadas por id ascendente.
  *
- * Ese orden es normativo: resolverZona() lo recorre tal cual y devuelve el
- * primer match, y eso es lo que hace determinista la resolucion sobre un borde
- * compartido entre dos zonas.
+ * **El orden no es la regla de desempate.** resolverZonaEntre() recorre la lista
+ * entera y elige la zona de MENOR PRECIO cuando mas de una contiene el punto
+ * —respuesta del cliente del 2026-08-06—; el id solo desempata precios iguales,
+ * que hoy pasa entre las zonas 3 y 4. Ese es el uso normativo de este orden: que
+ * dos zonas del mismo precio devuelvan siempre la misma.
  */
 export const ZONAS: readonly Zona[] = [
 ${cuerpo}

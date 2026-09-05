@@ -24,9 +24,11 @@ export type Zona = {
 /**
  * Las cinco zonas, ordenadas por id ascendente.
  *
- * Ese orden es normativo: resolverZona() lo recorre tal cual y devuelve el
- * primer match, y eso es lo que hace determinista la resolucion sobre un borde
- * compartido entre dos zonas.
+ * **El orden no es la regla de desempate.** resolverZonaEntre() recorre la lista
+ * entera y elige la zona de MENOR PRECIO cuando mas de una contiene el punto
+ * —respuesta del cliente del 2026-08-06—; el id solo desempata precios iguales,
+ * que hoy pasa entre las zonas 3 y 4. Ese es el uso normativo de este orden: que
+ * dos zonas del mismo precio devuelvan siempre la misma.
  */
 export const ZONAS: readonly Zona[] = [
   {
@@ -98,7 +100,16 @@ export const ZONAS: readonly Zona[] = [
     [-34.8995574, -56.071542],
     [-34.8991703, -56.0648043],
     [-34.8915849, -56.0556204],
-    [-34.882113, -56.0335918],
+    [-34.8833229, -56.0375288],
+    [-34.8821084, -56.0350611],
+    [-34.8800266, -56.0362729],
+    [-34.8773769, -56.0375806],
+    [-34.8755981, -56.0384365],
+    [-34.8755612, -56.0369295],
+    [-34.8754171, -56.0347741],
+    [-34.8750937, -56.0338964],
+    [-34.8744116, -56.0329136],
+    [-34.8731884, -56.0323213],
     [-34.8578909, -56.029721],
     [-34.8496325, -56.0244854],
     [-34.8482373, -56.0236148],
@@ -502,7 +513,8 @@ export const ZONAS: readonly Zona[] = [
     precio: 350,
     color: "#dc2626",
     anillo: [
-    [-34.882113, -56.0335918],
+    [-34.8821084, -56.0350611],
+    [-34.8606131, -55.996583],
     [-34.8371337, -55.9582976],
     [-34.8274114, -55.9684686],
     [-34.823994, -55.9720306],
@@ -525,7 +537,14 @@ export const ZONAS: readonly Zona[] = [
     [-34.8457946, -56.0241272],
     [-34.8482373, -56.0236148],
     [-34.8578909, -56.029721],
-    [-34.882113, -56.0335918],
+    [-34.8731884, -56.0323213],
+    [-34.8744116, -56.0329136],
+    [-34.8750937, -56.0338964],
+    [-34.8754171, -56.0347741],
+    [-34.8755612, -56.0369295],
+    [-34.8755981, -56.0384365],
+    [-34.8802175, -56.0361534],
+    [-34.8821084, -56.0350611],
     ],
   },
 ];

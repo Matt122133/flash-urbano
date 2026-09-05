@@ -25,6 +25,24 @@ describe("resolverZona", () => {
     expect(zona?.precio).toBe(ZONAS.find((z) => z.id === id)?.precio);
   });
 
+  // `019`, 2026-09-05. El cliente corrigio el trazado de la zona 5 y este punto
+  // es el que prueba que la correccion llego al sitio: **antes de `019` no caia
+  // en ninguna zona**, asi que con el trazado viejo este caso queda en rojo.
+  //
+  // Esa propiedad es lo unico que lo hace util, y se comprobo revirtiendo
+  // `zonas.ts` al trazado anterior y viendo fallar este caso y solo este. Un
+  // punto elegido dentro de territorio que ya estaba cubierto habria pasado con
+  // los dos trazados sin probar nada. Ver specs/019-zona-5-corregida/research.md D1.
+  //
+  // Queda clavado a esta geometria a proposito: si alguien vuelve a mover el
+  // borde por aca, esto se pone en rojo y obliga a mirar. La respuesta correcta
+  // entonces puede ser actualizar el punto — no "arreglar" el trazado.
+  it("el territorio que la zona 5 gano en `019` ahora tiene cobertura", () => {
+    const zona = resolverZona(-34.86742, -56.008911);
+    expect(zona).not.toBeNull();
+    expect(zona?.id).toBe(5);
+  });
+
   it("un punto en el Rio de la Plata queda fuera de cobertura", () => {
     expect(resolverZona(-34.96, -56.18)).toBeNull();
   });
