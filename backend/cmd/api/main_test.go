@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Matt122133/flash-urbano/backend/internal/avisos"
 	"github.com/Matt122133/flash-urbano/backend/internal/config"
+	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
 )
 
 // TestSinCredencialElAvisadorEsMudoYElServicioSigue es **FR-010** en el unico
@@ -47,6 +50,73 @@ func TestSinCredencialElAvisadorEsMudoYElServicioSigue(t *testing.T) {
 
 			// Y usarlo no puede explotar: es lo que va a correr en cada pedido.
 			avisador.Avisar(context.Background(), avisos.PedidoNuevo{Codigo: "FU-0142"})
+		})
+	}
+}
+
+// TestElPreflightAutorizaTodosLosMetodosQueSirveElEnrutador ata las dos puntas
+// que nadie mas ata: **lo que el enrutador sirve** y **lo que el preflight
+// autoriza**.
+//
+// Es el unico control automatico de una clase de defecto que ya paso dos veces
+// y que las pruebas de Go no pueden ver: llaman a los handlers directo, sin
+// navegador, asi que un metodo o una cabecera que falta en el CORS las deja a
+// todas en verde mientras el sitio no puede ni mandar el pedido. La primera vez
+// fue `Idempotency-Key`, y mientras falto no se pudo crear un pedido desde
+// ningun navegador; la segunda fueron PATCH y DELETE, los dos metodos de `022`.
+//
+// **Como lee la verdad del enrutador y no una lista repetida**: ServeMux
+// responde 405 con la cabecera `Allow` cuando el camino existe y el metodo no,
+// asi que un metodo inventado devuelve exactamente los metodos registrados para
+// ese camino. Lo que no se puede enumerar son los CAMINOS —ServeMux no lo
+// permite—, y por eso la lista de abajo se mantiene a mano: **al registrar una
+// ruta sobre un camino nuevo hay que agregarlo aca**. Que un camino de la lista
+// deje de existir tambien falla, en vez de pasar en silencio.
+//
+// Las dependencias van en cero: `rutas` solo toma los metodos como valores, no
+// los llama, y que esto no explote lo demuestra.
+func TestElPreflightAutorizaTodosLosMetodosQueSirveElEnrutador(t *testing.T) {
+	mux := rutas(nil, dependencias{})
+
+	permitidos := map[string]bool{}
+	for _, m := range strings.Split(httpx.MetodosPermitidos, ",") {
+		permitidos[strings.TrimSpace(m)] = true
+	}
+
+	caminos := []string{
+		"/salud",
+		"/auth/google",
+		"/auth/codigo",
+		"/auth/codigo/verificar",
+		"/auth/salir",
+		"/yo",
+		"/pedidos",
+		"/pedidos/6f1b0f1e-0000-4000-8000-000000000000",
+		"/admin/pedidos",
+		"/admin/pedidos/6f1b0f1e-0000-4000-8000-000000000000/estado",
+	}
+
+	for _, camino := range caminos {
+		t.Run(camino, func(t *testing.T) {
+			r := httptest.NewRequest("METODOINVENTADO", camino, nil)
+			w := httptest.NewRecorder()
+			mux.ServeHTTP(w, r)
+
+			allow := w.Header().Get("Allow")
+			if allow == "" {
+				t.Fatalf("%s no tiene ninguna ruta registrada: la lista de caminos de esta prueba quedo vieja", camino)
+			}
+
+			for _, m := range strings.Split(allow, ",") {
+				m = strings.TrimSpace(m)
+				if m == "" {
+					continue
+				}
+				if !permitidos[m] {
+					t.Errorf("el enrutador sirve %s %s pero el preflight no autoriza %s (httpx.MetodosPermitidos = %q):"+
+						" ningun navegador va a poder llamarla", m, camino, m, httpx.MetodosPermitidos)
+				}
+			}
 		})
 	}
 }

@@ -88,3 +88,59 @@ func Armar(p PedidoNuevo) Mensaje {
 func limpiar(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
+
+// PedidoEditado es lo que hace falta para avisar que un pedido cambio.
+//
+// **Lleva la calle de entrega y nada mas, por el mismo motivo que PedidoNuevo**:
+// una edicion puede haber movido la entrega, y saber a donde va ahora es
+// justamente lo que Diego necesita para decidir si le sigue quedando de paso.
+// Lo prohibido sigue prohibido —numero de puerta, esquina, nombres, telefonos,
+// importes— y la garantia no es el texto de abajo: **es que este struct no
+// tiene esos campos**.
+type PedidoEditado struct {
+	Codigo       string
+	EntregaCalle string
+}
+
+// PedidoDadoDeBaja es lo que hace falta para avisar que un pedido se dio de baja.
+//
+// **Solo el codigo, y eso es una decision.** Podria llevar la calle como los
+// otros dos, pero Diego no va a ir a ningun lado: el pedido no existe. La calle
+// no le aporta nada y su ausencia es una superficie menos por la que se podria
+// filtrar una direccion a una pantalla bloqueada.
+type PedidoDadoDeBaja struct {
+	Codigo string
+}
+
+// ArmarEdicion decide que dice el aviso de que un pedido cambio.
+//
+// **No dice QUE cambio, solo que cambio.** Calcular un diff legible —"cambio el
+// telefono del destinatario"— es otro feature, y ademas tendria que decidir
+// como nombrar cada campo sin filtrar su contenido, que es exactamente el
+// problema que la disciplina de este archivo evita.
+func ArmarEdicion(p PedidoEditado) Mensaje {
+	codigo := limpiar(p.Codigo)
+	calle := limpiar(p.EntregaCalle)
+
+	mensaje := Mensaje{
+		Titulo: strings.TrimSpace("Pedido modificado " + codigo),
+		Codigo: codigo,
+	}
+	// Sin calle no se inventa un cuerpo, igual que en Armar.
+	if calle != "" {
+		mensaje.Cuerpo = "Ahora entrega en " + calle
+	}
+	return mensaje
+}
+
+// ArmarBaja decide que dice el aviso de que un pedido se dio de baja.
+//
+// **Sin cuerpo.** El titulo dice todo lo que hay que decir, y el cuerpo tendria
+// que ser relleno: no hay a donde ir ni nada que preparar.
+func ArmarBaja(p PedidoDadoDeBaja) Mensaje {
+	codigo := limpiar(p.Codigo)
+	return Mensaje{
+		Titulo: strings.TrimSpace("Pedido dado de baja " + codigo),
+		Codigo: codigo,
+	}
+}

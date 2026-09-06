@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La consulta y su prueba. Nada mas: el feature es un ORDER BY.
   - backend/internal/pedidos/pedido.go
@@ -14,6 +14,20 @@ analyzed: 2026-09-05
 # Implementation Plan: El dia de trabajo, del mas viejo al mas nuevo
 
 **Branch**: `021-orden-de-la-app` | **Date**: 2026-09-05 | **Spec**: [spec.md](spec.md)
+
+> ## Cerrado el 2026-09-06, verificado en produccion
+>
+> `verify:` verde con las pruebas de base efectivamente corridas (2 salteadas,
+> igual que la linea base). Mergeado y desplegado.
+>
+> **T011 lo cerro Mateo mirando la app**, sin instalar nada — que es lo que
+> FR-006 pedia y lo que un emulador no habria probado. Su observacion fue "veo
+> todo ordenado por codigo", que **es la confirmacion de que el SQL nuevo esta
+> vivo**: con el viejo veria el orden por fecha de retiro descendente. Codigo y
+> creacion coinciden porque los dos los pone la base al insertar.
+>
+> T012 —el historial del cliente en /perfil— quedo sin mirar a ojo, y lo cubre
+> `TestPorUsuarioSigueDelMasNuevoAlMasViejo` contra Postgres.
 
 ## Summary
 

@@ -2,11 +2,14 @@ package pedidos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/Matt122133/flash-urbano/backend/internal/db"
 	"github.com/Matt122133/flash-urbano/backend/internal/usuarios"
@@ -646,5 +649,171 @@ func TestPorUsuarioSigueDelMasNuevoAlMasViejo(t *testing.T) {
 				i, p.Codigo, esperado,
 			)
 		}
+	}
+}
+
+// --- `022`: editar y dar de baja, mientras nadie lo tomo --------------------
+//
+// Lo que se prueba aca son sobre todo PROHIBICIONES: no editar lo ajeno, no
+// editar lo tomado, no ganar la carrera contra Diego. Cada una viene con su
+// control positivo —el caso que SI funciona— porque una prohibicion sola queda
+// verde tambien cuando deja de mirar donde cree.
+
+// unPedidoEnLaBase crea un pedido por el repositorio y devuelve el pedido y su
+// usuario. **No confundir con `unPedidoCreado` de handlers_test.go**, que hace
+// lo mismo por HTTP: son dos capas distintas y conviene que se note en el
+// nombre.
+func unPedidoEnLaBase(t *testing.T, repo *Repositorio, repoU *usuarios.Repositorio, email, clave string) (*Pedido, string) {
+	t.Helper()
+	ctx := context.Background()
+	usuarioID := unUsuario(t, repoU, email)
+	p, _, err := repo.Crear(ctx, unPedido(usuarioID, clave))
+	if err != nil {
+		t.Fatalf("creando el pedido de %s: %v", email, err)
+	}
+	return p, usuarioID
+}
+
+// FR-001, FR-005, FR-005a: se edita, se guarda entero, y el codigo no cambia.
+func TestEditarUnPedidoPendientePropio(t *testing.T) {
+	repo, repoU, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+	p, usuarioID := unPedidoEnLaBase(t, repo, repoU, "edita@example.com", "k1")
+
+	cambios := unPedido(usuarioID, "k1")
+	cambios.DestinatarioNombre = "Otro Destinatario"
+	cambios.DestinatarioTelefono = "099000111"
+	cambios.Cantidad = 7
+
+	editado, err := repo.Editar(ctx, p.ID, usuarioID, cambios)
+	if err != nil {
+		t.Fatalf("editando: %v", err)
+	}
+
+	if editado.DestinatarioNombre != "Otro Destinatario" {
+		t.Errorf("el destinatario quedo en %q", editado.DestinatarioNombre)
+	}
+	if editado.Cantidad != 7 {
+		t.Errorf("la cantidad quedo en %d, quiero 7", editado.Cantidad)
+	}
+	// **FR-005**: es el codigo que la persona anoto y el que puede estar impreso
+	// en una etiqueta de `020`. Si cambiara, la etiqueta pegada a la caja
+	// dejaria de corresponder al pedido.
+	if editado.Codigo != p.Codigo {
+		t.Errorf("el codigo cambio de %s a %s", p.Codigo, editado.Codigo)
+	}
+	if editado.ID != p.ID {
+		t.Errorf("el id cambio: no es una edicion, es un pedido nuevo")
+	}
+}
+
+// FR-004: un pedido ajeno es inalcanzable, y no se distingue de uno inexistente.
+func TestNoSePuedeEditarNiEliminarUnPedidoAjeno(t *testing.T) {
+	repo, repoU, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+	p, _ := unPedidoEnLaBase(t, repo, repoU, "duenio@example.com", "k1")
+	otro := unUsuario(t, repoU, "ajeno@example.com")
+
+	if _, err := repo.Editar(ctx, p.ID, otro, unPedido(otro, "k2")); !errors.Is(err, ErrFueraDeVentana) {
+		t.Errorf("editar ajeno devolvio %v, quiero ErrFueraDeVentana", err)
+	}
+	if err := repo.Eliminar(ctx, p.ID, otro); !errors.Is(err, ErrFueraDeVentana) {
+		t.Errorf("eliminar ajeno devolvio %v, quiero ErrFueraDeVentana", err)
+	}
+
+	// **El control positivo**: el pedido sigue ahi y sin tocar. Sin esto, un
+	// Editar que no hiciera nunca nada pasaria los dos casos de arriba.
+	sigue, err := repo.porID(ctx, p.ID)
+	if err != nil {
+		t.Fatalf("releyendo el pedido: %v", err)
+	}
+	if sigue.DestinatarioNombre != p.DestinatarioNombre {
+		t.Errorf("el pedido ajeno fue modificado")
+	}
+}
+
+// FR-003 y FR-012: la ventana se cierra cuando Diego toma el pedido, **y la
+// carrera la decide la base**.
+//
+// Es el caso real: el cliente abre Editar, Diego toma el pedido en ese momento,
+// y el guardado llega tarde. Si la comprobacion viviera en un SELECT previo o
+// en la pantalla, este guardado pisaria un trabajo en curso.
+func TestUnPedidoTomadoYaNoSeEditaNiSeElimina(t *testing.T) {
+	repo, repoU, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+	p, usuarioID := unPedidoEnLaBase(t, repo, repoU, "carrera@example.com", "k1")
+
+	// **El control positivo, y va ANTES a proposito**: mientras esta pendiente
+	// las dos operaciones funcionan. Sin esto, los casos de abajo pasarian
+	// aunque Editar y Eliminar no hicieran nada nunca.
+	if _, err := repo.Editar(ctx, p.ID, usuarioID, unPedido(usuarioID, "k1")); err != nil {
+		t.Fatalf("editando mientras esta pendiente: %v", err)
+	}
+
+	// Diego lo toma.
+	if _, err := repo.CambiarEstado(ctx, p.ID, EstadoAceptacion, nil); err != nil {
+		t.Fatalf("tomando el pedido: %v", err)
+	}
+
+	if _, err := repo.Editar(ctx, p.ID, usuarioID, unPedido(usuarioID, "k1")); !errors.Is(err, ErrFueraDeVentana) {
+		t.Errorf("editar un pedido tomado devolvio %v, quiero ErrFueraDeVentana", err)
+	}
+	if err := repo.Eliminar(ctx, p.ID, usuarioID); !errors.Is(err, ErrFueraDeVentana) {
+		t.Errorf("eliminar un pedido tomado devolvio %v, quiero ErrFueraDeVentana", err)
+	}
+
+	// Y sigue existiendo: el DELETE no borro nada.
+	if _, err := repo.porID(ctx, p.ID); err != nil {
+		t.Errorf("el pedido tomado desaparecio: %v", err)
+	}
+}
+
+// FR-002 y FR-008: la baja borra la fila y el pedido se va de las DOS listas.
+func TestEliminarSacaElPedidoDeLasDosListas(t *testing.T) {
+	repo, repoU, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+	p, usuarioID := unPedidoEnLaBase(t, repo, repoU, "baja@example.com", "k1")
+
+	// Control positivo: antes de la baja esta en las dos.
+	if mios, _ := repo.PorUsuario(ctx, usuarioID); len(mios) != 1 {
+		t.Fatalf("antes de la baja PorUsuario devolvio %d, quiero 1", len(mios))
+	}
+	if todos, _ := repo.Todos(ctx); len(todos) != 1 {
+		t.Fatalf("antes de la baja Todos devolvio %d, quiero 1", len(todos))
+	}
+
+	if err := repo.Eliminar(ctx, p.ID, usuarioID); err != nil {
+		t.Fatalf("dando de baja: %v", err)
+	}
+
+	if mios, _ := repo.PorUsuario(ctx, usuarioID); len(mios) != 0 {
+		t.Errorf("sigue en Mis pedidos: %d", len(mios))
+	}
+	if todos, _ := repo.Todos(ctx); len(todos) != 0 {
+		t.Errorf("sigue en la lista de Diego: %d", len(todos))
+	}
+	// **Y la fila no esta: la baja BORRA, no marca.** Es la diferencia entre
+	// este feature y uno con estado `anulado`, y lo que evita tocar la app.
+	//
+	// Se compara contra pgx.ErrNoRows y no contra ErrNoExiste: `porID` devuelve
+	// el error crudo del driver —el que traduce es `PorClave`—, y afirmar sobre
+	// el error equivocado dejaria pasar el caso en que la fila sigue ahi.
+	if _, err := repo.porID(ctx, p.ID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Errorf("la fila no se borro, o fallo por otro motivo: %v", err)
+	}
+}
+
+// Dar de baja dos veces: la segunda no encuentra nada, y no es un error que
+// haya que gritar. Se comprueba que devuelva el mismo "no" de siempre.
+func TestEliminarDosVecesNoEsUnCasoEspecial(t *testing.T) {
+	repo, repoU, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+	p, usuarioID := unPedidoEnLaBase(t, repo, repoU, "dosveces@example.com", "k1")
+
+	if err := repo.Eliminar(ctx, p.ID, usuarioID); err != nil {
+		t.Fatalf("primera baja: %v", err)
+	}
+	if err := repo.Eliminar(ctx, p.ID, usuarioID); !errors.Is(err, ErrFueraDeVentana) {
+		t.Errorf("segunda baja devolvio %v, quiero ErrFueraDeVentana", err)
 	}
 }

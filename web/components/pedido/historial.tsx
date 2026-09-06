@@ -123,7 +123,10 @@ export function Historial() {
           <ul className="mt-3 space-y-3">
             {(todos ? pedidos : pedidos.slice(0, VISIBLES_AL_PRINCIPIO)).map((p) => (
               <li key={p.id}>
-                <TarjetaPedido pedido={p} />
+                <TarjetaPedido
+                  pedido={p}
+                  onBaja={() => setIntento((n) => n + 1)}
+                />
               </li>
             ))}
           </ul>

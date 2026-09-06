@@ -58,7 +58,7 @@ export class ErrorApi extends Error {
 }
 
 export type OpcionesPedido = {
-  metodo?: "GET" | "POST" | "PUT";
+  metodo?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   cuerpo?: unknown;
   /** Credencial de sesion. Sin ella el pedido va anonimo. */
   credencial?: string | null;
@@ -302,4 +302,52 @@ export async function crearPedido(
 export async function misPedidos(credencial: string | null): Promise<PedidoGuardado[]> {
   const r = await pedir<{ pedidos: PedidoGuardado[] }>("/pedidos", { credencial });
   return r.pedidos ?? [];
+}
+
+/**
+ * Corrige un pedido propio que todavía está pendiente (`022`).
+ *
+ * **Manda el pedido ENTERO, no sólo lo que cambió**, y el servicio reemplaza
+ * (FR-005a). Es lo que evita tener que distinguir "no mandé este campo" de
+ * "quiero vaciarlo", donde el modo de falla es borrar un dato en silencio. No
+ * cuesta nada porque el formulario ya tiene el pedido completo cargado.
+ *
+ * **No lleva clave de idempotencia**: editar dos veces con los mismos datos deja
+ * el mismo resultado, así que no hay nada que deduplicar.
+ *
+ * Un `404` acá **no significa sólo "no existe"**: el servicio responde lo mismo
+ * si el pedido es de otra persona o si Diego ya lo tomó, y es deliberado —
+ * distinguirlos le confirmaría a un desconocido que ese pedido existe. Para
+ * quien llega por su propia pantalla, el motivo posible es uno solo, y el
+ * mensaje del servicio ya lo dice.
+ */
+export async function editarPedido(
+  id: string,
+  cuerpo: unknown,
+  credencial: string | null,
+): Promise<PedidoGuardado> {
+  const r = await pedir<{ pedido: PedidoGuardado }>(`/pedidos/${encodeURIComponent(id)}`, {
+    metodo: "PATCH",
+    cuerpo,
+    credencial,
+  });
+  return r.pedido;
+}
+
+/**
+ * Da de baja un pedido propio que todavía está pendiente (`022`).
+ *
+ * **Borra de verdad**: no queda anulado ni en una papelera. Se puede porque la
+ * ventana coincide con "sin historial de estados" — ver research D1 de `022`.
+ *
+ * El servicio responde `204`, sin cuerpo. Mismo `404` ambiguo que `editarPedido`.
+ */
+export async function eliminarPedido(
+  id: string,
+  credencial: string | null,
+): Promise<void> {
+  await pedir<void>(`/pedidos/${encodeURIComponent(id)}`, {
+    metodo: "DELETE",
+    credencial,
+  });
 }
