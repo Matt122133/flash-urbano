@@ -111,6 +111,25 @@ mismo codigo.
       puede quedar creyendo que guardo. Mismo criterio que el boton de confirmar,
       que el 2026-08-14 no hacia nada visible.
 
+## Phase 6b: Que Mi cuenta recuerde en que vista estaba
+
+**Ampliacion de alcance del 2026-09-06**, pedida con el plan ya en ejecucion y
+`verify:` verde. Entra aca y no en un feature aparte porque es la misma pantalla
+que este plan vuelve util, y porque **es este feature el que vence la premisa**
+de FR-027 de `010`.
+
+- [ ] T021b Leer la vista de `/perfil` desde la URL (`?ver=pedidos`) en
+      `web/app/perfil/page.tsx`, en vez de un `useState` que arranca siempre en
+      *Mis datos*. **Dejar escrito que es una REVERSION de FR-027 y por que**: esa
+      decision tenia motivo —"quien entra a Mi cuenta viene, casi siempre, a
+      escribir su direccion"— y lo que la vence es `022`. Sin decirlo, el proximo
+      que lea el comentario viejo la deshace creyendo que corrige algo.
+- [ ] T021c **El limite de Suspense, que es donde esto falla en silencio.**
+      `useSearchParams` empuja el arbol al cliente y sin `<Suspense>` **el build
+      estatico falla directamente** — pero en desarrollo anda, que es la trampa.
+      Mismo motivo por el que `app/pedido/page.tsx` lleva el suyo desde `010`.
+      Comprobar con `npm run build` que `/perfil` **sigue saliendo como estatica**.
+
 ## Phase 7: Los avisos a Diego
 
 - [ ] T022 Dos tipos de entrada nuevos en `backend/internal/avisos/mensaje.go`,

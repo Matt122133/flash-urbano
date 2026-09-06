@@ -14,6 +14,13 @@ covers:
   - web/components/pedido/
   # El formulario, que gana un modo "editar".
   - web/components/pedido-form.tsx
+  # AMPLIACION DE ALCANCE, pedida por Mateo el 2026-09-06 con el plan ya en
+  # ejecucion y verify verde: que /perfil recuerde en que vista estaba.
+  # Entra aca y no en un feature aparte porque es la MISMA pantalla que este
+  # plan vuelve util —desde `022` se vuelve a ella a mirar estados y a
+  # corregir— y porque es justamente este feature el que vence la premisa de
+  # FR-027 de `010`. Ver FR-015 del spec.
+  - web/app/perfil/
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... -p 1

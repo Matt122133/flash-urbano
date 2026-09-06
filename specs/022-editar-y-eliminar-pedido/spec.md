@@ -233,6 +233,28 @@ operaciones dejan de estar disponibles.
 - **FR-014**: La app de Diego MUST tolerar que un pedido de su lista ya no
   exista, sin romperse.
 
+- **FR-015**: *Mi cuenta* MUST recordar en que vista estaba —*Mis datos* o
+  *Mis pedidos*— **al recargar la pantalla**.
+
+  **Es una reversion de FR-027 de `010`, no la correccion de un defecto**, y la
+  diferencia importa: aquella decision esta escrita con su motivo —*"quien entra
+  a Mi cuenta viene, casi siempre, a escribir su direccion"*— y era razonable.
+  **Lo que la vence es este mismo feature**: desde `022` se vuelve a esa pantalla
+  a mirar estados y a corregir pedidos, no a escribir una direccion, y volver a
+  *Mis datos* en cada recarga le cuesta un toque cada vez a la persona que mas
+  usa la pantalla. Sin decir que es una reversion, el proximo que lea el
+  comentario de `010` la deshace creyendo que corrige algo.
+
+  **Pedido de Mateo el 2026-09-06**, con el plan ya en ejecucion: *"cuando entra
+  a mis pedidos y actualizo se vuelve a mis datos, es re feo... y mas encima que
+  van a estar actualizando esa pantalla para ver los estados de los pedidos
+  actuales"*.
+
+- **FR-015a**: La vista MUST viajar **en la URL**, no en almacenamiento del
+  navegador. Sobrevive la recarga sin guardar nada, se puede compartir y el
+  boton de atras se comporta como corresponde. FR-027 tambien descartaba la URL,
+  y esa mitad se revierte con la otra.
+
 ### Key Entities
 
 - **Pedido** — ya existe. Gana dos operaciones y **ningun campo nuevo**.

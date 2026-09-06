@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { Historial } from "@/components/pedido/historial";
 import { FormularioPerfil } from "@/components/sesion/formulario-perfil";
 import { useSesion } from "@/components/sesion/proveedor-sesion";
@@ -33,14 +34,62 @@ const VISTAS: readonly { id: Vista; etiqueta: string }[] = [
  * campos de la direccion para llegar al primer pedido. Los datos y los pedidos
  * son dos cosas que se vienen a hacer por separado.
  */
+/**
+ * El limite de Suspense, y **no es decorativo**.
+ *
+ * `useSearchParams` empuja todo el arbol de abajo al cliente, y sin un limite de
+ * Suspense **el build estatico falla directamente**. En desarrollo funciona
+ * igual, que es la trampa. Es el mismo motivo por el que `app/pedido/page.tsx`
+ * lleva el suyo desde `010`.
+ */
 export default function PerfilPage() {
-  const { usuario, cargando } = useSesion();
+  return (
+    <Suspense fallback={<Esperando />}>
+      <Cuenta />
+    </Suspense>
+  );
+}
 
-  // Arranca SIEMPRE en los datos, y la eleccion **no se recuerda** entre
-  // visitas ni viaja en la URL (FR-027): guardarla seria estado nuevo en el
-  // navegador para una preferencia que nadie pidio. Quien entra a Mi cuenta
-  // viene, casi siempre, a escribir su direccion.
-  const [vista, setVista] = useState<Vista>("datos");
+function Esperando() {
+  return (
+    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+      <div className={sectionClass}>
+        <p className="py-6 text-center text-sm text-slate-500">Un momento…</p>
+      </div>
+    </div>
+  );
+}
+
+function Cuenta() {
+  const { usuario, cargando } = useSesion();
+  const router = useRouter();
+  const parametros = useSearchParams();
+
+  /**
+   * En que vista estamos, leido de la URL (`/perfil?ver=pedidos`).
+   *
+   * **Esto revierte la mitad de FR-027 de `010`**, que decia que la eleccion no
+   * se recuerda "ni viaja en la URL" porque "quien entra a Mi cuenta viene, casi
+   * siempre, a escribir su direccion". **Ese supuesto lo vencio `022`**: desde
+   * que se puede corregir y dar de baja un pedido, a esta pantalla se vuelve a
+   * mirar estados, y recargarla mandaba de nuevo a *Mis datos* cada vez.
+   *
+   * **En la URL y no en `sessionStorage`**, que era la otra opcion: sobrevive la
+   * recarga sin guardar nada en el telefono, se puede compartir el enlace, y el
+   * boton de atras hace lo que uno espera. Es la misma razon por la que
+   * `?repetir=` y `?editar=` viajan por la URL.
+   *
+   * Cualquier valor que no sea `pedidos` cae en `datos`: no hay estado invalido
+   * que manejar, y una URL escrita a mano no puede romper la pantalla.
+   */
+  const vista: Vista = parametros.get("ver") === "pedidos" ? "pedidos" : "datos";
+
+  // `replace` y no `push`: alternar entre las dos vistas no es navegar, y con
+  // `push` el boton de atras se llenaria de pasos que la persona no dio.
+  const irA = (id: Vista) =>
+    router.replace(id === "pedidos" ? "/perfil?ver=pedidos" : "/perfil", {
+      scroll: false,
+    });
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
@@ -67,7 +116,7 @@ export default function PerfilPage() {
                   key={id}
                   type="button"
                   aria-pressed={vista === id}
-                  onClick={() => setVista(id)}
+                  onClick={() => irA(id)}
                   className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                     vista === id
                       ? "border-brand bg-brand/10 text-brand"
