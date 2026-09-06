@@ -285,6 +285,36 @@ default; components that need interactivity (forms, nav toggle) are marked
   **El logo a color no se puede usar sobre papel**: esta hecho para fondo azul y
   la mitad de sus elementos son blancos. Ver `web/design-source/README.md`.
 
+- `backend/internal/pedidos` — **desde `022` el cliente puede corregir o dar de
+  baja un pedido propio, y solo mientras Diego no lo tomo.** Dos cosas de ese
+  feature se deshacen facil sin querer:
+
+  **La autorizacion y la ventana viven en el `WHERE`**, no en un `if` del
+  handler: `Editar()` y `Eliminar()` acotan por id, dueño **y estado** en la
+  misma sentencia y deciden por filas afectadas. Convertirlo en "leer, comprobar
+  en Go, escribir" parece mas legible y **reintroduce la carrera**: entre la
+  lectura y la escritura Diego puede tomar el pedido, y el guardado pisa un
+  trabajo en curso. Los tres motivos de rechazo —no existe, no es tuyo, ya lo
+  tomaron— colapsan en un solo error a proposito: distinguirlos le confirma a un
+  desconocido que el pedido existe.
+
+  **La baja BORRA la fila, y se puede solo por esa ventana.**
+  `pedidos_estados.pedido_id` es `ON DELETE RESTRICT` y ese historial se escribe
+  unicamente cuando Diego mueve el estado, asi que un pendiente no tiene nada que
+  lo retenga. Si alguna vez ese `DELETE` chocara contra el `RESTRICT`, **no hay
+  que aflojar la restriccion**: es la señal de que la ventana se abrio de mas.
+  Esa coincidencia es tambien lo que evito inventar un estado `anulado` y, con
+  el, una version nueva de la app.
+
+- `web/components/pedido/crear-pedido.tsx` — **desde `022` tiene TRES fuentes de
+  precarga** —el perfil, `?repetir=` y `?editar=`— y siguen siendo **mutuamente
+  excluyentes**, decididas una sola vez. La tercera es la peligrosa: las otras
+  dos arrancan un pedido nuevo y esta termina guardando sobre uno existente, asi
+  que **el modo de guardado viaja con la precarga** (`editando`) en vez de
+  deducirse volviendo a leer la URL. Dos lecturas que discrepan guardan sobre el
+  pedido equivocado, y en pantalla no se ve nada raro. Es la forma, con mas
+  superficie, del defecto que este mismo hook produjo el 2026-08-14.
+
 - `web/lib/zona-lookup.ts` — resolves which delivery zone a marked point falls
   in, and therefore **whether the order can be taken at all**. **Since `011` the
   point it is asked about is the DELIVERY point, not the pickup one**

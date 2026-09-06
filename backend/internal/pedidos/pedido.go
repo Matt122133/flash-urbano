@@ -729,3 +729,117 @@ func esIDMalFormado(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "22P02"
 }
+
+// ErrFueraDeVentana lo devuelven Editar y Eliminar cuando la operacion no se
+// puede hacer, **y no dice cual de los tres motivos fue**.
+//
+// Los tres —no existe, no es tuyo, ya no esta pendiente— colapsan en este error
+// a proposito (FR-004 de `022`). Distinguir "no es tuyo" de "no existe" le
+// confirma a un desconocido que ese pedido existe; y distinguir "ya lo tomaron"
+// de "no es tuyo" le contaria el estado de un pedido ajeno.
+//
+// El texto que ve la persona lo pone el handler, y ahi si puede ser mas util:
+// quien llega por la pantalla propia sabe que el pedido es suyo, asi que el
+// unico motivo posible es que Diego lo haya tomado.
+var ErrFueraDeVentana = errors.New("el pedido no se puede modificar")
+
+// Editar reemplaza un pedido propio que todavia esta pendiente.
+//
+// **Es un REEMPLAZO TOTAL, no una edicion parcial** (FR-005a). El formulario ya
+// tiene el pedido entero cargado, asi que mandarlo completo no cuesta nada; y
+// una edicion parcial obligaria a distinguir "no mande este campo" de "quiero
+// vaciarlo", donde el modo de falla es **borrar un dato en silencio**.
+//
+// **La ventana y la autorizacion viven en el WHERE, y eso no es un detalle de
+// estilo.** La alternativa —leer el pedido, comprobar dueño y estado en Go,
+// despues escribir— deja una ventana entre la lectura y la escritura en la que
+// Diego puede tomar el pedido, y entonces el guardado pisa un trabajo en curso.
+// Con las tres condiciones adentro del UPDATE, **decide la base**: si afecto
+// cero filas, la operacion no correspondia, y no hay carrera que perder.
+//
+// Es la misma idea que PorUsuario(), que "toma el usuario por parametro y no
+// admite filtro alguno que lo esquive", extendida al estado.
+//
+// **No se toca el codigo** (FR-005): es el que la persona anoto y el que puede
+// estar impreso en una etiqueta de `020`. Tampoco `clave_idempotencia`, que
+// pertenece a la creacion, ni `creado_en`, que es cuando entro el pedido y no
+// cuando se corrigio.
+func (r *Repositorio) Editar(ctx context.Context, id, usuarioID string, n Nuevo) (*Pedido, error) {
+	if n.Entrega.Punto == nil {
+		// Igual que en Crear: el handler valida antes, y esto evita un NOT NULL
+		// violation cuyo mensaje no menciona el punto.
+		return nil, fmt.Errorf("el pedido no trae punto de entrega")
+	}
+
+	var retiroLat, retiroLng *float64
+	if n.Retiro.Punto != nil {
+		retiroLat = &n.Retiro.Punto.Lat
+		retiroLng = &n.Retiro.Punto.Lng
+	}
+
+	// ST_MakePoint recibe (X, Y), o sea longitud primero. Invertirlo no da
+	// error: da un punto en otro continente.
+	const sql = `
+		UPDATE pedidos SET
+			remitente_nombre = $4, remitente_telefono = $5,
+			retiro_calle = $6, retiro_esquina = $7, retiro_numero = $8,
+			retiro_apto = $9, retiro_cooperativa = $10,
+			retiro_punto = ST_SetSRID(ST_MakePoint($12::float8, $11::float8), 4326)::geography,
+			entrega_calle = $13, entrega_esquina = $14, entrega_numero = $15,
+			entrega_apto = $16, entrega_cooperativa = $17,
+			entrega_punto = ST_SetSRID(ST_MakePoint($19::float8, $18::float8), 4326)::geography,
+			paquete_tamano = $20, cantidad = $21,
+			retiro_fecha = $22::date, retiro_hora = $23::time,
+			destinatario_nombre = $24, destinatario_telefono = $25,
+			precio = $26, zona_id = $27,
+			actualizado_en = now()
+		WHERE id = $1 AND usuario_id = $2 AND estado = $3`
+
+	etiqueta, err := r.pool.Exec(ctx, sql,
+		id, usuarioID, EstadoCreacion,
+		n.RemitenteNombre, n.RemitenteTelefono,
+		n.Retiro.Calle, n.Retiro.Esquina, n.Retiro.Numero, n.Retiro.Apto, n.Retiro.Cooperativa,
+		retiroLat, retiroLng,
+		n.Entrega.Calle, n.Entrega.Esquina, n.Entrega.Numero, n.Entrega.Apto, n.Entrega.Cooperativa,
+		n.Entrega.Punto.Lat, n.Entrega.Punto.Lng,
+		n.PaqueteTamano, n.Cantidad,
+		n.RetiroFecha, n.RetiroHora,
+		n.DestinatarioNombre, n.DestinatarioTelefono,
+		n.Precio, n.ZonaID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo editar el pedido: %w", err)
+	}
+	if etiqueta.RowsAffected() == 0 {
+		return nil, ErrFueraDeVentana
+	}
+
+	// Se relee por el mismo motivo que Crear: las columnas de un pedido incluyen
+	// a quien recibio, que sale de un LATERAL, y un RETURNING no puede
+	// referirse a una tabla que no esta en la sentencia.
+	return r.porID(ctx, id)
+}
+
+// Eliminar borra un pedido propio que todavia esta pendiente.
+//
+// **Borra la fila de verdad, y se puede justamente por la ventana** (research
+// D1 de `022`). `pedidos_estados.pedido_id` es ON DELETE RESTRICT —para que
+// borrar un pedido con historial falle en voz alta en vez de llevarse el
+// registro— y ese historial **solo se escribe cuando Diego mueve el estado**.
+// O sea que un pedido en `creacion` no tiene filas que lo retengan.
+//
+// Si alguna vez este DELETE fallara contra ese RESTRICT, **no hay que aflojar
+// la restriccion**: seria la señal de que la ventana se abrio de mas y se esta
+// intentando borrar un pedido sobre el que alguien ya trabajo.
+func (r *Repositorio) Eliminar(ctx context.Context, id, usuarioID string) error {
+	const sql = `DELETE FROM pedidos WHERE id = $1 AND usuario_id = $2 AND estado = $3`
+
+	etiqueta, err := r.pool.Exec(ctx, sql, id, usuarioID, EstadoCreacion)
+	if err != nil {
+		return fmt.Errorf("no se pudo eliminar el pedido: %w", err)
+	}
+	if etiqueta.RowsAffected() == 0 {
+		return ErrFueraDeVentana
+	}
+	return nil
+}

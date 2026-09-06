@@ -28,8 +28,10 @@ import (
 // la implementacion buena como con la mala. Lo que hay que capturar es como
 // estaba **cuando se lo iba a usar**.
 type avisadorFalso struct {
-	mu       sync.Mutex
-	avisados []avisos.PedidoNuevo
+	mu          sync.Mutex
+	avisados    []avisos.PedidoNuevo
+	editados    []avisos.PedidoEditado
+	dadosDeBaja []avisos.PedidoDadoDeBaja
 
 	// errDelContexto es `ctx.Err()` leido adentro de Avisar, despues de
 	// `antesDeVolver`. Nil significa "el contexto todavia servia".
@@ -53,6 +55,46 @@ func (a *avisadorFalso) Avisar(ctx context.Context, p avisos.PedidoNuevo) {
 	a.avisados = append(a.avisados, p)
 	a.errDelContexto = ctx.Err()
 	a.conPlazo = conPlazo
+}
+
+// Los dos de `022`. Anotan en listas propias para que una prueba pueda afirmar
+// **cual** de los tres avisos salio, no solo que salio alguno.
+func (a *avisadorFalso) AvisarEdicion(ctx context.Context, p avisos.PedidoEditado) {
+	if a.antesDeVolver != nil {
+		a.antesDeVolver()
+	}
+	_, conPlazo := ctx.Deadline()
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.editados = append(a.editados, p)
+	a.errDelContexto = ctx.Err()
+	a.conPlazo = conPlazo
+}
+
+func (a *avisadorFalso) AvisarBaja(ctx context.Context, p avisos.PedidoDadoDeBaja) {
+	if a.antesDeVolver != nil {
+		a.antesDeVolver()
+	}
+	_, conPlazo := ctx.Deadline()
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.dadosDeBaja = append(a.dadosDeBaja, p)
+	a.errDelContexto = ctx.Err()
+	a.conPlazo = conPlazo
+}
+
+func (a *avisadorFalso) cuantosEditados() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return len(a.editados)
+}
+
+func (a *avisadorFalso) cuantasBajas() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return len(a.dadosDeBaja)
 }
 
 func (a *avisadorFalso) cuantos() int {

@@ -88,13 +88,15 @@ esperando.
       **y comparar el conteo de salteadas contra T002.** Verde con skips de mas
       **no es verde**: significa que las pruebas de base no corrieron y el feature
       quedo sin verificar.
-- [ ] T011 Verlo en la app (paso 4 del quickstart): backend local contra la base
+- [x] T011 **Cerrado el 2026-09-06**: Mateo lo vio en la app ya desplegada,
+      sin instalar nada. Verlo en la app (paso 4 del quickstart): backend local contra la base
       de **desarrollo**, la app apuntada ahi, *Actualizar*, y comprobar que arriba
       esta lo mas viejo en las tres pestañas. **No se puede cerrar desde la
       sesion**: necesita emulador o telefono.
-- [ ] T012 Comprobar en el sitio (`/perfil`) que el historial del cliente sigue
+- [ ] T012 **DIFERIDO**: lo cubre la prueba automatica contra Postgres.
+      Comprobar en el sitio (`/perfil`) que el historial del cliente sigue
       con lo mas reciente arriba. Tambien a ojo.
-- [ ] T013 Commitear con el plan todavia en `active`, o el sensor rebota.
+- [x] T013 Commitear con el plan todavia en `active`, o el sensor rebota.
       Convencion: `feat: mensaje corto 021-orden-de-la-app`, sin tildes.
 
 ## Dependencies

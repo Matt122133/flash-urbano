@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # Los dos caminos nuevos, su autorizacion y sus pruebas.
   - backend/internal/pedidos/
@@ -17,7 +17,7 @@ covers:
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... -p 1
-analyzed:
+analyzed: 2026-09-06
 ---
 
 # Implementation Plan: Corregir o dar de baja un pedido, mientras nadie lo tomo

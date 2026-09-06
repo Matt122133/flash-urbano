@@ -311,9 +311,28 @@ export type PedidoFormProps = {
    * formulario sigue sirviendo sin nadie escuchando.
    */
   onReiniciar?: () => void;
+
+  /**
+   * `true` cuando se esta CORRIGIENDO un pedido existente en vez de creando uno
+   * (`022`).
+   *
+   * Cambia solo textos: los campos, las validaciones y la revalidacion de
+   * cobertura son identicas, y esa identidad es el motivo de reusar este
+   * formulario en vez de escribir una pantalla de edicion.
+   *
+   * **Lo decide quien monta el componente, a partir de la precarga**, no una
+   * lectura propia de la URL: dos lecturas pueden discrepar, y ahi el formulario
+   * diria "corregir" mientras guarda un pedido nuevo, o al reves.
+   */
+  editando?: boolean;
 };
 
-export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProps) {
+export function PedidoForm({
+  onConfirmar,
+  inicial,
+  onReiniciar,
+  editando = false,
+}: PedidoFormProps) {
   const [form, setForm] = useState<FormState>({ ...INITIAL_STATE, ...inicial });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
@@ -434,6 +453,7 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
       <Confirmation
         form={submitted.form}
         codigo={submitted.codigo}
+        editando={editando}
         onReset={() => {
           // FR-035. Se conserva lo que identifica a QUIEN ENVIA —su nombre, su
           // telefono y su direccion de retiro con el punto— y se vacia todo lo
@@ -797,7 +817,13 @@ export function PedidoForm({ onConfirmar, inicial, onReiniciar }: PedidoFormProp
         {/* FR-007a: la reanudacion no puede ser silenciosa. Que el boton diga
             que esta enviando es lo que evita el "¿se mando o no?" despues de
             cerrarse el dialogo de ingreso. */}
-        {enviando ? "Enviando…" : "Confirmar pedido"}
+        {enviando
+          ? editando
+            ? "Guardando…"
+            : "Enviando…"
+          : editando
+            ? "Guardar cambios"
+            : "Confirmar pedido"}
       </button>
     </form>
   );
@@ -807,10 +833,13 @@ function Confirmation({
   form,
   codigo,
   onReset,
+  editando,
 }: {
   form: FormState;
   codigo: string;
   onReset: () => void;
+  /** Corrigiendo un pedido existente, no creando uno (`022`). */
+  editando: boolean;
 }) {
   const direccionRetiro = componerDireccion(form.retiro.direccion);
   const direccionEntrega = componerDireccion(form.entrega.direccion);
@@ -848,7 +877,7 @@ function Confirmation({
         </span>
         <div>
           <h2 className="text-lg font-semibold text-slate-900">
-            Pedido registrado
+            {editando ? "Cambios guardados" : "Pedido registrado"}
           </h2>
           {/* FR-029. Hasta `007` esto decia "¡Pedido cargado! Nos pondremos en
               contacto para confirmar el retiro" — y **no se guardaba nada, no
@@ -876,9 +905,23 @@ function Confirmation({
               —el pedido quedo registrado y ese es su codigo— y por eso puede
               quedarse sola; lo que falta no es texto, es el aviso. Esta como
               fila en el tracker y bloquea promocionar el sitio. */}
+          {/* **El texto cambia al corregir, y no es cosmetico**: decirle
+              "anotá tu código" a alguien que ya lo tenia —y que quiza ya lo
+              imprimio en una etiqueta de `020`— sugiere que el codigo cambio.
+              No cambia: FR-005 lo conserva justamente por eso. */}
           <p className="text-sm text-slate-600">
-            Anotá tu código{" "}
-            <strong className="font-semibold text-slate-900">{codigo}</strong>.
+            {editando ? (
+              <>
+                Tu pedido{" "}
+                <strong className="font-semibold text-slate-900">{codigo}</strong>{" "}
+                quedó actualizado.
+              </>
+            ) : (
+              <>
+                Anotá tu código{" "}
+                <strong className="font-semibold text-slate-900">{codigo}</strong>.
+              </>
+            )}
           </p>
         </div>
       </div>

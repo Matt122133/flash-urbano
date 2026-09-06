@@ -35,6 +35,12 @@ const plazoDelAviso = 30 * time.Second
 // Sin valor de retorno, ese camino no existe.
 type Avisador interface {
 	Avisar(ctx context.Context, p avisos.PedidoNuevo)
+	// Los dos de `022`. **Un metodo por motivo, cada uno con su propio tipo de
+	// entrada**, en vez de uno que reciba un mensaje ya armado: es lo que
+	// mantiene la garantia de que lo prohibido no pueda salir en un aviso —el
+	// tipo no tiene esos campos, asi que un descuido no compila.
+	AvisarEdicion(ctx context.Context, p avisos.PedidoEditado)
+	AvisarBaja(ctx context.Context, p avisos.PedidoDadoDeBaja)
 }
 
 // zonaHorariaUruguay es DONDE ocurre el retiro, y por eso donde se decide si su
@@ -557,4 +563,138 @@ func (h *Handlers) CambiarEstado(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.JSON(w, http.StatusOK, respuestaCrear{Pedido: pedido})
+}
+
+// mensajeFueraDeVentana es lo que se le dice a quien intento editar o dar de
+// baja algo que no podia.
+//
+// **El repositorio no distingue los tres motivos** —no existe, no es tuyo, ya lo
+// tomaron— y eso es deliberado (FR-004): distinguirlos le confirmaria a un
+// desconocido que el pedido existe. Pero el texto si puede ser util, porque
+// quien llega por su propia pantalla sabe que el pedido es suyo: el unico motivo
+// que le puede tocar es que Diego ya lo haya tomado.
+//
+// **Es tambien el texto que Diego lee en la app** cuando toca un pedido que
+// dejo de existir (FR-014): la app mapea cualquier error del servicio a
+// `DEL_SERVICIO` y muestra este mensaje tal cual.
+const mensajeFueraDeVentana = "Ese pedido ya no se puede modificar: puede que Diego ya lo haya tomado."
+
+// Editar reemplaza un pedido propio que todavia esta pendiente (`022`).
+//
+// **Reemplazo total y no parcial** (FR-005a): reusa `aNuevo`, o sea **las mismas
+// validaciones que crear**. Sin eso, editar seria una puerta de atras para
+// guardar un pedido que el camino de creacion habria rechazado.
+//
+// No lleva clave de idempotencia: editar dos veces con los mismos datos deja el
+// mismo resultado, asi que no hay nada que deduplicar.
+func (h *Handlers) Editar(w http.ResponseWriter, r *http.Request) {
+	u, hay := usuarios.DeContexto(r.Context())
+	if !hay {
+		httpx.ErrorInterno(w, "PATCH /pedidos/{id} sin middleware de sesion",
+			errors.New("no hay usuario en el contexto"))
+		return
+	}
+
+	id := r.PathValue("id")
+	if strings.TrimSpace(id) == "" {
+		httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+		return
+	}
+
+	var p peticionCrear
+	if err := httpx.LeerJSON(w, r, &p); err != nil {
+		httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+		return
+	}
+
+	// La clave de idempotencia no se usa al editar; se pasa vacia porque `aNuevo`
+	// la pide para construir un `Nuevo`, y el UPDATE no toca esa columna.
+	nuevo, motivo := h.aNuevo(u.ID, "", p)
+	if motivo != "" {
+		httpx.Error(w, http.StatusBadRequest, motivo)
+		return
+	}
+
+	pedido, err := h.repo.Editar(r.Context(), id, u.ID, *nuevo)
+	switch {
+	case errors.Is(err, ErrFueraDeVentana):
+		// **404 y no 403.** Un 403 confirmaria que el pedido existe.
+		httpx.Error(w, http.StatusNotFound, mensajeFueraDeVentana)
+		return
+	case err != nil:
+		httpx.ErrorInterno(w, "editando pedido", err)
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, respuestaCrear{Pedido: pedido})
+
+	// Despues de responder, como el aviso de creacion: el cliente no espera por
+	// el push ni ve ningun error suyo.
+	h.avisarDeLaEdicion(pedido)
+}
+
+// Eliminar da de baja un pedido propio que todavia esta pendiente (`022`).
+func (h *Handlers) Eliminar(w http.ResponseWriter, r *http.Request) {
+	u, hay := usuarios.DeContexto(r.Context())
+	if !hay {
+		httpx.ErrorInterno(w, "DELETE /pedidos/{id} sin middleware de sesion",
+			errors.New("no hay usuario en el contexto"))
+		return
+	}
+
+	id := r.PathValue("id")
+	if strings.TrimSpace(id) == "" {
+		httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+		return
+	}
+
+	// **Se lee el pedido ANTES de borrarlo, y solo para el aviso.** Despues del
+	// DELETE no hay de donde sacar el codigo, y el aviso sin codigo no sirve
+	// para nada. Que la lectura no este acotada al usuario no abre nada: si el
+	// pedido no es suyo, el DELETE de abajo no borra y no se avisa.
+	var codigo string
+	if antes, err := h.repo.porID(r.Context(), id); err == nil {
+		codigo = antes.Codigo
+	}
+
+	switch err := h.repo.Eliminar(r.Context(), id, u.ID); {
+	case errors.Is(err, ErrFueraDeVentana):
+		httpx.Error(w, http.StatusNotFound, mensajeFueraDeVentana)
+		return
+	case err != nil:
+		httpx.ErrorInterno(w, "eliminando pedido", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
+	if codigo != "" {
+		h.avisarDeLaBaja(codigo)
+	}
+}
+
+// avisarDeLaEdicion y avisarDeLaBaja: mismo patron que avisarDelPedido, y por
+// los mismos dos motivos. El contexto se arma de cero —llevarse el del handler
+// hace que el aviso no salga nunca, porque se cancela al devolver— y **lo que
+// cruza estas lineas son campos sueltos y no el pedido**, que trae nombres,
+// telefonos, el numero de puerta y el precio.
+func (h *Handlers) avisarDeLaEdicion(p *Pedido) {
+	h.enSegundoPlano(func() {
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoDelAviso)
+		defer cancelar()
+
+		h.avisador.AvisarEdicion(ctx, avisos.PedidoEditado{
+			Codigo:       p.Codigo,
+			EntregaCalle: p.Entrega.Calle,
+		})
+	})
+}
+
+func (h *Handlers) avisarDeLaBaja(codigo string) {
+	h.enSegundoPlano(func() {
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoDelAviso)
+		defer cancelar()
+
+		h.avisador.AvisarBaja(ctx, avisos.PedidoDadoDeBaja{Codigo: codigo})
+	})
 }

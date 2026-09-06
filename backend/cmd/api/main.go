@@ -224,6 +224,17 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 	// identificado", no "hay que ser administrador".
 	mux.Handle("POST /pedidos", conSesion(dep.pedidos.Crear))
 	mux.Handle("GET /pedidos", conSesion(dep.pedidos.Mios))
+
+	// Los dos de `022`: corregir o dar de baja **lo propio, y solo mientras el
+	// pedido este pendiente**. La ventana y el dueño **no se comprueban aca ni
+	// en el handler**: viven en el WHERE de la consulta, para que Diego no pueda
+	// tomar el pedido entre la comprobacion y la escritura. Ver research D2 de
+	// ese feature.
+	//
+	// `conSesion` como el resto: sin identificarse no se llega, igual que para
+	// crear.
+	mux.Handle("PATCH /pedidos/{id}", conSesion(dep.pedidos.Editar))
+	mux.Handle("DELETE /pedidos/{id}", conSesion(dep.pedidos.Eliminar))
 	mux.Handle("GET /admin/pedidos", conSesion(dep.pedidos.Todos))
 
 	// El camino que mueve el estado, de `012`. **Con el MISMO `conSesion` que

@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import type { DireccionGuardada, PedidoGuardado } from "@/lib/api";
+import { useState } from "react";
+
 import { BotonImprimir } from "@/components/pedido/boton-imprimir";
+import { ErrorApi, eliminarPedido } from "@/lib/api";
+import { credencial } from "@/lib/sesion";
 import { etiquetaDelPedido } from "@/lib/etiqueta";
 
 /**
@@ -15,8 +19,24 @@ import { etiquetaDelPedido } from "@/lib/etiqueta";
  * dejar afuera a quien ya podia pedir. Una tarjeta que solo se abre con el dedo
  * repetiria ese error en la pantalla nueva.
  */
-export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
+export function TarjetaPedido({
+  pedido,
+  onBaja,
+}: {
+  pedido: PedidoGuardado;
+  /** Se llama despues de una baja, para que el historial se recargue. */
+  onBaja?: () => void;
+}) {
   const estado = estadoVisible(pedido.estado);
+
+  // **La ventana de `022`: solo mientras Diego no lo tomo.**
+  //
+  // Esto decide que se DIBUJA, no quien puede. La autorizacion vive en el WHERE
+  // de la consulta del servicio, que es lo unico que gana la carrera cuando
+  // Diego toma el pedido entre que esta pantalla se dibujo y que llega el
+  // guardado. Si esta linea desapareciera, el feature seguiria siendo seguro:
+  // se veria un boton que devuelve un error.
+  const pendiente = pedido.estado === "creacion";
 
   return (
     <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -108,6 +128,17 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
             valor={`${pedido.destinatarioNombre} · ${pedido.destinatarioTelefono}`}
           />
         </dl>
+        {/* **El motivo, escrito** (FR-011). Un boton que desaparece sin
+            explicacion es un producto que parece roto: la persona no vio lo que
+            paso del otro lado, y no tiene por que deducir que la ausencia de
+            *Editar* significa que alguien tomo su pedido. */}
+        {!pendiente && (
+          <p className="mt-4 text-sm text-slate-500">
+            Este pedido ya está en curso, así que no se puede editar ni dar de
+            baja. Si necesitás cambiar algo, escribinos.
+          </p>
+        )}
+
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-400">
             Cargado el {formatearInstante(pedido.creadoEn)}
@@ -132,6 +163,18 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
               tamano="compacto"
               etiqueta={() => etiquetaDelPedido(pedido)}
             />
+
+            {pendiente && (
+              <>
+                <Link
+                  href={`/pedido?editar=${pedido.id}`}
+                  className="shrink-0 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Editar
+                </Link>
+                <BotonEliminar pedido={pedido} onBaja={onBaja} />
+              </>
+            )}
 
             {/* Va ADENTRO del detalle y no en la cabecera, a proposito: repetir
                 tiene consecuencia de plata, y que exija haber abierto y mirado el
@@ -275,5 +318,94 @@ function formatearInstante(iso: string): string {
   return (
     `${dosDigitos(d.getDate())}/${dosDigitos(d.getMonth() + 1)}/${d.getFullYear()}` +
     ` a las ${dosDigitos(d.getHours())}:${dosDigitos(d.getMinutes())}`
+  );
+}
+
+/**
+ * Dar de baja, con confirmación (FR-007).
+ *
+ * **La confirmación no es ceremonia: la baja borra la fila y no hay papelera.**
+ * Un toque accidental en una lista de tarjetas —en un teléfono, con el pulgar—
+ * no puede costar un pedido.
+ *
+ * La confirmación es en la misma tarjeta y no un `confirm()` del navegador: el
+ * nativo se ve como un aviso del sistema, se puede bloquear, y no dice qué
+ * pedido se está por borrar.
+ */
+function BotonEliminar({
+  pedido,
+  onBaja,
+}: {
+  pedido: PedidoGuardado;
+  onBaja?: () => void;
+}) {
+  const [confirmando, setConfirmando] = useState(false);
+  const [borrando, setBorrando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function eliminar() {
+    setBorrando(true);
+    setError(null);
+    try {
+      await eliminarPedido(pedido.id, credencial());
+      onBaja?.();
+    } catch (e) {
+      // **Un 404 acá casi siempre significa que Diego lo tomó recién** —el
+      // servicio no distingue los motivos a propósito— y el mensaje que manda
+      // ya lo dice. Se muestra tal cual en vez de inventar uno propio.
+      //
+      // Lo que no puede pasar es que no pase nada: es el síntoma que el
+      // 2026-08-14 hizo parecer roto el botón de confirmar.
+      setError(
+        e instanceof ErrorApi
+          ? e.message
+          : "No pudimos dar de baja el pedido. Probá de nuevo en un momento.",
+      );
+      setBorrando(false);
+      setConfirmando(false);
+    }
+  }
+
+  if (!confirmando) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setConfirmando(true)}
+          className="shrink-0 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50"
+        >
+          Eliminar
+        </button>
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm text-slate-700">
+        ¿Dar de baja {pedido.codigo}?
+      </span>
+      <button
+        type="button"
+        onClick={eliminar}
+        disabled={borrando}
+        className="shrink-0 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+      >
+        {borrando ? "Dando de baja…" : "Sí, dar de baja"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirmando(false)}
+        disabled={borrando}
+        className="shrink-0 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+      >
+        No
+      </button>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 package avisos_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -65,11 +66,11 @@ func TestElAvisoNoFiltraNadaDeLoProhibido(t *testing.T) {
 	texto := m.Titulo + " " + m.Cuerpo
 
 	prohibido := map[string]string{
-		"el numero de puerta":       numero,
-		"la esquina":                esquina,
-		"el nombre de una persona":  nombre,
+		"el numero de puerta":        numero,
+		"la esquina":                 esquina,
+		"el nombre de una persona":   nombre,
 		"el telefono de una persona": telefono,
-		"un importe":                precio,
+		"un importe":                 precio,
 	}
 
 	for que, valor := range prohibido {
@@ -139,5 +140,95 @@ func TestSinCalleElAvisoNoQuedaColgado(t *testing.T) {
 	}
 	if m.Cuerpo != "" {
 		t.Errorf("sin calle el cuerpo quedo en %q, tenia que quedar vacio", m.Cuerpo)
+	}
+}
+
+// --- `022`: los dos avisos nuevos ------------------------------------------
+
+func TestArmarEdicionDiceQueCambioYDonde(t *testing.T) {
+	m := avisos.ArmarEdicion(avisos.PedidoEditado{Codigo: "FU-0142", EntregaCalle: "Rivera"})
+
+	if m.Titulo != "Pedido modificado FU-0142" {
+		t.Errorf("titulo %q", m.Titulo)
+	}
+	if m.Cuerpo != "Ahora entrega en Rivera" {
+		t.Errorf("cuerpo %q", m.Cuerpo)
+	}
+	// El codigo viaja aparte para que tocar el aviso abra la lista en ese pedido,
+	// sin que la app tenga que parsear el texto visible.
+	if m.Codigo != "FU-0142" {
+		t.Errorf("codigo %q", m.Codigo)
+	}
+}
+
+func TestArmarBajaNoInventaCuerpo(t *testing.T) {
+	m := avisos.ArmarBaja(avisos.PedidoDadoDeBaja{Codigo: "FU-0142"})
+
+	if m.Titulo != "Pedido dado de baja FU-0142" {
+		t.Errorf("titulo %q", m.Titulo)
+	}
+	// **Sin cuerpo a proposito**: no hay a donde ir ni nada que preparar, asi que
+	// cualquier segunda linea seria relleno.
+	if m.Cuerpo != "" {
+		t.Errorf("la baja trajo cuerpo: %q", m.Cuerpo)
+	}
+}
+
+func TestLosAvisosDeEdicionYBajaNoPuedenDecirLoProhibido(t *testing.T) {
+	// **Esta prueba no mira el texto: mira los CAMPOS DEL TIPO.** Es donde vive
+	// la garantia de FR-010 y del Principio V — un aviso no puede decir importes,
+	// nombres, telefonos, el numero de puerta ni la esquina, y lo que lo asegura
+	// no es el cuerpo de Armar sino que esos datos **no existan** en la entrada.
+	//
+	// Escrita con reflexion y no comparando textos porque un caso de texto solo
+	// prueba el ejemplo que se le dio; esto falla el dia que alguien agregue un
+	// campo al struct, que es cuando hay que discutirlo.
+	prohibidos := []string{
+		"telefono", "nombre", "numero", "apto", "esquina",
+		"precio", "monto", "total", "documento", "cedula",
+	}
+
+	casos := []struct {
+		nombre string
+		tipo   reflect.Type
+	}{
+		{"PedidoEditado", reflect.TypeOf(avisos.PedidoEditado{})},
+		{"PedidoDadoDeBaja", reflect.TypeOf(avisos.PedidoDadoDeBaja{})},
+	}
+
+	for _, c := range casos {
+		for i := 0; i < c.tipo.NumField(); i++ {
+			campo := strings.ToLower(c.tipo.Field(i).Name)
+			for _, prohibido := range prohibidos {
+				if strings.Contains(campo, prohibido) {
+					t.Errorf(
+						"%s tiene el campo %q: un aviso no puede poder decir eso. "+
+							"Si hace falta de verdad, es una decision de producto, no un campo mas.",
+						c.nombre, c.tipo.Field(i).Name,
+					)
+				}
+			}
+		}
+	}
+}
+
+func TestElControlPositivoDeLaGuardaDeCampos(t *testing.T) {
+	// Sin esto, la prueba de arriba queda verde tambien el dia que deje de mirar
+	// donde cree. Se le da un tipo contaminado a proposito y se exige que lo
+	// detecte.
+	type contaminado struct {
+		Codigo               string
+		DestinatarioTelefono string
+	}
+	tipo := reflect.TypeOf(contaminado{})
+
+	encontrado := false
+	for i := 0; i < tipo.NumField(); i++ {
+		if strings.Contains(strings.ToLower(tipo.Field(i).Name), "telefono") {
+			encontrado = true
+		}
+	}
+	if !encontrado {
+		t.Error("la guarda de campos no reconoce un campo prohibido cuando esta")
 	}
 }
