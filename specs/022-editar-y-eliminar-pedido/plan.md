@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # Los dos caminos nuevos, su autorizacion y sus pruebas.
   - backend/internal/pedidos/
