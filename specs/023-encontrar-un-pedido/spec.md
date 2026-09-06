@@ -26,6 +26,15 @@ La pantalla ademas dejo de ser solo de consulta: desde `022` es **desde donde se
 corrige o se da de baja** un pedido pendiente. Encontrar el pedido es ahora el
 primer paso de una accion, no solo de una mirada.
 
+## Clarifications
+
+### Session 2026-09-06
+
+- Q: Cuando la persona sale de la pantalla y vuelve, ¿el filtro sigue puesto? → A: viaja en la URL (`/perfil?ver=pedidos&estado=pendientes`): sobrevive recargar y el boton de atras, pero entrar de nuevo desde el menu da la lista completa.
+- Q: ¿El filtro por fecha (US3) entra en este feature? → A: se difiere. Entran el corte por estado y la busqueda.
+- Q: El corte por estado, ¿uno a la vez o varios a la vez? → A: uno a la vez.
+- Q: ¿Sobre que campos busca el texto? → A: solo codigo y nombre de quien recibe. La direccion de entrega queda afuera.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ver solo los pendientes (Priority: P1)
@@ -64,8 +73,14 @@ el corte de pendientes y ver que quedan solo esos, sin escribir nada.
 ### User Story 2 - Buscar el pedido que tengo en la cabeza (Priority: P2)
 
 La persona no se acuerda del codigo: se acuerda de **para quien era** ("el que le
-mande a Sofia") o de **a donde iba** ("el de Rivera y Soca"). A veces si tiene el
-codigo, porque se lo dio a quien recibe o lo tiene en un mensaje.
+mande a Sofia"). A veces si tiene el codigo, porque se lo dio a quien recibe o lo
+tiene en un mensaje.
+
+**La direccion de entrega NO entra en la busqueda**, por decision de Mateo del
+2026-09-06 y en contra de la recomendacion: el dato ya viaja en la respuesta, asi
+que la razon no es el costo. Buscar "el de Rivera y Soca" no encuentra nada, y
+eso es deliberado — una calle aparece en muchos pedidos y ensuciaria los
+resultados.
 
 **Why this priority**: cubre el caso que el corte por estado no cubre — un pedido
 viejo y entregado, que es justo el que esta enterrado. Vale menos que US1 porque
@@ -88,22 +103,15 @@ quedan solo los pedidos que le corresponden.
 
 ---
 
-### User Story 3 - Acotar por cuando fue (Priority: P3)
+### Diferido - Acotar por cuando fue
 
-"El envio del mes pasado". Con muchos pedidos, la fecha es lo que la gente
-recuerda cuando no recuerda ni el nombre ni el codigo.
+"El envio del mes pasado" es la tercera forma de recordar un pedido, y **queda
+fuera de este feature** por decision de Mateo del 2026-09-06: es la menos usada
+de las tres y la que mas superficie agrega a una pantalla cuyas tarjetas ya
+tienen acciones adentro. US1 y US2 resuelven el caso que motivo el pedido.
 
-**Why this priority**: es el menos usado de los tres y el que mas superficie
-agrega. Entra si los dos anteriores no alcanzan.
-
-**Independent Test**: acotar a un periodo y ver que quedan solo los pedidos cuyo
-retiro cae adentro.
-
-**Acceptance Scenarios**:
-
-1. **Given** pedidos de varios meses, **When** acota a un periodo, **Then** solo
-   quedan los de ese periodo, contados por **fecha de retiro** — la que la
-   persona recuerda ("el envio del martes"), no la de creacion.
+Si vuelve, la fecha que cuenta es la de **retiro** —la que la persona recuerda
+("el envio del martes")— y no la de creacion.
 
 ---
 
@@ -130,9 +138,13 @@ retiro cae adentro.
 ### Functional Requirements
 
 - **FR-001**: La pantalla MUST permitir acotar la lista **por estado**, con al
-  menos un corte que deje ver solo los pedidos **pendientes**.
-- **FR-002**: La pantalla MUST permitir **buscar por texto** sobre, como minimo,
-  el **codigo** y el **nombre de quien recibe**.
+  menos un corte que deje ver solo los pedidos **pendientes**. Los cortes son
+  **excluyentes: uno a la vez**, no una combinacion. Con cuatro opciones —todos,
+  pendientes, aceptados, entregados— la multiseleccion son dieciseis estados
+  posibles que explicar, y el color que marca cual esta puesto (FR-015) dejaria
+  de senalar uno solo.
+- **FR-002**: La pantalla MUST permitir **buscar por texto** sobre el **codigo** y
+  el **nombre de quien recibe**, y MUST NOT buscar sobre las direcciones.
 - **FR-003**: La busqueda por codigo MUST encontrar el pedido **con o sin el
   prefijo** y sin distinguir mayusculas.
 - **FR-004**: La busqueda por texto MUST ignorar **tildes y mayusculas**. Es la
@@ -167,19 +179,21 @@ retiro cae adentro.
   monto (constitucion 5.x). No se puede filtrar ni ordenar por precio.
 - **FR-015**: Si un filtro queda aplicado, la persona MUST poder ver **de un
   vistazo que lo esta** — un filtro invisible es un producto que perdio pedidos.
-- **FR-016**: [NEEDS CLARIFICATION: cuando la persona sale de la pantalla y
-  vuelve, ¿el filtro que habia elegido sigue puesto, o la pantalla arranca
-  siempre con la lista completa? `022` ya hizo que `/perfil` recuerde **en que
-  vista** estaba, asi que hay antecedente para las dos respuestas: recordar es
-  coherente con eso; arrancar limpio evita que alguien crea que perdio pedidos
-  por un filtro que puso hace tres dias. Sea cual sea la respuesta, FR-010 impide
-  guardar el texto buscado en el dispositivo.]
+- **FR-016**: El filtro aplicado MUST viajar **en la URL**. En consecuencia:
+  recargar la pantalla o volver con el boton de atras lo conserva, y **entrar de
+  nuevo desde el menu muestra la lista completa**, porque ese camino no lleva el
+  parametro. Es el mismo mecanismo que ya usan `?ver=`, `?repetir=` y `?editar=`,
+  y resuelve las dos mitades del problema: nadie se encuentra dias despues con un
+  filtro que no recuerda haber puesto, y a nadie se le borra por recargar.
+- **FR-017**: Por FR-010, **el texto buscado no viaja en la URL**: una URL se
+  comparte, se copia a un chat y queda en el historial del navegador, y ese texto
+  puede ser el nombre de un tercero. Lo que viaja es el corte por estado.
 
 ### Key Entities
 
 - **Pedido**: lo que ya existe. Los campos que este feature mira son **codigo**,
-  **estado**, **fecha de retiro** y **nombre de quien recibe**; los cuatro ya se
-  muestran hoy en la tarjeta o en su detalle.
+  **estado** y **nombre de quien recibe**; los tres ya se muestran hoy en la
+  tarjeta o en su detalle.
 - **Filtro aplicado**: que subconjunto de la lista se esta viendo. No es un dato
   del negocio: es estado de pantalla, y por FR-010 su parte de texto no se
   escribe en ningun lado.
@@ -214,9 +228,14 @@ retiro cae adentro.
   Si este feature se construye sobre lo que la respuesta ya trae, un paginado
   futuro no lo invalida: seguira siendo la misma pantalla filtrando lo que tenga
   a mano.
+- **El naranja de marca es para el filtro ACTIVO, y solo para ese.** Lo decidio
+  Mateo el 2026-09-06. El token existe —`--accent: #f97316`, el mismo naranja que
+  usa la app de Diego— pero hoy significa **la accion principal**: es el boton de
+  *Crear pedido* en la nav y en la home. Pintar de naranja todos los controles de
+  filtro haria que el color mas fuerte de la pantalla signifique dos cosas
+  distintas. El ambar tampoco esta libre: es el lenguaje de los avisos. Asi que
+  el naranja marca **cual esta puesto**, y los demas controles van en contorno.
 - **Los estados son tres** —pendiente, aceptado, entregado— y la pantalla ya los
   traduce. FR-005 existe porque esa lista ya cambio una vez.
-- **La fecha que la gente recuerda es la de retiro**, no la de creacion. Es la
-  misma decision que la tarjeta ya tomo cuando eligio cual mostrar arriba.
 - Este feature **no toca la app Android** ni el servicio, asi que no hay APK
   nuevo para instalar a mano.

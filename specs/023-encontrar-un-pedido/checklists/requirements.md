@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,17 +31,15 @@
 
 ## Notes
 
-- **Queda UN marcador abierto, y a proposito**: FR-016 —si el filtro sobrevive a
-  salir y volver a la pantalla—. No tiene respuesta obvia: `022` acaba de hacer
-  que `/perfil` recuerde en que vista estaba, lo que empuja a recordar tambien el
-  filtro; y en contra esta el modo de falla de que alguien vuelva dias despues,
-  vea una lista recortada por un filtro que no recuerda haber puesto, y crea que
-  perdio pedidos. Es una decision de producto de Mateo, no una que se derive de
-  lo que ya hay en el repo.
-- Las tres historias son cortes independientes: US1 sola ya resuelve el problema
-  que motivo el pedido ("ver los que estan en curso") y es entregable por si
-  misma.
-- FR-010 no salio de la descripcion sino de leer `010`: el nombre de quien recibe
-  es dato de un tercero, y ese feature ya prohibio escribirlo en el dispositivo.
-  Vale la pena revisarlo en `/speckit-clarify` para confirmar que sigue vigente.
-- El resto de los items pasan en la primera pasada; no hizo falta iterar.
+- **Cerrado el 2026-09-06 con `/speckit-clarify`**: los 16 items pasan. El unico
+  que faltaba era el marcador de FR-016, y se respondio junto con otras tres
+  decisiones — el filtro viaja en la URL, el corte por estado es uno a la vez, el
+  filtro por fecha se difiere, y la busqueda no toca las direcciones.
+- Mateo eligio **en contra de la recomendacion** en la busqueda: se recomendo
+  incluir la direccion de entrega —el dato ya viaja en la respuesta— y prefirio
+  dejarla afuera. Queda escrito en US2 como decision, no como olvido.
+- Las dos historias que quedan son cortes independientes: US1 sola ya resuelve el
+  problema que motivo el pedido.
+- FR-010 y FR-017 no salieron de la descripcion sino de leer `010`: el nombre de
+  quien recibe es dato de un tercero, asi que no se guarda en el dispositivo ni
+  viaja en una URL que se comparte.
