@@ -8,6 +8,15 @@ covers:
   - backend/internal/avisos/
   # El cableado de las dos rutas.
   - backend/cmd/api/
+  # AMPLIACION DE ALCANCE, aprobada por Mateo el 2026-09-06 con el plan en
+  # ejecucion, al ver un `CORS error` en el navegador al guardar una edicion.
+  # El preflight autoriza "GET, POST, PUT, OPTIONS": sin PATCH ni DELETE, los
+  # dos caminos de este feature no se pueden llamar desde NINGUN navegador, ni
+  # en local ni desplegado. No es un feature aparte — es la mitad que falta de
+  # las dos rutas que este plan agrega, y ningun test de Go lo ve porque llaman
+  # a los handlers sin navegador. Es el gemelo del defecto de `Idempotency-Key`
+  # que el mismo archivo tiene documentado.
+  - backend/internal/httpx/
   # El cliente del API: editar y eliminar.
   - web/lib/api.ts
   # La composicion de /pedido y la tarjeta del historial.

@@ -413,7 +413,29 @@ function usePrecarga(): Precarga {
     if (cargando || yaCorrio.current) return;
     yaCorrio.current = true;
 
-    let vigente = true;
+    // **No hay bandera de cancelacion, y esa AUSENCIA es el arreglo.** Hasta el
+    // 2026-09-06 el efecto declaraba `vigente` y la limpieza la bajaba, que es
+    // la receta de manual: no apliques el resultado de un efecto que ya no
+    // corre. Aca esa receta cuelga la pantalla para siempre, porque `yaCorrio`
+    // hace que la corrida sea UNICA.
+    //
+    // Limpieza y re-ejecucion vienen siempre de a pares —cambia una dependencia,
+    // o React remonta el arbol para comprobar que el efecto tolera remontarse—.
+    // El par dejaba `vigente = false` en la corrida que SI pidio el pedido, y la
+    // segunda corrida salia por `yaCorrio` sin pedir nada. Resultado: `/pedidos`
+    // contesta 200, nadie aplica la respuesta, y la pantalla se queda en "Un
+    // momento…" para siempre. Sin error: la promesa no rechaza, asi que el
+    // `.catch` de abajo tampoco se entera. Indistinguible de rota.
+    //
+    // Como la corrida es unica, la unica cadena en vuelo es esta, y aplicarla
+    // siempre es correcto: no existe una segunda que pueda pisarla. Si el
+    // componente se desmonto, `setPrecarga` no hace nada desde React 18.
+    //
+    // **Es un defecto anterior a `022`**: `?repetir=` se cuelga igual. Lo
+    // destapo editar porque a editar se llega SIEMPRE desde el historial, o sea
+    // navegando dentro del sitio, con la sesion ya resuelta: al montar,
+    // `cargando` ya es false y el efecto hace su trabajo en la primera corrida,
+    // que es justo la que la limpieza anulaba.
 
     // Todo cuelga de una promesa ya resuelta, igual que en `proveedor-sesion`:
     // el lint prohibe llamar a setState de forma sincrona dentro de un efecto.
@@ -435,9 +457,7 @@ function usePrecarga(): Precarga {
             ? desdeUnPedido(idARepetir, Boolean(usuario))
             : desdeElPerfil(usuario ? { nombre, telefono, retiro } : null),
       )
-      .then((p) => {
-        if (vigente) setPrecarga(p);
-      })
+      .then((p) => setPrecarga(p))
       // **Sin este catch, un rechazo deja la pantalla en "Un momento…" para
       // siempre**, sin error y sin formulario: `setPrecarga` no se llama nunca y
       // no hay nada que lo destrabe. Es el mismo modo de falla que el 2026-08-14
@@ -450,17 +470,12 @@ function usePrecarga(): Precarga {
       // mucho mejor que una pantalla trabada.
       .catch((e) => {
         console.error("Fallo la precarga del formulario:", e);
-        if (!vigente) return;
         setPrecarga({
           ...SIN_PRECARGA,
           avisoDeRepeticion:
             "No pudimos traer los datos de ese pedido. Podés cargarlo a mano.",
         });
       });
-
-    return () => {
-      vigente = false;
-    };
   }, [cargando, usuario, retiro, nombre, telefono, idARepetir, idAEditar]);
 
   // Sin ramas derivadas y sin mirar la sesion: lo que se decidio, se devuelve.
@@ -471,19 +486,24 @@ function usePrecarga(): Precarga {
  * La precarga de `022`: el mismo pedido, pero para CORREGIRLO.
  *
  * **Reusa `desdeUnPedido` entera** y sólo le agrega a dónde guardar. Los datos
- * que hay que poner en el formulario son exactamente los mismos que al repetir,
- * y escribir una segunda versión sería tener dos definiciones de "cómo se carga
- * un pedido guardado en el formulario" — que divergen.
+ * que hay que poner en el formulario son casi exactamente los mismos que al
+ * repetir, y escribir una segunda versión sería tener dos definiciones de "cómo
+ * se carga un pedido guardado en el formulario" — que divergen.
  *
- * Lo único que cambia es `editando`, y con eso alcanza: es lo que hace que el
- * envío vaya a `PATCH /pedidos/{id}` en vez de a `POST /pedidos`.
+ * Lo que cambia son dos cosas, y una sola de ellas se decide acá:
+ *
+ * - `editando`, que es lo que hace que el envío vaya a `PATCH /pedidos/{id}` en
+ *   vez de a `POST /pedidos`;
+ * - la **fecha de retiro**, que al editar se precarga y al repetir no. Eso se
+ *   decide adentro de `desdeUnPedido` —por el `modo`— porque es ahí donde está
+ *   el pedido; el porqué está escrito sobre `base`.
  *
  * **Si la precarga falla, `editando` queda en `null`.** Es deliberado: sin los
  * datos del pedido no se puede editar —guardaría un pedido vacío sobre uno
  * bueno—, así que se degrada a "cargá uno a mano", que es lo que ya hace repetir.
  */
 async function desdeUnPedidoParaEditar(id: string, haySesion: boolean): Promise<Precarga> {
-  const base = await desdeUnPedido(id, haySesion);
+  const base = await desdeUnPedido(id, haySesion, "editar");
   // Sin `inicial` la precarga no trajo el pedido: no hay nada que editar.
   return base.inicial ? { ...base, editando: id } : base;
 }
@@ -578,12 +598,22 @@ async function desdeElPerfil(
  * cargar ni bloqueada — quien llego hasta aca queria mandar un paquete, y
  * tenerlo que escribir a mano es peor que repetirlo pero mucho mejor que nada.
  */
-async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> {
+async function desdeUnPedido(
+  id: string,
+  haySesion: boolean,
+  /**
+   * Para que se trae el pedido. **La unica diferencia es la FECHA de retiro**,
+   * y las dos respuestas son correctas para su modo — ver `base` mas abajo.
+   */
+  modo: "repetir" | "editar" = "repetir",
+): Promise<Precarga> {
   if (!haySesion) {
     return {
       ...SIN_PRECARGA,
       avisoDeRepeticion:
-        "Para repetir un pedido tenés que ingresar. Mientras tanto podés cargarlo a mano.",
+        modo === "editar"
+          ? "Para editar un pedido tenés que ingresar."
+          : "Para repetir un pedido tenés que ingresar. Mientras tanto podés cargarlo a mano.",
     };
   }
 
@@ -629,6 +659,23 @@ async function desdeUnPedido(id: string, haySesion: boolean): Promise<Precarga> 
     receiverName: campos.receiverName,
     receiverPhone: campos.receiverPhone,
     retiro,
+    // **La fecha de retiro viaja SOLO al editar, y las dos respuestas son
+    // correctas.** `camposDelPedido` la deja afuera a proposito (FR-014 de
+    // `010`): al REPETIR, la fecha del pedido viejo ya paso, y precargarla seria
+    // poner un dato invalido en el formulario.
+    //
+    // Al EDITAR es al reves, y no precargarla es perder un dato que la persona
+    // ya habia elegido: se guarda el pedido ENTERO, asi que un campo que el
+    // formulario no trajo se pisa con lo que este vacio. El defecto se vio el
+    // 2026-09-06 en el navegador — la fecha aparecia sin elegir en un pedido que
+    // si la tenia.
+    //
+    // Si la fecha guardada YA PASO —un pendiente que Diego no llego a levantar—
+    // se precarga igual, y esta bien: el formulario la valida contra hoy en hora
+    // de Montevideo y muestra el motivo sobre el campo, con el `min` del input
+    // impidiendo elegir otra invalida. Dejarla vacia en silencio seria pedir que
+    // la persona adivine que fue lo que cambio.
+    ...(modo === "editar" ? { pickupDate: pedido.retiroFecha } : {}),
   };
 
   // **Un pedido anterior a `011` no tiene punto de entrega** (FR-013). No es un

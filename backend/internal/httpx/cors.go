@@ -24,6 +24,28 @@ import (
 // dos puntas vive en `pedidos/handlers_test.go`, que si puede ver ambas.
 const CabecerasPermitidas = "Authorization, Content-Type, Idempotency-Key"
 
+// MetodosPermitidos es la otra mitad del preflight, y falla igual de callada:
+// un metodo que no aparece aca hace que el navegador CORTE el pedido antes de
+// mandarlo. No hay request, no hay log del servicio, no hay codigo de estado —
+// del lado del sitio se ve un "CORS error" de 0 kB.
+//
+// Se exporta por el mismo motivo que CabecerasPermitidas: para que una prueba
+// de `cmd/api` —que si ve el enrutador armado— pueda comparar esta lista contra
+// los metodos que las rutas realmente registran. Sin ese control, la unica
+// forma de descubrir un metodo faltante es probar a mano en un navegador.
+//
+// Paso el 2026-09-06 con PATCH y DELETE, los dos que agrego `022`: las pruebas
+// de Go llaman a los handlers directo, asi que estaban todas en verde mientras
+// editar y dar de baja no funcionaban desde ningun navegador.
+//
+// HEAD esta aca aunque el sitio nunca lo use: ServeMux lo sirve solo en cada
+// ruta GET, y la prueba de `cmd/api` compara esta lista contra lo que el
+// enrutador sirve DE VERDAD. Listarlo no autoriza nada nuevo —HEAD es uno de
+// los metodos que CORS considera simples y jamas pasa por un preflight— y evita
+// que el control necesite una lista de excepciones, que es donde se esconderia
+// el proximo metodo faltante.
+const MetodosPermitidos = "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS"
+
 // CORS deja pasar solo los origenes autorizados (FR-023, FR-025).
 //
 // La lista sale de la configuracion del entorno, nunca del codigo: mudar el
@@ -48,7 +70,7 @@ func CORS(origenesPermitidos []string, siguiente http.Handler) http.Handler {
 
 		if origen != "" && permitidos[origen] {
 			w.Header().Set("Access-Control-Allow-Origin", origen)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", MetodosPermitidos)
 
 			w.Header().Set("Access-Control-Allow-Headers", CabecerasPermitidas)
 			w.Header().Set("Access-Control-Max-Age", "600")
