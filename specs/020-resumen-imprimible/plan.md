@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El generador de la silueta y su README.
   - web/design-source/
@@ -44,6 +44,25 @@ analyzed: 2026-09-05
 # Implementation Plan: La etiqueta que se pega al paquete
 
 **Branch**: `020-resumen-imprimible` | **Date**: 2026-09-05 | **Spec**: [spec.md](spec.md)
+
+> ## Cerrado el 2026-09-05 con dos verificaciones de papel y telefono sin hacer
+>
+> `verify:` verde —lint limpio, 202 pruebas, build de 10 rutas— y 23 de 25
+> tareas cerradas. Mateo lo probo end to end contra el backend local: genero la
+> etiqueta desde la confirmacion y desde Mis pedidos, con tildes y ñ reales
+> ("Martín Berinduague", "Yáñez Pinzón", "Julián Laguna"), y comprobo el mensaje
+> de error cortando la red. **Las dos que faltan no se hicieron y no se dan por
+> hechas**:
+>
+> - **T018 — imprimirla en papel y pegarla en una caja.** Se vio en pantalla, no
+>   impresa. Lo que queda sin comprobar es propio del papel: si la silueta sale
+>   como camion o como mancha en una impresora mono, y si el codigo se lee parado.
+> - **T023 — que en un telefono el archivo llegue y se abra.** Probado solo en la
+>   maquina de desarrollo, y es la verificacion mas propensa a sorprender: la
+>   descarga se comporta distinto en cada navegador movil, y el sitio es
+>   mayoritariamente movil.
+>
+> Anotadas en `docs/tech-debt-tracker.md` con su disparador.
 
 ## Summary
 

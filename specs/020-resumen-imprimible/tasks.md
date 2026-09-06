@@ -102,13 +102,19 @@ feature es una **prohibicion**, que sin prueba no se sostiene sola.
 
 **Independent test**: imprimirla en papel y leerla a un brazo.
 
-- [ ] T016 [US3] Ajustar el layout con **datos al maximo**: nombre largo y
+- [x] T016 [US3] Ajustar el layout con **datos al maximo**: nombre largo y
       direccion con calle compuesta, numero, apto, esquina y cooperativa, en
       retiro y en entrega. Ningun bloque se pisa, nada se sale de la hoja.
-- [ ] T017 [US3] Comprobar en un PDF real que **las tildes y la ñ se dibujan**.
+- [x] T017 [US3] Comprobar en un PDF real que **las tildes y la ñ se dibujan**.
       research D2 comprobo la codificacion —que los bytes correctos llegan al
       archivo—; que el visor los dibuje es otra cosa y no la prueba nadie mas.
-- [ ] T018 [US3] Imprimir la hoja en papel, en blanco y negro, pegarla en una
+- [ ] T018 [US3] **DIFERIDO el 2026-09-05.** Mateo genero la etiqueta y la
+      miro en pantalla —dice que quedo bien y que sale al toque— pero **no la
+      imprimio**. Lo que queda sin comprobar es especifico del papel: si la
+      silueta sale como camion o como mancha en una impresora mono con poco
+      toner, y si el codigo se lee parado frente a una caja. Ver la fila del
+      2026-09-05 en `docs/tech-debt-tracker.md`.
+      Imprimir la hoja en papel, en blanco y negro, pegarla en una
       caja y leerla parado. Es la unica forma de ver si la silueta queda como una
       mancha o como un camion, y si el codigo se lee de lejos (FR-004, SC-005).
 
@@ -117,7 +123,7 @@ feature es una **prohibicion**, que sin prueba no se sostiene sola.
 - [x] T019 Comprobar SC-006 con la pestaña de red: navegar el sitio **sin tocar
       el boton** no descarga nada de jsPDF; recien al tocarlo aparece la request.
       Paso 5 del quickstart.
-- [ ] T020 Comprobar FR-015 de verdad: con la red cortada, tocar el boton y ver
+- [x] T020 Comprobar FR-015 de verdad: con la red cortada, tocar el boton y ver
       el mensaje. Si no pasa nada, esta mal.
 - [x] T021 [P] Actualizar `ARCHITECTURE.md`: `lib/etiqueta.ts` como el modulo que
       compone la hoja desde dos formas del pedido, y por que el corte con
@@ -126,7 +132,11 @@ feature es una **prohibicion**, que sin prueba no se sostiene sola.
 
 ## Phase 7: Cierre
 
-- [ ] T023 Comprobar en un telefono de verdad que **el archivo llega y se abre**
+- [ ] T023 **DIFERIDO el 2026-09-05.** Probado solo en la maquina de
+      desarrollo. Es la verificacion mas propensa a sorprender —la descarga se
+      comporta distinto en cada navegador de telefono— y el sitio es
+      mayoritariamente movil (Principio IV).
+      Comprobar en un telefono de verdad que **el archivo llega y se abre**
       (paso 6 del quickstart). Donde aterrice da igual (FR-017); el unico
       resultado incorrecto es que no pase nada. **No se puede hacer desde la
       sesion**: necesita el sitio servido por LAN y un telefono en la mano.
