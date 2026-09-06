@@ -503,17 +503,38 @@ func (r *Repositorio) PorUsuario(ctx context.Context, usuarioID string) ([]*Pedi
 	return r.consultar(ctx, sql, usuarioID)
 }
 
-// Todos devuelve todos los pedidos, por fecha y hora de retiro.
+// Todos devuelve todos los pedidos, **del mas viejo al mas nuevo por fecha de
+// creacion**.
 //
-// Se ordena por CUANDO SE RETIRA y no por cuando se cargo: es el dia de trabajo
-// de quien administra, no un registro cronologico de altas.
+// Es la lista que ve el administrador en la app, y sale en el orden en que se
+// trabaja: arriba el pedido que lleva mas tiempo esperando, abajo el que acaba
+// de entrar. Decision del cliente del 2026-09-05 (`021`).
+//
+// **Hasta `021` se ordenaba por `retiro_fecha DESC, retiro_hora DESC`**, y ese
+// orden tenia un problema que no se veia: `retiro_hora` vale `"16:00"` en TODOS
+// los pedidos desde `014` —el sitio la manda fija, es relleno y la constitucion
+// 5.1.0 prohibe leerla—, asi que **dentro de un mismo dia de retiro no habia
+// desempate** y dos llamadas podian devolver secuencias distintas. Este cambio no
+// solo invierte el sentido: le da un orden total a algo que no lo tenia.
+//
+// El desempate por `id` es **estable y arbitrario a proposito**: `id` es un uuid
+// aleatorio, asi que no significa "el que se creo primero" — y no hace falta que
+// signifique nada, porque entre dos pedidos con el mismo instante de creacion no
+// hay un primero que descubrir. Lo que se exige es que la respuesta no cambie
+// entre llamadas.
+//
+// **NO desempatar por `codigo`.** Parece lo natural porque sale de una secuencia
+// monotona, pero se guarda como TEXTO —`FU-0001`— con relleno de cuatro digitos:
+// pasado `FU-9999` viene `FU-10000`, que ordena ANTES en comparacion
+// lexicografica. Empezaria a mentir en el pedido diez mil y hasta entonces se
+// veria perfecto. Ver specs/021-orden-de-la-app/research.md D2.
 //
 // Quien puede llamar a esto lo decide el handler contra la configuracion del
 // entorno (FR-022 de `006`). El repositorio no conoce el concepto de
 // administrador y no debe conocerlo.
 func (r *Repositorio) Todos(ctx context.Context) ([]*Pedido, error) {
 	const sql = `SELECT ` + columnas + desdePedidos + `
-		ORDER BY retiro_fecha DESC, retiro_hora DESC`
+		ORDER BY creado_en ASC, id ASC`
 	return r.consultar(ctx, sql)
 }
 

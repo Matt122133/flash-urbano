@@ -504,3 +504,147 @@ func TestPorClaveInexistenteDaErrNoExiste(t *testing.T) {
 		t.Errorf("quiero ErrNoExiste, dio %v", err)
 	}
 }
+
+// FR-001, FR-002, FR-008 de `021`. El orden de la lista de administracion.
+//
+// **Las fechas de retiro van ASCENDENTES a proposito**, y ahi esta todo el
+// valor de la prueba. El criterio viejo era `retiro_fecha DESC`: con fechas
+// ascendentes devuelve la secuencia INVERTIDA y la prueba falla, que es lo que
+// se quiere.
+//
+// **Se escribio al reves la primera vez y paso en verde con el SQL viejo.** Con
+// fechas descendentes, `retiro_fecha DESC` reproduce el orden de creacion por
+// casualidad, y la prueba parecia comprobar el orden nuevo sin comprobar nada.
+// Es el motivo por el que hay que verla en rojo ANTES de cambiar la consulta;
+// una prueba de orden que nunca fallo no se sabe si mira el orden.
+func TestTodosVieneDelMasViejoAlMasNuevo(t *testing.T) {
+	repo, repoU, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+	usuarioID := unUsuario(t, repoU, "orden@example.com")
+
+	// Se crean en este orden y con la fecha de retiro al reves.
+	casos := []struct {
+		clave  string
+		retiro string
+	}{
+		{"primero", "2026-01-02"},
+		{"segundo", "2026-06-15"},
+		{"tercero", "2026-12-31"},
+	}
+
+	creados := make([]string, 0, len(casos))
+	for _, c := range casos {
+		n := unPedido(usuarioID, c.clave)
+		n.RetiroFecha = c.retiro
+		p, _, err := repo.Crear(ctx, n)
+		if err != nil {
+			t.Fatalf("creando %s: %v", c.clave, err)
+		}
+		creados = append(creados, p.Codigo)
+	}
+
+	todos, err := repo.Todos(ctx)
+	if err != nil {
+		t.Fatalf("leyendo todos: %v", err)
+	}
+	if len(todos) != len(casos) {
+		t.Fatalf("Todos() devolvio %d, quiero %d", len(todos), len(casos))
+	}
+
+	for i, p := range todos {
+		if p.Codigo != creados[i] {
+			var vinieron []string
+			for _, q := range todos {
+				vinieron = append(vinieron, q.Codigo)
+			}
+			t.Fatalf(
+				"Todos() no vino por fecha de creacion ascendente:\n  vino:   %v\n  quiero: %v",
+				vinieron, creados,
+			)
+		}
+	}
+}
+
+// FR-003 de `021`: el orden es total y determinista.
+//
+// Importa mas de lo que parece. Hasta este feature el segundo criterio era
+// `retiro_hora`, que desde `014` vale `"16:00"` en TODOS los pedidos: dentro de
+// un mismo dia de retiro no habia desempate, y dos llamadas podian devolver
+// secuencias distintas sin que nadie tocara nada.
+func TestTodosDevuelveSiempreLaMismaSecuencia(t *testing.T) {
+	repo, repoU, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+	usuarioID := unUsuario(t, repoU, "estable@example.com")
+
+	// Todos con la MISMA fecha de retiro: sin desempate real, es donde el orden
+	// indefinido se manifestaba.
+	for _, clave := range []string{"a", "b", "c", "d", "e"} {
+		n := unPedido(usuarioID, clave)
+		n.RetiroFecha = "2026-09-08"
+		if _, _, err := repo.Crear(ctx, n); err != nil {
+			t.Fatalf("creando %s: %v", clave, err)
+		}
+	}
+
+	primera, err := repo.Todos(ctx)
+	if err != nil {
+		t.Fatalf("primera lectura: %v", err)
+	}
+
+	for intento := 0; intento < 5; intento++ {
+		otra, err := repo.Todos(ctx)
+		if err != nil {
+			t.Fatalf("lectura %d: %v", intento, err)
+		}
+		for i := range primera {
+			if otra[i].Codigo != primera[i].Codigo {
+				t.Fatalf(
+					"el orden cambio entre llamadas en la posicion %d: %s vs %s",
+					i, primera[i].Codigo, otra[i].Codigo,
+				)
+			}
+		}
+	}
+}
+
+// FR-004 de `021`: el historial del cliente NO se mueve.
+//
+// `PorUsuario()` vive a diez lineas de `Todos()` en el mismo archivo, y ese es
+// exactamente el riesgo que esta prueba cubre: que invertir el orden de la lista
+// de administracion se arrastre a la pantalla del cliente, que nadie pidio
+// tocar. *Mis pedidos* es un historial personal —lo ultimo primero—, no una cola
+// de trabajo.
+func TestPorUsuarioSigueDelMasNuevoAlMasViejo(t *testing.T) {
+	repo, repoU, _ := repositorioDePrueba(t)
+	ctx := context.Background()
+	usuarioID := unUsuario(t, repoU, "historial@example.com")
+
+	creados := make([]string, 0, 3)
+	for _, clave := range []string{"uno", "dos", "tres"} {
+		p, _, err := repo.Crear(ctx, unPedido(usuarioID, clave))
+		if err != nil {
+			t.Fatalf("creando %s: %v", clave, err)
+		}
+		creados = append(creados, p.Codigo)
+	}
+
+	mios, err := repo.PorUsuario(ctx, usuarioID)
+	if err != nil {
+		t.Fatalf("leyendo los propios: %v", err)
+	}
+	if len(mios) != len(creados) {
+		t.Fatalf("PorUsuario() devolvio %d, quiero %d", len(mios), len(creados))
+	}
+
+	// Al reves que Todos(): el ultimo creado va primero.
+	for i, p := range mios {
+		esperado := creados[len(creados)-1-i]
+		if p.Codigo != esperado {
+			t.Fatalf(
+				"PorUsuario() en la posicion %d devolvio %s, quiero %s "+
+					"(el historial del cliente va del mas nuevo al mas viejo)",
+				i, p.Codigo, esperado,
+			)
+		}
+	}
+}
