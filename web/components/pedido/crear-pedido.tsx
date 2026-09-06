@@ -437,6 +437,25 @@ function usePrecarga(): Precarga {
       )
       .then((p) => {
         if (vigente) setPrecarga(p);
+      })
+      // **Sin este catch, un rechazo deja la pantalla en "Un momento…" para
+      // siempre**, sin error y sin formulario: `setPrecarga` no se llama nunca y
+      // no hay nada que lo destrabe. Es el mismo modo de falla que el 2026-08-14
+      // dejo el boton de confirmar sin hacer nada — indistinguible de roto, y la
+      // persona no tiene forma de saber que probar.
+      //
+      // Cada camino de precarga ya atrapa lo que ANTICIPA. Esto atrapa lo que
+      // no: un modulo que no carga, un dato guardado con una forma inesperada.
+      // El formulario queda vacio y utilizable, que es peor que precargado y
+      // mucho mejor que una pantalla trabada.
+      .catch((e) => {
+        console.error("Fallo la precarga del formulario:", e);
+        if (!vigente) return;
+        setPrecarga({
+          ...SIN_PRECARGA,
+          avisoDeRepeticion:
+            "No pudimos traer los datos de ese pedido. Podés cargarlo a mano.",
+        });
       });
 
     return () => {
