@@ -108,38 +108,47 @@ export function TarjetaPedido({ pedido }: { pedido: PedidoGuardado }) {
             valor={`${pedido.destinatarioNombre} · ${pedido.destinatarioTelefono}`}
           />
         </dl>
-        {/* FR-002: reimprimir. Sin esto el feature falla en el caso mas
-            comun de todos —que la impresion no salga a la primera, o que hayan
-            cerrado la pestaña— y obligaria a crear el pedido de nuevo, que
-            ademas le ensucia la lista a Diego.
-
-            `etiquetaDelPedido` acepta el `PedidoGuardado` sin que `lib/etiqueta.ts`
-            importe `lib/api.ts`: el tipo es estructural, y esa inversion es lo que
-            deja la guarda de FR-013 en verde sin excepciones. */}
-        <BotonImprimir
-          className="mt-4"
-          etiqueta={() => etiquetaDelPedido(pedido)}
-        />
-
-        <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-400">
             Cargado el {formatearInstante(pedido.creadoEn)}
           </p>
-          {/* Va ADENTRO del detalle y no en la cabecera, a proposito: repetir
-              tiene consecuencia de plata, y que exija haber abierto y mirado el
-              pedido es una friccion a favor.
 
-              Viaja el `id` y NUNCA el codigo `FU-####`: el codigo es para la
-              persona, el id para la maquina. Un codigo en la URL invitaria a
-              tipear uno ajeno a mano — que no funcionaria, porque el pedido se
-              busca en la lista propia, pero es una invitacion que no hace falta
-              hacer. Ver contracts/pantallas.md §1. */}
-          <Link
-            href={`/pedido?repetir=${pedido.id}`}
-            className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
-          >
-            Repetir
-          </Link>
+          {/* Los dos botones juntos, a la derecha. Imprimir en su propio renglon
+              se comia una linea de una tarjeta que en una lista se repite muchas
+              veces; al lado de *Repetir* la tarjeta queda compacta y las dos
+              acciones del pedido quedan en el mismo lugar.
+
+              FR-002, reimprimir: sin esto el feature falla en el caso mas comun
+              de todos —que la impresion no salga a la primera, o que hayan
+              cerrado la pestaña— y obligaria a crear el pedido de nuevo, que
+              ademas le ensucia la lista a Diego.
+
+              `etiquetaDelPedido` acepta el `PedidoGuardado` sin que
+              `lib/etiqueta.ts` importe `lib/api.ts`: el tipo es estructural, y esa
+              inversion es lo que deja la guarda de FR-013 en verde sin
+              excepciones. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <BotonImprimir
+              tamano="compacto"
+              etiqueta={() => etiquetaDelPedido(pedido)}
+            />
+
+            {/* Va ADENTRO del detalle y no en la cabecera, a proposito: repetir
+                tiene consecuencia de plata, y que exija haber abierto y mirado el
+                pedido es una friccion a favor.
+
+                Viaja el `id` y NUNCA el codigo `FU-####`: el codigo es para la
+                persona, el id para la maquina. Un codigo en la URL invitaria a
+                tipear uno ajeno a mano — que no funcionaria, porque el pedido se
+                busca en la lista propia, pero es una invitacion que no hace falta
+                hacer. Ver contracts/pantallas.md §1. */}
+            <Link
+              href={`/pedido?repetir=${pedido.id}`}
+              className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+            >
+              Repetir
+            </Link>
+          </div>
         </div>
       </div>
     </details>

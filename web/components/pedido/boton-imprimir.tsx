@@ -24,10 +24,21 @@ const ERROR =
 export function BotonImprimir({
   etiqueta,
   className,
+  tamano = "normal",
 }: {
   /** Se llama al tocar, no antes: armarla resuelve una zona. */
   etiqueta: () => Etiqueta;
   className?: string;
+  /**
+   * `compacto` en la tarjeta del historial, donde el boton comparte renglon con
+   * *Repetir* y tiene que igualarle el alto. `normal` en la confirmacion, donde
+   * va al lado de *Cargar otro pedido*.
+   *
+   * Es un tamaño y no un `className` suelto **a proposito**: quien lo use no
+   * tiene que acertarle a las clases del boton para que dos pastillas queden
+   * parejas.
+   */
+  tamano?: "normal" | "compacto";
 }) {
   const [estado, setEstado] = useState<Estado>("listo");
 
@@ -68,7 +79,9 @@ export function BotonImprimir({
         type="button"
         onClick={alTocar}
         disabled={estado === "generando"}
-        className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+        className={`inline-flex items-center gap-2 rounded-full border border-slate-300 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60 ${
+          tamano === "compacto" ? "px-4 py-2" : "px-5 py-2.5"
+        }`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
