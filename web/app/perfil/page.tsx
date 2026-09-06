@@ -84,12 +84,32 @@ function Cuenta() {
    */
   const vista: Vista = parametros.get("ver") === "pedidos" ? "pedidos" : "datos";
 
-  // `replace` y no `push`: alternar entre las dos vistas no es navegar, y con
-  // `push` el boton de atras se llenaria de pasos que la persona no dio.
-  const irA = (id: Vista) =>
-    router.replace(id === "pedidos" ? "/perfil?ver=pedidos" : "/perfil", {
-      scroll: false,
-    });
+  /**
+   * Cambia de vista **sin tocar los parametros que no son suyos**.
+   *
+   * Hasta `023` esto armaba la URL con dos literales, y estaba bien mientras
+   * `ver` fuera el unico parametro de la pantalla. Dejo de estarlo: el historial
+   * pone `?estado=` para el corte por estado, y con los literales el recorrido
+   * "filtro, voy a Mis datos, vuelvo a Mis pedidos" **borraba el filtro** sin
+   * que nadie lo sacara — un defecto que no rompe nada y que la persona lee como
+   * que el producto se olvida de lo que le pidio.
+   *
+   * Es el patron que documenta esta version de Next para `useSearchParams`:
+   * copiar los parametros actuales, tocar una sola clave, navegar con eso.
+   *
+   * `datos` no deja rastro: es la vista de partida, y `?ver=datos` no dice nada
+   * que la ausencia del parametro no diga.
+   *
+   * `replace` y no `push`: alternar entre las dos vistas no es navegar, y con
+   * `push` el boton de atras se llenaria de pasos que la persona no dio.
+   */
+  const irA = (id: Vista) => {
+    const siguientes = new URLSearchParams(parametros.toString());
+    if (id === "pedidos") siguientes.set("ver", "pedidos");
+    else siguientes.delete("ver");
+    const qs = siguientes.toString();
+    router.replace(qs ? `/perfil?${qs}` : "/perfil", { scroll: false });
+  };
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">

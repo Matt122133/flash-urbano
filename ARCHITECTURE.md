@@ -196,6 +196,14 @@ default; components that need interactivity (forms, nav toggle) are marked
   on 2026-08-22. Read `specs/010-mis-pedidos/quickstart.md` before touching
   them: it is the entire verification they have.
 
+  Since `023` the history also **filters on screen**: a state cut and a text
+  search, both over the response that already arrived. The cut travels in the
+  URL (`/perfil?ver=pedidos&estado=pendientes`) so a reload keeps it and a fresh
+  visit does not; **the typed text deliberately does not**, because it can hold
+  the recipient's name and a URL gets shared. Whoever writes that URL must copy
+  the current params and touch only their own key — `ver` and `estado` belong to
+  different components, and writing a literal erases the other one.
+
 - `web/app/pedido/page.tsx` — since `010` it wraps the composition in a
   `<Suspense>`, and **the header goes in the `fallback` too**. That is not
   decoration: reading `?repetir=` with `useSearchParams` pushes the whole subtree
@@ -203,6 +211,15 @@ default; components that need interactivity (forms, nav toggle) are marked
   `h1` disappears from the prerendered HTML — the one a search engine reads, and
   the site has been indexable since `004`. Without the `<Suspense>` the **build
   fails outright**; in development it works fine, which is the trap.
+
+- `web/lib/filtrar-pedidos.ts` — which orders pass the history filter, and the
+  same reasoning as `repetir.ts` below: it lives in `lib/` because that is the
+  only place this repo can test on its own. Its guards are negative ones with
+  positive controls — the search must **not** reach addresses (the client's call,
+  taken against the recommendation) and must **not** reach any money field
+  (Principle V). **Pagination is still not built**, on purpose: the measured
+  threshold is ~300 orders per person (tracker, 2026-08-22) and the codes are
+  still in the `FU-00xx` range.
 
 - `web/lib/repetir.ts` — the pure half of repeating an order: mapping what was
   saved onto the form's fields, and revalidating the saved delivery point. It
