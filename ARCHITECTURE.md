@@ -259,6 +259,32 @@ default; components that need interactivity (forms, nav toggle) are marked
   operator charges; it is kept only so the decision can be reversed cheaply.
   Principle V, version 5.0.0, forbids reading it for revenue, reporting or a
   dashboard.
+- `web/lib/etiqueta.ts` + `web/lib/etiqueta-pdf.ts` — la etiqueta imprimible
+  que `020` agrega al confirmar un pedido y a cada tarjeta de *Mis pedidos*.
+  **Que sean dos archivos no es organizacion, es lo que hace verificable el
+  requisito que importa.** `etiqueta.ts` es puro y decide *que dice* la hoja;
+  `etiqueta-pdf.ts` la dibuja con jsPDF. La prohibicion central —que la etiqueta
+  no muestre **ningun importe**, Principio V— se afirma sobre la estructura, que
+  es texto inspeccionable, en vez de raspar bytes de un PDF comprimido.
+
+  Dos cosas mas que se deshacen facil sin querer. **`etiqueta.ts` describe la
+  forma del pedido guardado en vez de importarla de `lib/api.ts`**
+  (`PedidoParaEtiqueta`): TypeScript es estructural, asi que no se pierde nada, y
+  a cambio la guarda del grafo de imports queda sin excepciones —esa guarda toma
+  de mas a proposito y marcaria hasta un `import type`, que se borra al
+  compilar—. Y **`etiqueta-pdf.ts` se importa siempre de forma dinamica**, al
+  tocar el boton: arrastra jsPDF, 108 KB comprimidos medidos, y un import
+  estatico se los cobra a todo el que abre `/pedido` o `/perfil`.
+
+  La zona sale del punto de entrega guardado y **se omite entera cuando no hay
+  punto** —un pedido anterior a `011`—: nunca se deduce de la direccion escrita.
+
+- `web/lib/silueta-camion.ts` — **generado**, nunca editado a mano. Regenerar con
+  `design-source/build-silueta.js`. Es la silueta del camion de la marca,
+  embebida como data URI para que dibujar la etiqueta no dependa de una request.
+  **El logo a color no se puede usar sobre papel**: esta hecho para fondo azul y
+  la mitad de sus elementos son blancos. Ver `web/design-source/README.md`.
+
 - `web/lib/zona-lookup.ts` — resolves which delivery zone a marked point falls
   in, and therefore **whether the order can be taken at all**. **Since `011` the
   point it is asked about is the DELIVERY point, not the pickup one**

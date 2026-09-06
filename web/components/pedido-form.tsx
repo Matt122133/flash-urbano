@@ -18,6 +18,12 @@ import {
 } from "@/lib/fechas";
 import { contiene, regionPermitida } from "@/lib/direcciones";
 import { resolverZona } from "@/lib/zona-lookup";
+// **El boton de imprimir se importa; `lib/etiqueta-pdf.ts` NO.** El pdf y su
+// libreria entran por un import dinamico adentro del boton (FR-014), asi que
+// este archivo —una de las ENTRADAS de cotizar-abierto.test.ts— no engorda ni
+// gana dependencias de red.
+import { BotonImprimir } from "@/components/pedido/boton-imprimir";
+import { etiquetaDelFormulario } from "@/lib/etiqueta";
 
 type PackageSize = "chico" | "mediano" | "grande";
 
@@ -898,13 +904,44 @@ function Confirmation({
         />
       </dl>
 
-      <button
-        type="button"
-        onClick={onReset}
-        className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-      >
-        Cargar otro pedido
-      </button>
+      {/* FR-001: el motivo entero del feature. Hasta aca el pedido existia con
+          un codigo en pantalla y el paquete no llevaba nada encima; Diego
+          llegaba a una puerta, recibia un bulto y tenia que preguntar de que
+          pedido era.
+
+          Los dos botones comparten renglon, con imprimir a la derecha: apilados
+          se comian una linea entera de una tarjeta que ya es larga. `flex-wrap`
+          los deja caer uno debajo del otro cuando no entran, que en un telefono
+          angosto es lo que pasa — y ahi apilados esta bien, porque el problema
+          era el espacio vertical en una pantalla ancha.
+
+          La etiqueta se arma AL TOCAR, no aca: `etiquetaDelFormulario` resuelve
+          una zona, y no hay por que hacerlo en cada render de esta pantalla. */}
+      <div className="flex w-full flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onReset}
+          className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          Cargar otro pedido
+        </button>
+
+        <BotonImprimir
+          etiqueta={() =>
+            etiquetaDelFormulario({
+              codigo,
+              nombre: form.name,
+              telefono: form.phone,
+              retiro: form.retiro.direccion,
+              entrega: form.entrega.direccion,
+              destinatarioNombre: form.receiverName,
+              destinatarioTelefono: form.receiverPhone,
+              fechaRetiro: form.pickupDate,
+              cantidad: form.quantity,
+            })
+          }
+        />
+      </div>
     </div>
   );
 }
