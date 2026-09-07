@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La lista, sus vacios, y el bloque de filtros que se monta arriba.
   - web/components/pedido/historial.tsx
