@@ -95,6 +95,16 @@ deja de ser cierta, este feature deja de ser correcto** — ver *Assumptions*.
   confirmación con cifra; ninguna otra pantalla del sitio, de la app ni del
   papel muestra un monto. Textual: *"el precio solo se muestra con la zona, nada
   más"*. (FR-001, FR-007a, FR-008)
+- **¿Qué se muestra mientras la sesión todavía no se resolvió?** → **Sin
+  monto.** El estado indeterminado se trata como *sin sesión*: el monto aparece
+  recién cuando la sesión está confirmada. En cada carga de página hay una
+  ventana en la que la credencial se está rehidratando y no se sabe todavía si
+  hay sesión; **fallar hacia "sin precio" es la única de las dos direcciones
+  cuyo error es inofensivo**. Al revés, el monto se le escapa a un visitante
+  anónimo durante unos frames, que es el único requisito que el cliente pidió de
+  verdad. Se descartó también poner el bloque entero de la zona en carga: la
+  confirmación de cobertura hoy es instantánea y no depende de la sesión, y
+  retrasarla le sacaría a un visitante algo que hoy tiene. (FR-005a)
 - **Consecuencia sobre la enmienda.** Como nada lee la columna guardada, el
   Principio V no necesita levantar esa prohibición: la enmienda habilita
   **precio recalculado, en el formulario, a un cliente identificado**, y deja
@@ -170,6 +180,10 @@ dirección válida y comprobar que no aparece ningún monto en ningún estado.
    existe un precio ni que la invite a entrar para verlo. Sin este escenario, el
    anterior se satisface con un "entrá para ver cuánto sale", que es
    exactamente lo que se descartó.
+6. **Given** una persona sin sesión que carga la página con un punto de entrega
+   ya resuelto, **When** la aplicación todavía está resolviendo si hay sesión,
+   **Then** en ningún instante aparece un monto —ni un frame—, y la
+   confirmación de cobertura con el nombre de la zona sí aparece de inmediato.
 
 ---
 
@@ -220,6 +234,11 @@ cifra que el cliente no pagó.
 - **Sesión que expira con el formulario abierto.** El monto tiene que
   desaparecer al perder la sesión, no quedar dibujado de antes. Si no, la puerta
   se puede saltear dejando la pestaña abierta.
+- **La ventana en que la sesión todavía no se resolvió.** Ocurre en **cada**
+  carga de página, no es un caso raro: la credencial se rehidrata de forma
+  asincrónica. Se trata como sin sesión (FR-005a). La consecuencia visible y
+  aceptada es que un cliente logueado que recarga ve la zona primero y el monto
+  un instante después; el bloque no debería saltar de tamaño cuando aparece.
 - **El listado de calles o el mapa no cargan.** Sin punto no hay zona y sin zona
   no hay monto: el formulario sigue bloqueando como hoy, con el texto de
   cobertura y sin mencionar precio.
@@ -254,6 +273,12 @@ cifra que el cliente no pagó.
   mostrado MUST pasar a ser el de la zona nueva.
 - **FR-005**: Cuando la sesión termina o expira, el monto MUST desaparecer de la
   pantalla sin requerir que la persona recargue.
+- **FR-005a**: Mientras el estado de sesión esté **sin resolver** —la ventana en
+  que la credencial se rehidrata al cargar la página— el sistema MUST tratarlo
+  como *sin sesión* y MUST NOT mostrar monto. El monto aparece recién cuando hay
+  sesión confirmada. La confirmación de cobertura con el nombre de la zona MUST
+  seguir apareciendo de inmediato en esa ventana, sin esperar a la sesión: no
+  depende de ella y hoy es instantánea.
 - **FR-006**: Al iniciar sesión con el formulario ya completado, el monto de la
   zona ya marcada MUST aparecer sin obligar a volver a marcar el punto.
 - **FR-007**: La confirmación de cobertura que `013` puso en ese bloque —el

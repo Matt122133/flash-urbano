@@ -31,10 +31,16 @@
 
 ## Notes
 
-- **Las tres clarificaciones se cerraron el 2026-09-10**, todas hacia el lado
+- **Las cuatro clarificaciones se cerraron el 2026-09-10**, todas hacia el lado
   conservador: el visitante sin sesión no ve nada nuevo, *Mis pedidos* sigue sin
-  montos y la etiqueta tampoco lleva. El monto queda en **un solo lugar**, el
-  bloque de cobertura del formulario. Quedan registradas en § Clarifications.
+  montos, la etiqueta tampoco lleva, y la ventana en que la sesión todavía no se
+  resolvió se trata como *sin sesión*. El monto queda en **un solo lugar**,
+  pegado al nombre de la zona. Quedan registradas en § Clarifications.
+- **La cuarta salió del hook `before_plan`, no de la sesión inicial**, y es la
+  que más cerca estuvo de convertirse en un defecto: el proveedor de sesión
+  expone `cargando` arrancando en `true`, así que hay una ventana en **cada**
+  carga de página donde no se sabe si hay sesión. La rama equivocada le filtra
+  el monto a un visitante anónimo durante unos frames.
 - **La decisión de no leer nunca la columna `precio` guardada hace que la
   enmienda del Principio V sea angosta**: habilita monto recalculado, en el
   formulario, a un cliente identificado, y deja intacto el párrafo que prohíbe
