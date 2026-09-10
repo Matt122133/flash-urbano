@@ -63,3 +63,5 @@ Van al quickstart, y son las únicas que pueden entregar el feature roto con el
 | M3 | Al entrar por el diálogo a mitad de formulario, el monto aparece **sin perder lo tipeado ni el punto** | FR-006 |
 | M4 | El bloque no salta de tamaño cuando aparece el monto | Principio IV |
 | M5 | El texto deja claro que el monto es **por envío**, no por paquete, sin convertirse en un total | FR-007a, research D4 |
+| M6 | El monto que se muestra es el que queda guardado en el pedido | FR-014, SC-004 |
+| M7 | Un pedido anterior al 2026-08-22 no muestra su monto guardado en ninguna parte | FR-015, SC-008 |

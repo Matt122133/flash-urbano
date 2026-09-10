@@ -14,8 +14,9 @@ Si el paso de la sesión se implementa mal y `conSesion` queda siempre `false`,
 el sitio se ve exactamente como hoy, las pruebas pasan, el build pasa, y el
 feature simplemente no existe. Un `verify:` verde acá no dice nada.
 
-`022` cerró con la mitad del quickstart sin correr. Este tiene siete pasos y
-ninguno necesita un teléfono.
+`022` cerró con la mitad del quickstart sin correr. Este tiene once pasos, y
+**ninguno necesita un teléfono**: se hace entero desde el navegador de la
+máquina, con una consulta a la base en el paso 2b.
 
 ## Prerequisitos
 
@@ -27,6 +28,9 @@ ninguno necesita un teléfono.
   - Ojo con el 3000: un `next dev` huérfano sirve código viejo sin fallar.
     Mirar **quién** tiene el puerto antes de levantar.
 - Una cuenta de prueba y una dirección de entrega que caiga dentro de una zona.
+- Para el paso 2b, acceso a la base: `TEST_DATABASE_URL` apuntando a la base de
+  desarrollo en Docker. **No al postgres nativo del 5432**, que contesta igual y
+  destruiría la base de desarrollo.
 
 ```bash
 cd web && npm run dev
@@ -34,18 +38,27 @@ cd web && npm run dev
 
 ## Los pasos
 
-### 1. Sin sesión, no hay monto (FR-001, FR-013) — el paso que el cliente pidió
+### 1. Sin sesión, el sitio entero (FR-001, FR-013, SC-002) — el paso que el cliente pidió
 
-En una **ventana privada**, abrir `/pedido`. Completar retiro y entrega, y
-marcar la esquina de entrega dentro de una zona.
+Todo en una **ventana privada**.
+
+Primero `/pedido`: completar retiro y entrega, y marcar la esquina de entrega
+dentro de una zona.
 
 - ✅ El bloque verde confirma la cobertura y nombra la zona.
 - ✅ **No hay ningún monto.**
 - ✅ No hay ningún texto que anuncie que existe un precio ni que invite a entrar
   para verlo. Ni "entrá para ver cuánto sale", ni un número tapado.
 
-> Si acá aparece un número, el feature está entregando lo contrario de lo que se
-> pidió. Parar y arreglar antes de seguir.
+Después, sin cerrar la ventana privada, recorrer el resto:
+
+- ✅ `/` — sin montos, y ningún llamado a la acción que ofrezca conocer precios.
+- ✅ `/sobre-nosotros` — el mapa, su leyenda y los globos de los polígonos, todos
+  sin montos.
+- ✅ `/contacto` — sin montos.
+
+> Si en cualquiera de estos aparece un número, el feature está entregando lo
+> contrario de lo que se pidió. Parar y arreglar antes de seguir.
 
 ### 2. Con sesión, el monto aparece junto a la zona (FR-001, FR-007a)
 
@@ -55,6 +68,27 @@ Iniciar sesión y repetir. Con el punto de entrega dentro de una zona:
 - ✅ El texto deja claro que es por **envío**, no por paquete (M5).
 - ✅ Recorrer el resto del formulario hasta el botón de confirmar: **no hay
   ningún otro monto**. Sin total, sin resumen, sin línea de precio suelta.
+
+### 2b. El monto que se ve es el que se guarda (FR-014, SC-004)
+
+Es el único paso que mira el dato, y demuestra que volver a mostrar el precio no
+cambió lo que se guarda.
+
+Anotar el monto y la zona que muestra la pantalla, y confirmar el pedido. Después,
+contra la base:
+
+```bash
+psql "$TEST_DATABASE_URL" -c \
+  "select codigo, zona_id, precio from pedidos order by creado_en desc limit 1;"
+```
+
+- ✅ `precio` es exactamente el monto que decía la pantalla.
+- ✅ `zona_id` es la zona que nombraba el bloque.
+
+> Contra producción no corre esta consulta. Si el paso se hace contra el sitio
+> desplegado, se verifica en su lugar que el pedido aparece en la app de Diego
+> con la zona correcta —**y sin monto**, que es FR-019— y se anota que el
+> contraste contra `precio` quedó sin hacer.
 
 ### 3. Mover el pin cambia el monto (FR-004)
 
@@ -122,6 +156,11 @@ Con sesión iniciada, recorrer:
   los polígonos dicen el nombre de la zona y nada más.
 - ✅ `/perfil` (*Mis pedidos*) — ninguna tarjeta muestra un monto, **incluidos
   los pedidos creados después de este cambio**.
+- ✅ Si la cuenta de prueba tiene un pedido **anterior al 2026-08-22**, mirarlo
+  con atención (SC-008): su `precio` guardado se calculó desde la zona de
+  **retiro** y nunca fue el precio de ese envío bajo las reglas de hoy. Es el
+  caso que justifica que la columna no se lea. Si no hay ninguno tan viejo,
+  **decirlo y anotarlo**, no tildar el paso.
 - ✅ Generar la etiqueta imprimible de un pedido: código, destinatario,
   remitente y zona. **Sin monto.**
 
@@ -139,14 +178,21 @@ fallar no es una guarda:
 
 1. En `lib/precio-visible.ts`, devolver el monto ignorando `conSesion`.
    `npm test` **tiene que fallar** en `precio-visible.test.ts`.
-2. Escribir la palabra `precio` en `web/components/pedido/historial.tsx`.
+2. Escribir la palabra `precio` en `web/components/pedido-form.tsx`.
    `npm test` **tiene que fallar** en `sin-precio-a-la-vista.test.ts`.
-3. Importar `PrecioDeZona` desde un segundo archivo. `npm test` **tiene que
-   fallar** (C2).
+3. Importar `PrecioDeZona` desde un segundo archivo del `covers:`. `npm test`
+   **tiene que fallar** (C2).
 4. En `pedido-form.tsx`, agregar `import { credencial } from "@/lib/sesion"`.
    `npm test` **tiene que fallar** en `cotizar-abierto.test.ts`.
 
 Revertir las cuatro.
+
+> **Las cuatro roturas van en archivos del `covers:` del plan**, y no es un
+> detalle de comodidad: `AGENTS.md` prohíbe editar fuera de `covers:` durante la
+> ejecución y no hace excepción por "es temporal y lo reviento". La versión
+> anterior de este archivo mandaba romper `historial.tsx`, que está fuera. Romper
+> `pedido-form.tsx` prueba exactamente lo mismo —la guarda escanea `components/`
+> entero— sin salirse del plan.
 
 ## Qué hacer con lo que quede sin correr
 
