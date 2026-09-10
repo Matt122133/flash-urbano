@@ -10,7 +10,16 @@ update_trigger: on-pricing-rule-change
 
 ## Status
 
-Accepted. **Reverses Principle V of the constitution for the third time**
+Accepted, and **amended in part on 2026-09-10** by
+[ADR price-behind-the-login](price-behind-the-login.md), which returns the
+amount to the order form **for signed-in customers only**. What that ADR takes
+from this one is a single clause — *nobody at all sees a number*. What it keeps,
+and exists to protect, is everything else here: no amount on any public surface,
+no substitute message, the zone map as coverage rather than a price table, the
+gate, the stored column left unread, and the app silent on money. Read the two
+together; do not read this one alone.
+
+**Reverses Principle V of the constitution for the third time**
 (`.specify/memory/constitution.md`), moving it from 4.0.0 to 5.0.0 — MAJOR,
 because a principle is redefined and code written against the old text becomes
 non-compliant rather than incomplete.
@@ -106,6 +115,15 @@ a promise instead of a payment.
 **Show the price only to logged-in customers.** Rejected. It addresses the wrong
 concern — the client does not want the number shown to a smaller audience, he
 wants to be the one who says it.
+
+> **This paragraph was wrong, and it is left standing on purpose.** On
+> 2026-09-10 the client said the concern *was* the audience: the identified
+> customer should see the price; the anonymous visitor should not. The rejection
+> above was never based on anything he said — it was an inference about his
+> motive, written down with the same confidence as the parts of this ADR that
+> came from his own words, and nobody asked him which it was. See
+> [ADR price-behind-the-login](price-behind-the-login.md), which amends this one
+> on this point and keeps everything else it decided.
 
 **Do it as a quick edit, without touching the constitution.** Rejected, and it
 is the reason this document exists. The constitution states that the site
