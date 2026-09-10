@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # El formulario: pasa `conSesion` y `zona` al bloque del monto. NO nombra
   # precio en ninguna linea — la guarda de 013 lo sigue prohibiendo aca.
@@ -20,7 +20,7 @@ covers:
   # Lo que quede sin correr del quickstart se anota, no se da por hecho.
   - docs/tech-debt-tracker.md
 verify: cd web && npm run lint && npm test && npm run build
-analyzed:
+analyzed: 2026-09-10
 ---
 
 # Implementation Plan: El precio vuelve, del lado de adentro del login
