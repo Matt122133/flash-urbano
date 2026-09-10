@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El formulario: pasa `conSesion` y `zona` al bloque del monto. NO nombra
   # precio en ninguna linea — la guarda de 013 lo sigue prohibiendo aca.

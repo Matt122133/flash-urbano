@@ -183,7 +183,7 @@ tilda sin haberlo hecho**; lo que no se corra va al tracker en T025.
   se haya corrido y cuál es el disparador. **No** tildarlo como hecho.
 - [x] T027 `cd web && npm run lint && npm test && npm run build` en verde
   (`verify:` del plan).
-- [ ] T028 Commitear con el plan todavía en `status: active`, y **recién en un
+- [x] T028 Commitear con el plan todavía en `status: active`, y **recién en un
   commit aparte** pasarlo a `completed`. El sensor de cobertura rebota el commit
   si el plan ya está cerrado.
 
