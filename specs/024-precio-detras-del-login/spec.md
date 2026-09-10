@@ -281,6 +281,14 @@ cifra que el cliente no pagó.
   depende de ella y hoy es instantánea.
 - **FR-006**: Al iniciar sesión con el formulario ya completado, el monto de la
   zona ya marcada MUST aparecer sin obligar a volver a marcar el punto.
+  **Verificado el 2026-09-10, y resultó ser un requisito sin escenario.** Al
+  entrar por el diálogo, el pedido **se confirma solo**: la reanudación de `007`
+  (FR-016, la clave del intento) manda el alta apenas hay sesión, así que la
+  persona pasa del diálogo al comprobante y nunca vuelve a ver el formulario. No
+  hay ventana en la que el monto pueda aparecer, ni tampoco en la que pueda
+  aparecer mal. El requisito no se viola: **queda inalcanzable por ese camino**,
+  y eso es una propiedad buena —una superficie menos donde el precio se pueda
+  filtrar—. Lo que sí tiene consecuencia de producto está abajo, en *Assumptions*.
 - **FR-007**: La confirmación de cobertura que `013` puso en ese bloque —el
   nombre de la zona— MUST seguir existiendo para **todo el mundo**, con sesión y
   sin ella. El monto se suma a esa confirmación; no la reemplaza.
@@ -372,8 +380,21 @@ cifra que el cliente no pagó.
   queda guardado en el pedido, en el 100% de los pedidos creados.
 - **SC-005**: El 100% de los puntos marcados fuera de las cinco zonas sigue sin
   producir pedido, sin monto y sin zona sustituta.
-- **SC-006**: El formulario carga y muestra el precio con el servicio apagado,
-  para una persona con credencial guardada.
+- **SC-006**: El formulario **carga y funciona** con el servicio apagado: la
+  dirección se resuelve, la zona se determina y se puede completar todo hasta
+  confirmar. **No muestra el monto**, y eso es correcto.
+
+  **Corregido el 2026-09-10, durante la verificación.** Este criterio decía que
+  el monto *sí* se veía con el servicio caído, para alguien con credencial
+  guardada. Es imposible, y además no debería serlo. `proveedor-sesion.tsx`
+  rehidrata la credencial llamando a `/yo`; con el servicio abajo esa llamada
+  falla, y el `catch` deliberadamente **no borra la credencial** —para no
+  perder una sesión que probablemente sirva— pero tampoco puede confirmar el
+  usuario. Así que la sesión queda sin confirmar y, por FR-005a, sin confirmar
+  es *sin monto*. **Falla hacia el lado seguro**: mostrarle el precio a alguien
+  cuya identidad no se pudo verificar sería más flojo que la regla que pidió el
+  cliente. Y no cuesta nada, porque con el servicio caído tampoco se puede crear
+  el pedido. El criterio estaba mal escrito; el comportamiento está bien.
 - **SC-007**: Una prueba automática falla si un monto aparece sin sesión, y otra
   falla si aparece en una pantalla pública.
 - **SC-008**: Ninguna pantalla lee la columna `precio` guardada. Un pedido
@@ -391,6 +412,15 @@ cifra que el cliente no pagó.
   contenedor que hoy decide si se puede confirmar ya lo conoce—, así que
   distinguir con y sin sesión no obliga a que el formulario importe nada de lo
   que la guarda de FR-016 prohíbe.
+- **El precio solo le llega a quien ya estaba con sesión cuando llenó el
+  formulario.** Verificado el 2026-09-10 (ver FR-006): quien lo llena sin sesión
+  y entra recién en la puerta, va del diálogo al comprobante y **crea el pedido
+  sin haber visto nunca un monto**. No es una regresión —antes de `024` nadie
+  veía el precio— y no rompe ningún requisito, pero **acota el valor del
+  feature a la mitad de los casos**. Si Diego quiere que ese camino también
+  muestre el número, hay que cortar la reanudación automática para volver al
+  formulario en vez de confirmar, y eso toca `007`: es un feature aparte, no un
+  ajuste.
 - Diego sigue acordando por su cuenta cualquier caso que se salga de la tabla
   —urgencias, paquetes fuera de lo común—. El monto del sitio es el precio
   normal de esa zona, no un contrato.

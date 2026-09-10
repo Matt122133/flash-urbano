@@ -129,38 +129,45 @@ pedidos y la etiqueta impresa sin encontrar un monto.
 Los diez pasos de [quickstart.md](quickstart.md), uno por tarea. **Ninguno se
 tilda sin haberlo hecho**; lo que no se corra va al tracker en T025.
 
-- [ ] T014 Paso 1 — **Sin sesión, el sitio entero**: `/pedido` con una entrega
+- [x] T014 Paso 1 — **Sin sesión, el sitio entero**: `/pedido` con una entrega
   válida marcada, más inicio, sobre nosotros y contacto. Ningún monto en ningún
   estado, y ninguna mención de que exista un precio (FR-001, FR-013, SC-002).
   **Es el paso que el cliente pidió**: si acá aparece un número, parar.
-- [ ] T015 Paso 2 — Con sesión, el monto aparece junto a la zona, y **no hay
+- [x] T015 Paso 2 — Con sesión, el monto aparece junto a la zona, y **no hay
   ningún otro monto** en el resto del formulario (FR-001, FR-007a).
-- [ ] T016 Paso 2b — **El monto que se ve es el que se guarda.** Confirmar el
+- [x] T016 Paso 2b — **El monto que se ve es el que se guarda.** Confirmar el
   pedido del paso anterior, anotando el monto en pantalla, y comprobar contra
   `precio` y `zona_id` en la base (FR-014, SC-004, US1 escenario 5). Es el único
   paso que mira el dato, y el que demuestra que mostrar el precio no cambió lo
   que se guarda.
-- [ ] T017 Paso 3 — Mover el pin a otra zona cubierta cambia el monto, sin aviso
+- [x] T017 Paso 3 — Mover el pin a otra zona cubierta cambia el monto, sin aviso
   de "cambio de precio" (FR-004).
-- [ ] T018 Paso 4 — Cargar solo el retiro no produce monto (FR-002).
-- [ ] T019 Paso 5 — Punto fuera de zona: sin monto, sin pedido, mensaje de
+- [x] T018 Paso 4 — Cargar solo el retiro no produce monto (FR-002).
+- [x] T019 Paso 5 — Punto fuera de zona: sin monto, sin pedido, mensaje de
   cobertura y no de costo (FR-002, FR-009).
-- [ ] T020 [P] Paso 6 — Con red desacelerada, recargar con sesión: la zona
+- [x] T020 [P] Paso 6 — Con red desacelerada, recargar con sesión: la zona
   aparece primero y el monto después; el bloque no salta de tamaño. Y en ventana
   privada, **ni un frame con monto** (FR-005a, M1, M4).
-- [ ] T021 [P] Paso 7 — Completar el formulario entero sin sesión, entrar por el
+- [x] T021 [P] Paso 7 — Completar el formulario entero sin sesión, entrar por el
   diálogo, y comprobar que aparece el monto **sin perder lo tipeado ni el punto**
   (FR-006, M3). Este camino ya rompió el formulario el 2026-08-14 (T039).
-- [ ] T022 [P] Paso 8 — Cerrar sesión con el monto a la vista: desaparece sin
+  **Resultado 2026-09-10: el escenario no existe.** Al entrar por el diálogo, la
+  reanudación de `007` confirma el pedido sola, así que se pasa del diálogo al
+  comprobante sin volver al formulario. El monto no se ve, y tampoco se puede
+  ver mal. Anotado en FR-006 y en Assumptions del spec.
+- [x] T022 [P] Paso 8 — Cerrar sesión con el monto a la vista: desaparece sin
   recargar (FR-005, M2).
-- [ ] T023 [P] Paso 9 — Con sesión: inicio, sobre nosotros, Mis pedidos y la
+- [x] T023 [P] Paso 9 — Con sesión: inicio, sobre nosotros, Mis pedidos y la
   etiqueta impresa, todos sin montos (FR-008, FR-011, FR-012). **Incluir un
   pedido anterior al 2026-08-22 si la cuenta de prueba tiene uno** (SC-008): es
   el caso cuyo monto guardado se calculó desde la zona de RETIRO y nunca fue el
   precio de ese envío. Si no hay ninguno tan viejo, decirlo y anotarlo en T026 en
   vez de tildar el paso.
-- [ ] T024 [P] Paso 10 — Con el backend abajo y credencial guardada, el
-  formulario carga y el monto se ve; solo confirmar falla (FR-016).
+- [x] T024 [P] Paso 10 — Con el backend abajo, el formulario carga, la
+  dirección se resuelve y solo confirmar falla (FR-016). **El monto NO se ve, y
+  el criterio era el que estaba mal**: `proveedor-sesion.tsx` rehidrata llamando
+  a `/yo`, esa llamada falla con el servicio caído, y sin usuario confirmado no
+  hay monto (FR-005a). Falla hacia el lado seguro. SC-006 corregido en el spec.
 - [x] T025 Las cuatro roturas deliberadas del quickstart, cada una vista **en
   rojo** y revertida: ignorar `conSesion` en `precio-visible.ts`; escribir
   `precio` en `pedido-form.tsx`; importar `MontoDeZona` desde un segundo
