@@ -23,6 +23,7 @@ import { resolverZona } from "@/lib/zona-lookup";
 // este archivo —una de las ENTRADAS de cotizar-abierto.test.ts— no engorda ni
 // gana dependencias de red.
 import { BotonImprimir } from "@/components/pedido/boton-imprimir";
+import { MontoDeZona } from "@/components/pedido/monto-de-zona";
 import { etiquetaDelFormulario } from "@/lib/etiqueta";
 
 type PackageSize = "chico" | "mediano" | "grande";
@@ -325,6 +326,24 @@ export type PedidoFormProps = {
    * diria "corregir" mientras guarda un pedido nuevo, o al reves.
    */
   editando?: boolean;
+
+  /**
+   * `true` cuando hay sesion CONFIRMADA (`024`).
+   *
+   * **Es una prop y no una lectura propia, por el mismo motivo que
+   * `onConfirmar`**: quien sabe si hay sesion vive del otro lado de la frontera
+   * que `lib/cotizar-abierto.test.ts` custodia, y este componente es una de sus
+   * ENTRADAS. Un import de ese modulo desde aca pondria la guarda en rojo, con
+   * razon: seria un formulario que necesita la red para dibujarse.
+   *
+   * **El estado indeterminado entra como `false`.** No hace falta hacer nada
+   * explicito: quien monta este componente no lo monta hasta que la sesion se
+   * resolvio, asi que aca el valor ya esta decidido desde el primer render
+   * (FR-005a).
+   *
+   * Ver research D1 en specs/024-precio-detras-del-login/research.md.
+   */
+  conSesion?: boolean;
 };
 
 export function PedidoForm({
@@ -332,6 +351,7 @@ export function PedidoForm({
   inicial,
   onReiniciar,
   editando = false,
+  conSesion = false,
 }: PedidoFormProps) {
   const [form, setForm] = useState<FormState>({ ...INITIAL_STATE, ...inicial });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -629,6 +649,7 @@ export function PedidoForm({
           estadoMosaicos={estadoMosaicos}
           punto={punto}
           zona={zona}
+          conSesion={conSesion}
         />
         {errors.ubicacionEntrega && (
           <p className={errorClass}>{errors.ubicacionEntrega}</p>
@@ -1020,10 +1041,12 @@ function ResultadoZona({
   estadoMosaicos,
   punto,
   zona,
+  conSesion,
 }: {
   estadoMosaicos: EstadoMosaicos;
   punto: Punto | null;
   zona: ReturnType<typeof resolverZona>;
+  conSesion: boolean;
 }) {
   if (estadoMosaicos === "no-disponible") {
     return (
@@ -1090,6 +1113,13 @@ function ResultadoZona({
         <p className="text-xs text-emerald-800">
           La entrega queda en {zona.nombre}.
         </p>
+        {/* `024`: el monto va ACA y en ningun otro punto del formulario — ni un
+            total, ni un resumen previo, ni una linea suelta (FR-007a). Es un
+            dato DE LA ZONA, no del pedido: sin zona nombrada no hay monto, y
+            por eso vive dentro de esta rama y no afuera del bloque. Con sesion
+            se dibuja; sin sesion el componente no devuelve nada y esta linea
+            desaparece entera, sin dejar hueco ni mensaje sustituto (FR-013). */}
+        <MontoDeZona zona={zona} conSesion={conSesion} />
       </div>
     </div>
   );

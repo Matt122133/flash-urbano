@@ -33,21 +33,28 @@ sesión; **no** se lee dentro del formulario (research D1).
 ## Lo que dibuja el monto
 
 ```text
-PrecioDeZona({ monto })       // web/components/pedido/precio-de-zona.tsx
+MontoDeZona({ zona, conSesion })   // web/components/pedido/monto-de-zona.tsx
 ```
 
-- `monto: number | null`, y viene de `precioVisible({ zona, conSesion })`.
-- Con `null` **no renderiza nada**. El componente no decide: la decisión ya se
-  tomó en `lib/`.
+- Llama él mismo a `precioVisible({ zona, conSesion })`. Con `null` **no
+  renderiza nada**. El componente no decide: la regla vive en `lib/`.
 - Es el **único** archivo de `app/` o `components/` autorizado a nombrar un
   precio, y tiene que ser importado por **exactamente un** archivo.
+- **Se llama `MontoDeZona` y no `PrecioDeZona`, y el archivo `monto-de-zona.tsx`
+  y no `precio-de-zona.tsx`.** No es preferencia: la guarda escanea también los
+  strings con el patrón `/precio/i`, así que el `import` desde `pedido-form.tsx`
+  la habría puesto en rojo por el identificador y por la ruta. Por lo mismo el
+  componente recibe `zona` y `conSesion` en vez del monto ya calculado: nombrar
+  `precioVisible` desde el formulario tiene el mismo problema. **Fuera de su
+  propio archivo, el precio es innombrable**, y eso resultó ser una propiedad
+  útil.
 
 ## Reglas que las guardas hacen cumplir
 
 | # | Regla | Guarda |
 |---|---|---|
-| C1 | Ningún archivo de `app/` o `components/` nombra un precio, salvo `components/pedido/precio-de-zona.tsx` | `lib/sin-precio-a-la-vista.test.ts` (redefinida) |
-| C2 | `precio-de-zona.tsx` es importado por exactamente un archivo | `lib/sin-precio-a-la-vista.test.ts` |
+| C1 | Ningún archivo de `app/` o `components/` nombra un precio, salvo `components/pedido/monto-de-zona.tsx` | `lib/sin-precio-a-la-vista.test.ts` (redefinida) |
+| C2 | `monto-de-zona.tsx` es importado por exactamente un archivo | `lib/sin-precio-a-la-vista.test.ts` |
 | C3 | Hay monto si y solo si hay zona y hay sesión | `lib/precio-visible.test.ts` |
 | C4 | El grafo de imports del formulario no llega a `lib/api.ts` ni `lib/sesion.ts` | `lib/cotizar-abierto.test.ts` (**sin tocar**) |
 

@@ -180,7 +180,7 @@ fallar no es una guarda:
    `npm test` **tiene que fallar** en `precio-visible.test.ts`.
 2. Escribir la palabra `precio` en `web/components/pedido-form.tsx`.
    `npm test` **tiene que fallar** en `sin-precio-a-la-vista.test.ts`.
-3. Importar `PrecioDeZona` desde un segundo archivo del `covers:`. `npm test`
+3. Importar `MontoDeZona` desde un segundo archivo del `covers:`. `npm test`
    **tiene que fallar** (C2).
 4. En `pedido-form.tsx`, agregar `import { credencial } from "@/lib/sesion"`.
    `npm test` **tiene que fallar** en `cotizar-abierto.test.ts`.

@@ -21,7 +21,7 @@ eso la Fase 6 es tarea y no nota al pie.
 
 ## Fase 1: Preparación
 
-- [ ] T001 Correr `cd web && npm run lint && npm test && npm run build` sobre la
+- [x] T001 Correr `cd web && npm run lint && npm test && npm run build` sobre la
   rama limpia y anotar el resultado. Es la línea de base: si algo ya está en
   rojo, se sabe antes de escribir nada. Esperado: verde, con
   `sin-precio-a-la-vista.test.ts` y `cotizar-abierto.test.ts` pasando.
@@ -32,17 +32,17 @@ eso la Fase 6 es tarea y no nota al pie.
 si la regla queda adentro de un componente el feature se queda sin guarda
 automática para siempre.
 
-- [ ] T002 Crear `web/lib/precio-visible.ts` con la firma
+- [x] T002 Crear `web/lib/precio-visible.ts` con la firma
   `precioVisible({ zona, conSesion }): number | null`, **devolviendo `null`
   siempre**. Primero la forma y el contrato; la regla en T004.
-- [ ] T003 Crear `web/lib/precio-visible.test.ts` con las cuatro filas de la
+- [x] T003 Crear `web/lib/precio-visible.test.ts` con las cuatro filas de la
   tabla de [data-model.md](data-model.md): zona+sesión → el monto; zona sin
   sesión → `null`; sin zona con sesión → `null`; sin zona sin sesión → `null`.
   **La primera fila es el control positivo y no es opcional**: sin ella, una
   implementación que devuelva `null` siempre —o sea el feature sin construir—
   pasa las otras tres en verde. Con T002 puesto, esta prueba **tiene que estar en
   rojo en esa fila**; comprobarlo antes de seguir.
-- [ ] T004 Implementar la regla en `web/lib/precio-visible.ts`: hay monto si y
+- [x] T004 Implementar la regla en `web/lib/precio-visible.ts`: hay monto si y
   solo si hay zona **y** hay sesión. El estado de sesión sin resolver entra como
   `conSesion: false` (FR-005a) — eso lo decide quien llama, no esta función.
   `npm test` en verde.
@@ -55,23 +55,27 @@ pegado al nombre de la zona.
 **Prueba independiente**: entrar con sesión, marcar una entrega válida, ver el
 monto junto a la zona y ningún otro monto en toda la pantalla.
 
-- [ ] T005 [US1] Crear `web/components/pedido/precio-de-zona.tsx`: recibe
-  `monto: number | null`, **no renderiza nada con `null`**, y con un número lo
-  formatea como pesos uruguayos sin decimales y con separador de miles
-  (`$ 1.200`, research D4). No decide nada — la decisión ya vino de `lib/`. El
-  texto tiene que dejar claro que el monto es **por envío y no por paquete**, sin
-  convertirse en un total (FR-007a). Es el **único** archivo de `app/` o
-  `components/` que puede nombrar un precio.
-- [ ] T006 [US1] En `web/components/pedido-form.tsx`, `ResultadoZona` recibe
+- [x] T005 [US1] Crear `web/components/pedido/monto-de-zona.tsx`: recibe
+  `{ zona, conSesion }`, llama él mismo a `precioVisible`, **no renderiza nada
+  con `null`**, y con un número lo formatea como pesos uruguayos sin decimales y
+  con separador de miles (`$ 1.200`, research D4). No decide nada — la regla vive
+  en `lib/`. El texto tiene que dejar claro que el monto es **por envío y no por
+  paquete**, sin convertirse en un total (FR-007a). Es el **único** archivo de
+  `app/` o `components/` que puede nombrar un precio.
+  **Cambio durante la ejecución**: el plan decía que recibiera el `monto` ya
+  calculado. No se puede: `precioVisible` contiene la palabra `precio`, así que
+  llamarlo desde `pedido-form.tsx` pone la guarda en rojo. El componente lo llama
+  él, que además es más limpio. Mismo motivo del renombre — ver `covers:`.
+- [x] T006 [US1] En `web/components/pedido-form.tsx`, `ResultadoZona` recibe
   `conSesion: boolean` y, **solo en su rama de zona resuelta**, renderiza
-  `<PrecioDeZona monto={precioVisible({ zona, conSesion })} />`. Las otras tres
+  `<MontoDeZona zona={zona} conSesion={conSesion} />`. Las otras tres
   ramas —mapa caído, sin punto, fuera de zona— no se tocan
   ([contracts/bloque-de-zona.md](contracts/bloque-de-zona.md)).
-- [ ] T007 [US1] En el mismo archivo, `PedidoForm` acepta `conSesion` como prop y
+- [x] T007 [US1] En el mismo archivo, `PedidoForm` acepta `conSesion` como prop y
   se lo pasa a `ResultadoZona`. **`pedido-form.tsx` no puede nombrar `precio` en
   ninguna línea** ni importar nada de sesión: la guarda de `013` y
   `cotizar-abierto.test.ts` lo prohíben, y las dos tienen que seguir verdes.
-- [ ] T008 [US1] En `web/components/pedido/crear-pedido.tsx`, pasar
+- [x] T008 [US1] En `web/components/pedido/crear-pedido.tsx`, pasar
   `conSesion={Boolean(usuario)}` al `<PedidoForm>`. `usuario` y `cargando` ya
   salen de `useSesion()` en ese archivo (`:360`); **no hace falta importar
   nada nuevo**. Con `cargando` no hace falta hacer nada explícito: `PedidoForm`
@@ -86,17 +90,17 @@ otra pantalla, y que romperlo ponga algo en rojo.
 **Prueba independiente**: en ventana privada, recorrer el formulario entero con
 una dirección válida y no ver ningún monto ni ninguna mención de que existe uno.
 
-- [ ] T009 [US2] Redefinir `web/lib/sin-precio-a-la-vista.test.ts` (**redefinir,
+- [x] T009 [US2] Redefinir `web/lib/sin-precio-a-la-vista.test.ts` (**redefinir,
   no borrar** — FR-017): exceptuar del escaneo la ruta exacta
-  `components/pedido/precio-de-zona.tsx`, y **solo** esa. Todo el resto de `app/`
+  `components/pedido/monto-de-zona.tsx`, y **solo** esa. Todo el resto de `app/`
   y `components/` sigue sin poder nombrar `precio`, `$ 250`, `costo` ni
   `cuánto sale`. Actualizar el comentario de cabecera: hoy explica una promesa
   que dejó de ser cierta, y ese comentario es la mitad del valor de la guarda.
-- [ ] T010 [US2] Sumarle a esa misma prueba el control C2 del contrato:
-  `precio-de-zona.tsx` tiene que ser importado por **exactamente un** archivo.
+- [x] T010 [US2] Sumarle a esa misma prueba el control C2 del contrato:
+  `monto-de-zona.tsx` tiene que ser importado por **exactamente un** archivo.
   Sin esto la excepción autoriza un archivo que después se cuelga de cualquier
   pantalla, y FR-007a se pierde sin que nada se ponga en rojo.
-- [ ] T011 [US2] Comprobar que **no se agregó ningún mensaje sustituto** para el
+- [x] T011 [US2] Comprobar que **no se agregó ningún mensaje sustituto** para el
   visitante sin sesión (FR-013): ni "entrá para ver cuánto sale", ni monto
   tapado, ni mención de que hay un precio. Nota útil: un texto de ese tipo dentro
   de `ResultadoZona` **ya cae** por los patrones `costo` y `cuánto sale` que la
@@ -110,11 +114,11 @@ una dirección válida y no ver ningún monto ni ninguna mención de que existe 
 **Prueba independiente**: con sesión, recorrer inicio, sobre nosotros, Mis
 pedidos y la etiqueta impresa sin encontrar un monto.
 
-- [ ] T012 [US3] Correr `npm test` y confirmar que
+- [x] T012 [US3] Correr `npm test` y confirmar que
   `web/lib/cotizar-abierto.test.ts` sigue **verde sin haber sido tocado**
   (FR-016). Si está en rojo, algo del camino del formulario empezó a importar
   `lib/api.ts` o `lib/sesion.ts` y el arreglo es el diseño, no la prueba.
-- [ ] T013 [US3] Confirmar con `git diff --stat` que no se tocó ningún archivo
+- [x] T013 [US3] Confirmar con `git diff --stat` que no se tocó ningún archivo
   fuera del `covers:` del plan — en particular `historial.tsx`, `etiqueta.ts`,
   `etiqueta-pdf.ts`, `boton-imprimir.tsx`, `app/sobre-nosotros/` y **todo
   `android/`**. FR-011, FR-012 y FR-019 se cumplen **no tocando nada**, y esta
@@ -157,9 +161,9 @@ tilda sin haberlo hecho**; lo que no se corra va al tracker en T025.
   vez de tildar el paso.
 - [ ] T024 [P] Paso 10 — Con el backend abajo y credencial guardada, el
   formulario carga y el monto se ve; solo confirmar falla (FR-016).
-- [ ] T025 Las cuatro roturas deliberadas del quickstart, cada una vista **en
+- [x] T025 Las cuatro roturas deliberadas del quickstart, cada una vista **en
   rojo** y revertida: ignorar `conSesion` en `precio-visible.ts`; escribir
-  `precio` en `pedido-form.tsx`; importar `PrecioDeZona` desde un segundo
+  `precio` en `pedido-form.tsx`; importar `MontoDeZona` desde un segundo
   archivo; importar `@/lib/sesion` en `pedido-form.tsx`. **Las cuatro roturas van
   en archivos del `covers:`** — romper `historial.tsx`, que estaba fuera, habría
   violado la regla del harness aunque se revirtiera. Una guarda que nunca se vio
@@ -167,10 +171,10 @@ tilda sin haberlo hecho**; lo que no se corra va al tracker en T025.
 
 ## Fase 7: Cierre
 
-- [ ] T026 Anotar en [`docs/tech-debt-tracker.md`](../../docs/tech-debt-tracker.md)
+- [x] T026 Anotar en [`docs/tech-debt-tracker.md`](../../docs/tech-debt-tracker.md)
   cualquier paso de la Fase 6 que no se haya corrido: qué es, qué cuesta que no
   se haya corrido y cuál es el disparador. **No** tildarlo como hecho.
-- [ ] T027 `cd web && npm run lint && npm test && npm run build` en verde
+- [x] T027 `cd web && npm run lint && npm test && npm run build` en verde
   (`verify:` del plan).
 - [ ] T028 Commitear con el plan todavía en `status: active`, y **recién en un
   commit aparte** pasarlo a `completed`. El sensor de cobertura rebota el commit

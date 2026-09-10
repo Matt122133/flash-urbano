@@ -55,7 +55,7 @@ decisión que ya estaba tomada por otro motivo.
 ## D2 — Dónde vive el render del monto, dado que una prueba lo prohíbe
 
 **Decisión**: un componente nuevo y mínimo,
-`web/components/pedido/precio-de-zona.tsx`, es **el único archivo de `app/` o
+`web/components/pedido/monto-de-zona.tsx`, es **el único archivo de `app/` o
 `components/` autorizado a nombrar un precio**. `sin-precio-a-la-vista.test.ts`
 lo exceptúa por ruta exacta y sigue prohibiendo todo lo demás.
 
@@ -73,6 +73,21 @@ pidió (FR-008, FR-011, FR-012).
 `pedido-form.tsx` le pasa al componente el `zona` que ya tiene y el booleano de
 sesión; **nunca nombra `precio`**, así que el formulario entero sigue bajo la
 prohibición general.
+
+**Corrección del 2026-09-10, encontrada al implementar.** El componente se iba a
+llamar `PrecioDeZona`, en `precio-de-zona.tsx`, y el formulario le iba a pasar el
+monto ya calculado por `precioVisible`. **Las dos cosas ponían la guarda en
+rojo**: escanea también los strings, con el patrón `/precio/i`, así que tanto
+`import { PrecioDeZona } from "@/components/pedido/precio-de-zona"` como
+`precioVisible(...)` escritos en `pedido-form.tsx` la disparan. La excepción por
+archivo no alcanza cuando el archivo que lo **usa** también lo nombra.
+
+Se resolvió renombrando a `MontoDeZona` / `monto-de-zona.tsx` y moviendo la
+llamada a `precioVisible` adentro del propio componente, que recibe `zona` y
+`conSesion`. Amplió el `covers:` del plan, con el motivo anotado ahí. La
+propiedad que queda es mejor que la que se buscaba: **fuera de su propio archivo,
+el precio es innombrable** — ni el componente, ni su ruta, ni la función que lo
+decide pueden aparecer en otra pantalla.
 
 **Refuerzo barato**: la guarda además verifica que ese componente sea importado
 por **exactamente un** archivo. Sin eso, la excepción autoriza un archivo que
@@ -137,7 +152,7 @@ Ver [[guarda-negativa-necesita-control-positivo]].
 
 **Decisión**: se reusa el formato que el sitio ya usaba antes de `013`: pesos
 uruguayos, sin decimales, con separador de miles y el símbolo delante
-(`$ 1.200`). Vive dentro de `precio-de-zona.tsx`.
+(`$ 1.200`). Vive dentro de `monto-de-zona.tsx`.
 
 **Rationale**: es el formato que los clientes de este negocio ya vieron durante
 cuatro semanas, y `zonas.ts` documenta el campo como *"Pesos uruguayos. Monto

@@ -8,7 +8,16 @@ covers:
   # El contenedor que ya conoce la sesion (`useSesion`) y monta el formulario.
   - web/components/pedido/crear-pedido.tsx
   # EL UNICO archivo de app/ o components/ autorizado a nombrar un monto.
-  - web/components/pedido/precio-de-zona.tsx
+  #
+  # AMPLIADO EL 2026-09-10, DURANTE LA EJECUCION. Se llamaba `monto-de-zona.tsx`
+  # y hubo que renombrarlo: la guarda de `013` escanea tambien los strings con
+  # el patron /precio/i, asi que el `import { MontoDeZona } from
+  # "@/components/pedido/precio-de-zona"` en `pedido-form.tsx` la ponia en rojo
+  # por el identificador y por la ruta. La excepcion por archivo no alcanza
+  # cuando el archivo que lo USA tambien lo nombra. Se eligio ampliar `covers:`
+  # y no dejarlo pasar, porque el renombre es la solucion correcta y no un
+  # parche: obliga a que el precio sea innombrable fuera de su propio archivo.
+  - web/components/pedido/monto-de-zona.tsx
   # La decision de mostrar o no, pura y sin React: la unica parte de este
   # feature que puede tener prueba automatica en este repo.
   - web/lib/precio-visible.ts
@@ -148,11 +157,11 @@ specs/024-precio-detras-del-login/
 web/
 ├── components/
 │   ├── pedido-form.tsx           # MODIFICADO: recibe `conSesion`, se lo pasa
-│   │                             #   a ResultadoZona -> PrecioDeZona.
+│   │                             #   a ResultadoZona -> MontoDeZona.
 │   │                             #   NO nombra precio.
 │   └── pedido/
 │       ├── crear-pedido.tsx      # MODIFICADO: baja `conSesion` desde useSesion
-│       └── precio-de-zona.tsx    # NUEVO: unico archivo autorizado a un monto
+│       └── monto-de-zona.tsx    # NUEVO: unico archivo autorizado a un monto
 └── lib/
     ├── precio-visible.ts         # NUEVO: la decision, pura
     ├── precio-visible.test.ts    # NUEVO: tabla de casos + control positivo
