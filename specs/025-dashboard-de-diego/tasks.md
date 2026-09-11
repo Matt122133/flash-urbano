@@ -406,7 +406,7 @@ corte.
   `TZ` de Tokio apagado, las cinco pasan en verde en esta máquina, y la única que
   falla es el control "el proceso está de verdad en otra zona". O sea que el
   analyze tenía razón, y ese control es lo que impide que se repita.
-- [ ] T032 Pasarle a Mateo los comandos para levantar backend y sitio
+- [X] T032 Pasarle a Mateo los comandos para levantar backend y sitio
   (`backend/dev.sh`, `cd web && npm run dev`) y **no dejar un dev server
   corriendo**. Correr con él el quickstart **Q3 a Q14** en el navegador, y
   anotar acá el resultado de cada uno. Lo que no se corra se escribe como no
@@ -432,7 +432,15 @@ corte.
     en `Cargas` con `.UTC()`, con la prueba escrita antes y vista en rojo.
   - **Falta todo lo de pantalla**: Q3/Q4 mirando la tabla, Q7.2 a Q7.4, Q8, Q9,
     Q10.1 y Q10.2, Q11 (los tres recorridos de `esAdmin`), Q12, Q13 y Q14.
-- [ ] T033 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba): el umbral
+  **Validacion de Mateo en el navegador, 2026-09-11**, con sus palabras: *"entre
+  con mi cuenta que es admin y se ve todo, y entre con otra cuenta que no es
+  admin y no se ve el dashboard"*. O sea: el tablero completo con la cuenta
+  admin (Q3/Q4 a la vista) y la negativa a una cuenta comun (Q10.1). **No
+  reportados, y por eso no se dan por hechos**: Q8 (una baja hace bajar el
+  total), Q9 (buscar `$`), **Q11 (entrar SIN recargar, que es el cruce de
+  `esAdmin` del analyze C1)**, Q12 (servicio que no contesta), Q13 (base vacia)
+  y Q14 (360 px). Van al tracker, fila del 2026-09-11.
+- [X] T033 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba): el umbral
   de D1 —la respuesta crece una fila por pedido, ~1 MB a 10.000 pedidos, y
   pasar a agregar en SQL es cambiar el cuerpo, no la pantalla—, y cualquier paso
   del quickstart que haya quedado sin correr.
@@ -444,6 +452,13 @@ corte.
   `https://flashurbano.uy/tablero` como admin desde un navegador (el CORS de un
   camino nuevo no está probado hasta que un navegador lo llamó); comparar el
   total con `SELECT count(*) FROM pedidos` en la consola de Railway.
+  **Avance del 2026-09-11, antes del merge**: `ADMIN_EMAILS` en Railway
+  (servicio `flash-urbano`, `production`), leido con el CLI y sin mostrar otra
+  variable: `mateo.tambasco12@gmail.com,flashurbanomvd@gmail.com`. La segunda
+  es el mail del negocio que publica `/contacto`: si Diego entra a la web con
+  esa cuenta, el tablero lo deja pasar sin tocar Railway. **Falta**: confirmar
+  con Diego que esa es la cuenta con la que va a entrar, la limpieza de pedidos
+  de prueba, y abrir el tablero en produccion desde un navegador.
 - [ ] T036 Pasar `plan.md` a `status: completed` en un commit aparte, **después**
   de T034: con el plan cerrado, el sensor rebota los archivos de código.
 
