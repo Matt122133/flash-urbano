@@ -436,7 +436,7 @@ corte.
   de D1 —la respuesta crece una fila por pedido, ~1 MB a 10.000 pedidos, y
   pasar a agregar en SQL es cambiar el cuerpo, no la pantalla—, y cualquier paso
   del quickstart que haya quedado sin correr.
-- [ ] T034 Commitear con el plan todavía `active`, stageando rutas explícitas.
+- [X] T034 Commitear con el plan todavía `active`, stageando rutas explícitas.
   Abrir el PR con `gh pr create`; **mergear lo hace Mateo**.
 - [ ] T035 Después del merge y del deploy en Railway, **con Mateo**: quickstart
   Q15 — `ADMIN_EMAILS` en Railway incluye el mail de Diego; los pedidos de
