@@ -129,6 +129,24 @@ const SIN_RESPUESTA =
 
 export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
   /**
+   * Si hay sesion, para que el formulario pueda mostrar el monto de la zona
+   * (`024`).
+   *
+   * **Se lee aca y baja por prop**, y no lo lee el formulario, porque
+   * `components/pedido-form.tsx` es una de las ENTRADAS de
+   * `lib/cotizar-abierto.test.ts` y tiene prohibido llegar al modulo de sesion:
+   * el formulario tiene que cargar y funcionar con el servicio caido. Este
+   * archivo NO es entrada de esa guarda, asi que la frontera se cruza en la
+   * unica direccion permitida. Ver research D1 de `024`.
+   *
+   * **No hace falta mirar `cargando`.** El formulario ni siquiera se monta
+   * mientras la sesion esta sin resolver: la rama de mas abajo devuelve
+   * "Un momento…" hasta que la precarga termino, y la precarga espera a que
+   * `cargando` sea falso. O sea que cuando esto se evalua para el formulario, ya
+   * esta decidido (FR-005a).
+   */
+  const { usuario } = useSesion();
+  /**
    * Si ya hay un pedido confirmado en pantalla (FR-034).
    *
    * Vive aca y no en el formulario porque el encabezado lo renderiza la
@@ -318,6 +336,7 @@ export function CrearPedido({ encabezado }: { encabezado?: React.ReactNode }) {
         editando={Boolean(editando)}
         inicial={inicial}
         onReiniciar={() => setCreado(false)}
+        conSesion={Boolean(usuario)}
       />
       <DialogoIngreso
         abierto={dialogoAbierto}

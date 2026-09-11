@@ -3,8 +3,29 @@ import { dirname, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// FR-020. **El precio no se muestra en ninguna pantalla de cara al cliente**, y
-// esta es la unica guarda automatica de esa promesa.
+// **REDEFINIDA POR `024` EL 2026-09-10. Leer esto antes que nada.**
+//
+// Esta guarda nacio en `013` afirmando que el precio no se muestra en NINGUNA
+// pantalla. Desde la constitucion 6.0.0 eso ya no es cierto, y el cambio es
+// deliberado: el cliente identificado ve el monto de su zona en el bloque de
+// cobertura del formulario. Lo que el cliente NUNCA quiso es que lo viera un
+// visitante anonimo, y **esa mitad es la que este archivo sigue custodiando**.
+//
+// Por eso se redefinio en vez de borrarse (FR-017 de `024`). Borrarla habria
+// dejado sin ninguna proteccion automatica justo la mitad que el cliente pidio
+// de verdad — que es la mitad que un agente futuro, leyendo solo "mostrar el
+// precio", rompe sin enterarse.
+//
+// La frontera nueva es de un archivo de ancho: `EXCEPTUADOS`, mas abajo. Todo lo
+// demas de `app/` y `components/` sigue sin poder nombrar un monto, **tambien
+// para un usuario con sesion**: la puerta abre el formulario, no el sitio.
+// Ver docs/decisions/price-behind-the-login.md y specs/024-precio-detras-del-login/.
+//
+// ---
+//
+// FR-020 de `013`, en su forma vigente: **el precio no se muestra en ninguna
+// pantalla de cara al cliente salvo en el unico archivo exceptuado**, y esta es
+// la unica guarda automatica de esa promesa.
 //
 // El riesgo de `013` no es tecnico: no hay algoritmo nuevo ni dato nuevo. Es de
 // OMISION y de REGRESION. Once lugares mostraban o nombraban un monto; alcanza
@@ -38,6 +59,29 @@ const RAIZ = resolve(AQUI, "..");
 const DIRECTORIOS = ["app", "components"];
 
 const EXTENSIONES = [".ts", ".tsx"];
+
+/**
+ * Lo unico que puede nombrar un monto, y es por RUTA EXACTA (`024`, FR-017).
+ *
+ * **Por archivo y no por region** a proposito. Exceptuar `pedido-form.tsx`
+ * entero —mil lineas— habria autorizado de paso un total, un resumen previo o
+ * una linea de precio suelta, que es justo lo que FR-007a prohibe. Un archivo de
+ * cuarenta lineas se puede leer entero cada vez que alguien lo toca.
+ *
+ * **El escaneo mira tambien los strings, y eso obligo a renombrar el
+ * componente.** Se iba a llamar `PrecioDeZona` en `precio-de-zona.tsx`; con ese
+ * nombre, el `import` desde `pedido-form.tsx` ponia esta prueba en rojo por el
+ * identificador y por la ruta. La excepcion por archivo no alcanza cuando el
+ * archivo que lo USA tambien lo nombra. Resulto una propiedad util: fuera de su
+ * propio archivo, el precio es innombrable.
+ *
+ * Agregar una ruta aca es una decision de producto, no de codigo: hoy la
+ * constitucion autoriza el monto en UN lugar, junto al nombre de la zona.
+ */
+const EXCEPTUADOS = ["components/pedido/monto-de-zona.tsx"];
+
+/** Quien puede importar lo exceptuado. Ver el caso C2, mas abajo. */
+const IMPORTADORES_ESPERADOS = 1;
 
 /**
  * Lo que no puede aparecer, ya sin comentarios.
@@ -163,7 +207,8 @@ function archivos(directorio: string): string[] {
 }
 
 describe("ningún monto llega a una pantalla de cara al cliente (FR-020)", () => {
-  const mirados = DIRECTORIOS.flatMap(archivos);
+  const todos = DIRECTORIOS.flatMap(archivos);
+  const mirados = todos.filter((archivo) => !EXCEPTUADOS.includes(archivo));
 
   it("hay archivos que mirar", () => {
     // Guarda contra el falso verde. Si el recorrido deja de encontrar archivos
@@ -174,18 +219,62 @@ describe("ningún monto llega a una pantalla de cara al cliente (FR-020)", () =>
     expect(mirados).toContain("app/sobre-nosotros/page.tsx");
   });
 
+  // Sin esto, un dia alguien renombra o borra el archivo exceptuado, la ruta de
+  // `EXCEPTUADOS` deja de corresponder a nada, y la guarda sigue en verde
+  // exceptuando el vacio. El feature se puede haber ido entero sin que nada
+  // avise.
+  it("cada ruta exceptuada existe de verdad", () => {
+    for (const exceptuado of EXCEPTUADOS) {
+      expect(todos, `${exceptuado} no existe: la excepción no exceptúa nada`).toContain(
+        exceptuado,
+      );
+    }
+  });
+
   it.each(mirados)("%s no muestra ni nombra un monto", (archivo) => {
     const encontrado = hallazgos(readFileSync(join(RAIZ, archivo), "utf8"));
     expect(
       encontrado,
       encontrado.length > 0
         ? `${archivo} volvió a traer: ${encontrado.join("; ")}.\n` +
-            "El precio salió de todas las pantallas el 2026-08-30 por decisión del cliente:\n" +
-            "él lo acuerda por su cuenta. El dato sigue existiendo en lib/ y en la base;\n" +
-            "lo que no puede es cruzar a app/ ni a components/.\n" +
-            "Ver docs/decisions/price-not-shown.md y el Principio V, versión 5.0.0."
+            "Desde la constitución 6.0.0 el monto se muestra en UN solo lugar:\n" +
+            `${EXCEPTUADOS.join(", ")}, junto al nombre de la zona y solo con sesión.\n` +
+            "En cualquier otro archivo de app/ o components/ sigue prohibido, también\n" +
+            "para un usuario con sesión: la puerta abre el formulario, no el sitio.\n" +
+            "Ver docs/decisions/price-behind-the-login.md y el Principio V, versión 6.0.0."
         : "",
     ).toEqual([]);
+  });
+});
+
+// C2 del contrato (specs/024-precio-detras-del-login/contracts/bloque-de-zona.md).
+//
+// La excepcion de arriba autoriza un ARCHIVO. Sin este caso, ese archivo se
+// puede colgar despues de cualquier pantalla —el resumen previo, la tarjeta de
+// Mis pedidos, la etiqueta— y el monto se escapa del bloque de la zona **sin que
+// nada se ponga en rojo**, porque el archivo que lo importa nunca nombra un
+// precio: nombra un componente. FR-007a se perderia en silencio.
+describe("lo exceptuado se usa en un solo lugar (C2)", () => {
+  const todos = DIRECTORIOS.flatMap(archivos);
+
+  it.each(EXCEPTUADOS)("%s es importado por exactamente un archivo", (exceptuado) => {
+    // El especificador tal como se escribe en un import, sin extension.
+    const modulo = `@/${exceptuado.replace(/\.tsx?$/, "")}`;
+
+    const importadores = todos
+      .filter((archivo) => archivo !== exceptuado)
+      .filter((archivo) =>
+        sinComentarios(readFileSync(join(RAIZ, archivo), "utf8")).includes(modulo),
+      );
+
+    expect(
+      importadores,
+      `${exceptuado} lo importan ${importadores.length} archivos: ${importadores.join(", ") || "ninguno"}.\n` +
+        "El monto vive junto al nombre de la zona y en ningún otro lado (FR-007a).\n" +
+        "Colgar este componente de otra pantalla es sacar el precio de detrás de\n" +
+        "su única puerta. Si el cambio es deliberado, es una decisión de producto:\n" +
+        "pasa por la constitución antes que por acá.",
+    ).toHaveLength(IMPORTADORES_ESPERADOS);
   });
 });
 
@@ -236,5 +325,21 @@ describe("el detector sabe detectar", () => {
     expect(hallazgos('const u = "https://flashurbano.uy"; const p = zona.precio;')).not.toEqual(
       [],
     );
+  });
+
+  // **El control positivo de la EXCEPCION, agregado por `024`.**
+  //
+  // Los casos de arriba prueban que el detector detecta. Este prueba que la
+  // excepcion hace falta: si el archivo exceptuado no tuviera un monto adentro,
+  // exceptuarlo no costaria nada y nadie notaria que la lista quedo apuntando a
+  // un archivo que ya no muestra el precio — o sea, que el feature se fue.
+  it.each(EXCEPTUADOS)("%s SI trae un monto, o la excepción sobra", (exceptuado) => {
+    expect(
+      hallazgos(readFileSync(join(RAIZ, exceptuado), "utf8")),
+      `${exceptuado} está exceptuado pero no muestra ningún monto.\n` +
+        "O el feature se fue de ahí, o la excepción quedó de más. Las dos cosas\n" +
+        "importan: mientras esa línea siga en EXCEPTUADOS, ese archivo puede\n" +
+        "mostrar un precio sin que nadie mire.",
+    ).not.toEqual([]);
   });
 });

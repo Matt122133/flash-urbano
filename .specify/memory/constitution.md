@@ -33,12 +33,40 @@ right after a WhatsApp conversation. Forms, navigation, and the address
 composition fields (calle, número, apto, esquina, cooperativa) must work
 cleanly on small screens with minimal typing and clear validation.
 
-### V. The site takes the order; the price is the operator's
-**The product does not say what a shipment costs.** No surface shows an amount
-to anyone, and no text justifies an action, an obligation, or a refusal by
-appealing to cost. There is no substitute message either: the product is silent
-on money, not apologetic about it. Pricing is agreed between Diego and the
-customer, off this product and by his own channel.
+### V. The site takes the order; the price is behind the login
+**The product tells an identified customer what their shipment costs, and tells
+nobody else.** A person with an active session, once their delivery point
+resolves inside a zone, sees that zone's amount **in the same block that names
+the zone**, in the order form. That block is the only place in this product —
+site, app, or paper — where an amount ever appears.
+
+**The amount belongs to the zone, not to the order.** It appears only alongside
+the zone's name: no standalone price line, no total, no figure in a
+pre-confirmation summary or on a confirmation screen. **No zone named, no
+amount.**
+
+Everything outside that one block stays silent on money, exactly as it was: no
+amount on the home page, on Sobre Nosotros, on the zone map or its tooltips and
+legend, in *Mis pedidos*, on the printable label, or anywhere in Diego's app —
+**and none of that changes for a customer who is signed in**. The session opens
+the order form, not the site. No text justifies an action, an obligation, or a
+refusal by appealing to cost; a delivery point outside the five zones is refused
+on coverage, never on price.
+
+**There is no substitute message for the visitor who has not signed in.** Where
+the identified customer sees an amount, the visitor sees the coverage
+confirmation naming the zone, and nothing more: no invitation to sign in and see
+the price, no blurred figure, no mention that a number exists. The product does
+not advertise what is behind the door. Pricing beyond the zone table — urgent
+work, anything unusual — is still agreed between Diego and the customer, off
+this product and by his own channel.
+
+**Every amount shown is recalculated from the delivery zone at the moment it is
+shown.** Nothing displayed to anyone is ever read back from a stored order.
+
+Because the zone amounts are now quoted to customers, they are a **promise**:
+editing one is a customer-facing change, not an internal data edit, and the
+amounts in the generated zone module MUST be the ones the client charges today.
 
 What the site does with a zone is decide **whether the shipment is taken at
 all**. The customer resolves the delivery address to a point, the site
@@ -53,19 +81,29 @@ so they remain a data asset and not a picture: versioned, regenerable from the
 client's own file, and changeable without touching code. Boundaries the client
 has not confirmed MUST NOT reach production.
 
-The amount each zone would have cost **is still computed and stored with every
-order**, so this decision can be reversed cheaply. **Nothing reads it, and
-nothing may**: from the day it stopped being shown it records what the old rule
-would have charged, not what Diego charges. Reading that column for revenue,
-reporting, or a dashboard is reading a fiction. If it is ever read for anything,
-that is a new decision, not a defect.
+The amount is **still computed and stored with every order**. **Nothing reads it,
+and nothing may** — and 6.0.0 did not lift one word of this. The column records
+what the rule of the day would have charged, not what Diego charges: for orders
+created before 2026-08-22 it was computed from the **pickup** zone, so it was
+never the price of that shipment under today's rules. Reading it for revenue,
+reporting, a dashboard, **or to show a customer what one of their own past
+orders cost**, is reading a fiction. If it is ever read for anything, that is a
+new decision, not a defect. The price a customer sees in the order form is not
+this column; it is recalculated.
 
 Logistics remain manual, as the client's answers describe: no capacity limits,
 no automatic acceptance, no route generation. There is no cap on daily
 deliveries — Diego accepts jobs and plans routes himself. **Nothing is
 automated for the customer's benefit any more except the coverage check.**
 
-Amended three times, and the third reverses the direction of the first two.
+Amended four times: the third reversed the direction of the first two, and the
+fourth put back half of the third.
+[ADR price-behind-the-login](../../docs/decisions/price-behind-the-login.md) is
+the most recent, and it corrects an alternative `price-not-shown` had considered
+and rejected **on an inference about the client's motive rather than on anything
+he said**. That rejected paragraph is deliberately left standing in that ADR: it
+is the clearest record this repo has of how these amendments keep getting
+bought.
 [ADR zone-based-automatic-pricing](../../docs/decisions/zone-based-automatic-pricing.md)
 reversed this principle's original form ("price and logistics stay manual") on
 the evidence of the client's own zone map, and records the alternative that was
@@ -88,16 +126,20 @@ requires being logged in**. This is the client's own rule, and it is what the
 whole identity feature exists to serve: an order that nobody can be held to is
 an order Diego cannot work with.
 
-**The public half of this split used to carry a reward, and no longer does.**
-Until 5.0.0 the argument was "the quote is public, the order is not" — a visitor
-who only wanted to know how much got an answer without registering, and putting
-a door in front of that would have contradicted Principle II. That reasoning did
-not become false; it became moot, because Principle V removed the number from
-the public side of the door. What is left open is the form itself, up to the
-moment of confirming. **Whether asking a visitor to give their addresses before
-they learn anything about cost loses business is a real risk, and it is the
-client's to take** — the site cannot both keep his pricing private and answer
-the visitor who only wanted to know how much.
+**The reward moved to the inside of the door; it did not come back to the
+outside.** Until 5.0.0 the argument was "the quote is public, the order is not"
+— a visitor who only wanted to know how much got an answer without registering,
+and putting a door in front of that would have contradicted Principle II. 5.0.0
+removed the number from both sides of the door; **6.0.0 puts it back on the
+inside only**. What is open to a visitor without an account is still the whole
+form, up to the moment of confirming, and it must keep working with the service
+down — but the amount is not part of what they get.
+
+**Whether asking a visitor to give their addresses before they learn anything
+about cost loses business is a real risk, and it is the client's to take** — he
+has now taken it twice, in 5.0.0 and again in 6.0.0, the second time with the
+option of a "sign in to see the price" teaser explicitly on the table and
+declined. The site does not tell the anonymous visitor what they are missing.
 
 Two surfaces, built in this order:
 
@@ -105,15 +147,19 @@ Two surfaces, built in this order:
    pickup address
    (written; its point resolved silently and never shown) and delivery address
    (written plus a point marked on the map); **confirmation that the delivery
-   point falls inside the coverage area**, named by zone and without an amount;
+   point falls inside the coverage area**, named by zone — **with the zone's
+   amount if the customer is signed in, and without it if they are not**
+   (6.0.0);
    how many packages; the pickup **date**; the name and phone number of whoever
    receives the package; Sobre
-   Nosotros (hours, delivery zone map **without prices**, historical volume);
+   Nosotros (hours, delivery zone map **without prices, for everyone**,
+   historical volume);
    Contacto (WhatsApp, email); Reseñas (last, deferred).
 
    Six things this list used to name and deliberately no longer does, on the
-   client's own instruction: **the price** (5.0.0 — he quotes his own work; see
-   Principle V), **the package size** and **the pickup time** (5.1.0 — he uses
+   client's own instruction: **the price on the public surface** (5.0.0 — and
+   6.0.0 returned it to the order form for signed-in customers only, nowhere
+   else; see Principle V), **the package size** and **the pickup time** (5.1.0 — he uses
    neither today, and the pickup time in particular moves out of the site and
    into a conversation he holds himself, where the price can move with it),
    **payment method** (never confirmed — the options
@@ -159,9 +205,48 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 5.1.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-08-30
+**Version**: 6.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-09-10
 
 ### Amendment history
+
+- **6.0.0** (2026-09-10) — **The price comes back for the customer who signs
+  in, and only there.** The client's objection was never that the product speaks
+  about money; it was that an anonymous visitor got his price list for free. A
+  customer with a session, once their delivery point resolves inside a zone,
+  sees that zone's amount in the order form. Nothing else, on any surface,
+  shows an amount to anybody.
+
+  **MAJOR.** Principle V is redefined and the running code becomes
+  non-compliant, not incomplete: a test in the repo
+  (`web/lib/sin-precio-a-la-vista.test.ts`) currently fails the build if an
+  amount reaches a customer-facing screen at all. That guard is **redefined, not
+  deleted** — it must still fail on a public surface, and a second guard must
+  fail if an amount is reachable without a session.
+
+  **This puts back half of 5.0.0, and leaves the other half standing.** The
+  public side of the door keeps no number, for anyone, signed in or not, and
+  there is **no substitute message** for the visitor: no "sign in to see the
+  price", no blurred figure. That option was on the table and was declined.
+
+  **What is deliberately NOT lifted**: the prohibition on reading the stored
+  `precio` column. Every amount shown is **recalculated** from the delivery
+  zone. A customer cannot even see what one of their own past orders cost —
+  that column was computed from the **pickup** zone before 2026-08-22 and was
+  never the price of that shipment under today's rules. Diego's dashboard
+  inherits nothing from this amendment.
+
+  **What this obliges**: the zone amounts in the generated module become a
+  **promise**. Editing one is a customer-facing change. The repo owner confirmed
+  on 2026-09-10 that they are what the client charges today; if that stops being
+  true, the site is quoting a price he will not honour.
+
+  **ADR**:
+  [price-behind-the-login](../../docs/decisions/price-behind-the-login.md),
+  which also records the uncomfortable part — `price-not-shown` had considered
+  this exact option and rejected it on a **guess about the client's motive**.
+  Third time this repo has paid a MAJOR amendment for extending something the
+  client said one step further than he said it. See
+  `specs/024-precio-detras-del-login/`.
 
 - **5.1.0** (2026-08-30) — **The package size and the pickup time leave the
   order form.** The client uses neither today. The pickup time has a business

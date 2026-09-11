@@ -58,6 +58,15 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
   Principle V a third time (4.0.0 → 5.0.0) and reverses the *direction* of the
   two ADRs above. The zone stays as a **coverage gate**, the map stays without
   prices, and the amount stays in the data so the decision can be undone.
+  **Amended in part** by the ADR below — read the two together.
+- [`decisions/price-behind-the-login.md`](decisions/price-behind-the-login.md)
+  — the amount returns to the order form **for signed-in customers only**, and
+  to nowhere else; amends Principle V a fourth time (5.1.0 → 6.0.0). No amount
+  on any public surface, in *Mis pedidos*, on the printable label or in the app,
+  and **no "sign in to see the price" teaser**. Every amount shown is
+  recalculated; the stored `precio` column stays unreadable. Records that
+  `price-not-shown` had rejected this same option on a **guess about the
+  client's motive**.
 - [`decisions/backend-persistence-stack.md`](decisions/backend-persistence-stack.md)
   — where the backend goes when it is built: the site stays static on GitHub
   Pages, a separate Go service and Postgres with PostGIS run on Railway.
