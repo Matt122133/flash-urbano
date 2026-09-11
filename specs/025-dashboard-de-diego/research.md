@@ -183,11 +183,36 @@ muestra nombre y teléfono de cada remitente— y no sale del lado admin. Lo que
 responde **403** a quien no está en `ADMIN_EMAILS`, exactamente como
 `pedidos.Todos`. Sin credencial, el middleware ya responde 401.
 
-La web **no llama al servicio** si la cuenta no es administradora: `/yo` ya
-devuelve `esAdmin` desde `006`, y el tipo `Usuario` de la web gana ese campo
-(opcional, porque el servicio lo omite con `omitempty`). Pero **eso es cortesía,
-no seguridad**: la negativa real la da el servicio, y SC-004 se prueba contra el
-servicio, no contra la pantalla.
+La web **no llama al servicio** si sabe que la cuenta no es administradora:
+`/yo` ya devuelve `esAdmin` desde `006`, y el tipo `Usuario` de la web gana ese
+campo. Pero **eso es cortesía, no seguridad**: la negativa real la da el
+servicio, y SC-004 se prueba contra el servicio, no contra la pantalla.
+
+**`esAdmin` tiene TRES valores en la web, no dos**, y el tercero lo encontró el
+analyze del 2026-09-11. **La respuesta del ingreso no trae el campo**: solo `/yo`
+lo contesta, porque `auth` no conoce la configuración a propósito
+(`backend/internal/usuarios/handlers.go`, comentario de `EsAdmin`: *"ausente es
+la verdad: esta respuesta no contesta eso"*). Y `entrar()` del proveedor pone en
+el estado de sesión el usuario **del ingreso**. Sin contemplarlo, Diego entraba
+desde el panel de `/tablero` y la pantalla le decía que no era administrador, y
+la navegación no le mostraba el enlace, hasta recargar. Ninguna prueba lo ve.
+
+| `usuario.esAdmin` | Qué hace el tablero |
+|---|---|
+| `true` | Pide los datos. |
+| `false` | Estado 3, **sin llamar**. Lo dijo `/yo`. |
+| `undefined` | **No sabe, y le pregunta al servicio**: pide los datos, y un 403 lleva al estado 3. Tratarlo como `false` es el defecto. |
+
+Y además, para que la navegación se entere sin recargar, **`entrar()` relee
+`/yo` en segundo plano** después de guardar la credencial, y copia **solo
+`esAdmin`** sobre el usuario que ya está en el estado, si sigue siendo el mismo
+`id`. Solo ese campo, y no el usuario entero, porque la relectura compite con
+*completar el alta*: si la persona guarda nombre y teléfono antes de que `/yo`
+conteste, pisar el usuario entero le devolvería `perfilCompleto: false`. Si
+`/yo` falla, no pasa nada: queda `undefined` y el tablero pregunta al servicio.
+
+**Descartado**: que el ingreso devuelva `esAdmin`. Obligaría a `auth` a conocer la
+configuración, que es justo lo que `006` evitó a propósito.
 
 **FR-003**: la página `/tablero` es un export estático, así que existe para
 cualquiera que escriba la URL, y eso no se puede evitar ni hace falta. Lo que
@@ -207,7 +232,9 @@ inicio** al terminar (`web/app/ingresar/page.tsx`), así que mandar ahí
 obligaría a Diego a volver a escribir la URL del tablero después de entrar.
 `PanelIngreso` ya está hecho para usarse en más de un lugar: su `onListo` es una
 prop justamente por eso (lo usa `/pedido` en el diálogo). Acá `onListo` no hace
-nada: el cambio de sesión ya re-renderiza la página.
+nada: el cambio de sesión ya re-renderiza la página. **Recién entrado,
+`esAdmin` está `undefined`** —el ingreso no lo contesta— y por eso el tablero
+tiene que preguntarle al servicio en vez de negarse (D7).
 
 ---
 

@@ -77,13 +77,16 @@ no está ahí no lo ata nadie.
 |---|---|---|---|
 | 1 | La sesión se está resolviendo (`cargando`) | "Un momento…" | no |
 | 2 | Sin sesión | `PanelIngreso` en el lugar (D8). Al entrar, la página pasa sola al estado que corresponda. | no |
-| 3 | Con sesión, `esAdmin` no es `true` | "Esta sección es solo para la administración." Nada más: ni números, ni clientes, ni un enlace a otra cosa (FR-003, D7). | **no** |
-| 4 | Admin, pidiendo | "Un momento…" | sí |
+| 3 | Con sesión y `esAdmin === false` (lo dijo `/yo`), **o** el servicio contestó 403 | "Esta sección es solo para la administración." Nada más: ni números, ni clientes, ni un enlace a otra cosa (FR-003, D7). | **no** con `false`; sí cuando vino del 403 |
+| 4 | Con sesión y `esAdmin` en `true` **o `undefined`**, pidiendo | "Un momento…" | sí |
 | 5 | Admin, la llamada falló | El mensaje de error de D10 y un botón **Reintentar**. **Nunca ceros** (FR-016). | — |
 | 6 | Admin, llegó | El tablero | — |
 
-Si el servicio contesta **403** en el estado 4 —la web creía que era admin y el
-servicio no—, se muestra el estado 3, no el 5. Si contesta **401**, lo maneja el
+**`esAdmin` en `undefined` no es `false`.** Es lo que hay recién entrado: la
+respuesta del ingreso no trae el campo, solo `/yo` lo contesta (research D7).
+Tratarlo como `false` le dice a Diego que no es administrador justo después de
+entrar. Por eso `undefined` pide, y **el 403 es el camino normal** para una
+cuenta común recién entrada, no un caso raro: se muestra el estado 3, no el 5. Si contesta **401**, lo maneja el
 proveedor de sesión como en el resto del sitio (sesión vencida).
 
 ### El tablero (estado 6)
@@ -115,4 +118,6 @@ rompe a 360 px**: la tabla es de tres columnas angostas y cabe.
 
 `nav-bar.tsx`: enlace **"Tablero"** a `/tablero` junto a *Mi cuenta*, solo si
 `usuario?.esAdmin === true` (D12), en la barra de escritorio y en el menú de
-móvil.
+móvil. Acá `undefined` **sí** es "no mostrar": un enlace no puede preguntar. Lo
+que evita que Diego no lo vea después de entrar es que `entrar()` relee `/yo` en
+segundo plano y copia `esAdmin` (research D7).

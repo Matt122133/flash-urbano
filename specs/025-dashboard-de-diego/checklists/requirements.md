@@ -44,6 +44,11 @@
 - **Sin criterios de exito medidos con cronometro, a proposito.** Con una docena
   de pedidos no dirian nada. SC-001 de `023` quedo sin medir por exactamente eso
   y esta en el tracker; no se repite el error.
-- **Este feature NO enmienda la constitucion**, y esa es la diferencia con `024`.
-  Contar pedidos y paquetes no toca ningun principio. La prohibicion de leer
-  `precio` queda intacta y el spec la refuerza con FR-013 y FR-014.
+- **Este feature enmienda la constitucion, pero no por los numeros: por el
+  lugar.** Contar pedidos y paquetes no toca ningun principio, y la prohibicion
+  de leer `precio` queda intacta —el spec la refuerza con FR-013 y FR-014—. Lo
+  que estaba mal era la ubicacion: las *Scope boundaries* ponian el dashboard en
+  la app Android desde 1.0.0, y va en la web (clarificacion del 2026-09-11). La
+  6.1.0 lo corrige, MINOR y sin ADR. **Esta nota decia lo contrario hasta el
+  2026-09-11**, escrita antes de que alguien leyera esa lista; lo encontro el
+  analyze (I1).

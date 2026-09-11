@@ -46,8 +46,11 @@ Romper a propósito, de a uno, y revertir después de cada uno:
 | Un `<span>$ 150</span>` en `components/tablero/` | `web/lib/sin-precio-a-la-vista.test.ts` |
 | Mover el componente a una carpeta fuera de `components/` | el control positivo de la misma guarda |
 | El rótulo del total cambiado a "Pedidos históricos" | `web/lib/tablero.test.ts` (FR-004a) |
+| `fechaEnMontevideo` reescrita con `getDate()` (la zona del proceso) | `web/lib/tablero.test.ts` (SC-006) — **en esta máquina, que está en Montevideo** |
 
-**Esperado**: las cinco en rojo, y verdes al revertir.
+**Esperado**: las seis en rojo, y verdes al revertir. La última es la que más
+importa: sin el `TZ` fijado en la prueba, esa rotura pasa en verde acá y solo
+se nota con un navegador en otra zona.
 
 ## Q3 — El total coincide con la base (US1, SC-002)
 
@@ -140,7 +143,18 @@ Recorrer los tres cortes, con y sin cliente, buscando `$` con Ctrl+F.
 ## Q11 — Sin sesión (FR-002)
 
 Salir y abrir `/tablero`. **Esperado**: el panel de ingreso ahí mismo. Entrar
-como admin: la página pasa al tablero **sin navegar a otro lado**.
+como admin: la página pasa al tablero **sin navegar a otro lado y sin decir
+nunca "solo para la administración"**, ni por un instante.
+
+Es el cruce que encontró el analyze (C1): el ingreso no trae `esAdmin`. Tres
+recorridos, **sin recargar en ninguno**:
+
+1. Admin entra desde el panel de `/tablero` → ve el tablero.
+2. Admin entra desde `/ingresar` → vuelve al inicio y la navegación muestra
+   **Tablero** a los segundos, sin recargar.
+3. La cuenta común entra desde el panel de `/tablero` → ve "solo para la
+   administración", y en Network hay **un** 403 a `/admin/tablero`. Es lo
+   esperado: recién entrada, la web no sabe y le pregunta al servicio.
 
 ## Q12 — El servicio no contesta (FR-016)
 

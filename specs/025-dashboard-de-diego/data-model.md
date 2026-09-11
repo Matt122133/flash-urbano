@@ -69,7 +69,9 @@ No es dato guardado; es cómo se mira (spec, *Key Entities*: **Período**).
    período aparece una vez, en orden descendente (D5). El rango no depende del
    cliente elegido.
 4. **Un instante de las 22:00 de Montevideo cae en ese día** —que en UTC ya es el
-   siguiente— (SC-006, FR-007).
+   siguiente— (SC-006, FR-007). **Probado con el proceso en otra zona**: si la
+   prueba corre con la zona de la máquina, que está en Montevideo, una
+   implementación que use la zona local también la pasa (tasks T022).
 5. **La semana empieza el lunes**: un domingo cae en la semana del lunes
    anterior, no en la siguiente.
 6. **Con un cliente elegido, solo cuentan sus cargas**, y un cliente sin cargas

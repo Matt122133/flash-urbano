@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # El paquete nuevo: el endpoint, su consulta, y las guardas de FR-014. NO
   # importa internal/pedidos, y una prueba lo sostiene (research D2, D9).
@@ -15,10 +15,13 @@ covers:
   # filtrar por cliente, y el copy que FR-004a y FR-006a regulan (D10).
   - web/lib/tablero.ts
   - web/lib/tablero.test.ts
-  # La unica puerta de la web al servicio: se le suma la llamada al tablero.
-  - web/lib/api.ts
+  # `web/lib/api.ts` NO esta: la llamada va por `useLlamadaAutenticada`, como
+  # hace `historial.tsx`, que ya maneja el 401. Corregido al armar tasks.md.
+  #
   # `esAdmin` en el tipo `Usuario`. El servicio lo manda desde 006 y la web lo
-  # ignoraba. Solo el tipo: la logica del proveedor no cambia.
+  # ignoraba. Y UN cambio de logica, que encontro el analyze (C1): la respuesta
+  # del ingreso no trae `esAdmin`, asi que `entrar()` relee `/yo` en segundo
+  # plano y copia SOLO ese campo (research D7).
   - web/components/sesion/proveedor-sesion.tsx
   # El enlace "Tablero", solo para administracion (D12).
   - web/components/nav-bar.tsx
@@ -26,13 +29,18 @@ covers:
   # esten entre los archivos escaneados (control positivo, D9). No se
   # relaja nada de lo que ya prohibe.
   - web/lib/sin-precio-a-la-vista.test.ts
+  # `sinComentarios` sale de esa guarda a un modulo propio, sin cambiarle una
+  # linea, para que `tablero.test.ts` escanee `lib/tablero.ts` con el mismo
+  # recorte. Importarlo del `.test.ts` registraria sus casos dos veces.
+  # Agregado al armar tasks.md (T016a).
+  - web/lib/sin-comentarios.ts
   # Un paquete nuevo en backend/internal y una pantalla nueva: el mapa del repo
   # tiene que decirlo.
   - ARCHITECTURE.md
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... -p 1 && go build ./...
-analyzed:
+analyzed: 2026-09-11
 ---
 
 # Implementation Plan: El tablero de Diego
@@ -98,12 +106,14 @@ research D1 y va al tracker al cerrar.
   en UTC (D3).
 - **FR-004b**: se cuentan todos los pedidos, sin excluir cuentas ni estados.
 - El formulario de pedido no se toca, y `web/lib/api.ts` sigue fuera de su grafo
-  de imports (`cotizar-abierto.test.ts`): el tablero importa `api.ts`, el
-  formulario no importa el tablero.
+  de imports (`cotizar-abierto.test.ts`). El tablero llama al servicio con
+  `useLlamadaAutenticada` —como `components/pedido/historial.tsx`—, que ya
+  convierte un 401 en sesión vencida; el formulario no importa el tablero.
 
 **Scale/Scope**: un paquete Go nuevo (handler, consulta, pruebas), un módulo TS
-puro con su prueba, una ruta con un componente, y tres líneas en archivos
-existentes (tipo, enlace, cableado).
+puro con su prueba, una ruta con un componente, y cambios chicos en archivos
+existentes: el tipo `Usuario` y la relectura de `esAdmin` en `entrar()`, el
+enlace, el cableado.
 
 ## Constitution Check
 
@@ -189,13 +199,15 @@ web/
 │   ├── tablero/
 │   │   └── tablero.tsx          # NUEVO: los seis estados del contrato
 │   ├── sesion/
-│   │   └── proveedor-sesion.tsx # MODIFICADO: `esAdmin?: boolean` en Usuario
+│   │   └── proveedor-sesion.tsx # MODIFICADO: `esAdmin?: boolean` en Usuario, y
+│   │                            #   entrar() relee /yo y copia solo esAdmin
 │   └── nav-bar.tsx              # MODIFICADO: "Tablero" si usuario.esAdmin
 └── lib/
     ├── tablero.ts               # NUEVO: el calculo y el copy, puros
     ├── tablero.test.ts          # NUEVO: invariantes de data-model.md
-    ├── api.ts                   # MODIFICADO: una funcion, `tablero()`
+    ├── api.ts                   # NO SE TOCA: la llamada va por useLlamadaAutenticada
     ├── sin-precio-a-la-vista.test.ts  # MODIFICADO: control positivo (D9)
+    ├── sin-comentarios.ts       # NUEVO: sale de la guarda de arriba, sin cambios
     └── cotizar-abierto.test.ts  # NO SE TOCA: tiene que seguir verde
 ```
 
