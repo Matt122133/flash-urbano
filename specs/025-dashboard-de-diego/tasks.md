@@ -411,6 +411,27 @@ corte.
   corriendo**. Correr con él el quickstart **Q3 a Q14** en el navegador, y
   anotar acá el resultado de cada uno. Lo que no se corra se escribe como no
   corrido, no se tilda.
+  **Avance del 2026-09-11, sin navegador** (la tarea sigue abierta):
+  - **Q3, Q4, Q5 y Q7.1 a nivel de datos: COINCIDE CON LA BASE.** La respuesta
+    real de `GET /admin/tablero` sobre `flash-pg-dev` (14 pedidos, 20 paquetes,
+    2 cuentas) pasada por `resumir()`, contra un calculo independiente en SQL con
+    `date_trunc(... AT TIME ZONE 'America/Montevideo')`: los tres cortes y los
+    dos clientes, fila por fila. Agosto da 6 pedidos y 11 paquetes (SC-002a con
+    datos reales).
+  - **Q6 con un caso real, no sembrado**: 6 pedidos cargados a las 00:51 UTC del
+    lunes 31/8 caen el **domingo 30** y en la semana **del 24 al 30**. En UTC
+    serian otro dia y otra semana.
+  - **Q10.3 contra el servicio real** (binario local, dos sesiones de prueba
+    creadas en la base de desarrollo y borradas al terminar): sin credencial
+    401, cuenta comun 403 con `{"error":"no autorizado"}` exacto, admin 200,
+    `POST` 405. **Preflight de CORS desde `localhost:3000`: 204, autoriza
+    `Authorization`**; el `GET` vuelve con el origen permitido.
+  - La cuenta con el alta a medias viaja con `nombre: null` y al final (D6).
+  - **Encontro un defecto**: `creadoEn` salia con la zona del PROCESO
+    (`-03:00` aca, `Z` en Railway), no en UTC como dice el contrato. Corregido
+    en `Cargas` con `.UTC()`, con la prueba escrita antes y vista en rojo.
+  - **Falta todo lo de pantalla**: Q3/Q4 mirando la tabla, Q7.2 a Q7.4, Q8, Q9,
+    Q10.1 y Q10.2, Q11 (los tres recorridos de `esAdmin`), Q12, Q13 y Q14.
 - [ ] T033 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba): el umbral
   de D1 —la respuesta crece una fila por pedido, ~1 MB a 10.000 pedidos, y
   pasar a agregar en SQL es cambiar el cuerpo, no la pantalla—, y cualquier paso

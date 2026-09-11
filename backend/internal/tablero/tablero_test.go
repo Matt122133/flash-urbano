@@ -174,6 +174,13 @@ func TestCargasTraeTodosLosPedidosSinFiltrar(t *testing.T) {
 	for i, esp := range esperado {
 		cuando, _ := time.Parse(time.RFC3339, esp.instante)
 		c := cargas[i]
+		// El contrato dice UTC, y el driver devuelve el instante en la zona del
+		// PROCESO: en esta maquina, Montevideo; en Railway, UTC. Sin normalizar,
+		// la misma base respondia `-03:00` en un lado y `Z` en el otro. Lo
+		// encontro correr el servicio local el 2026-09-11.
+		if c.CreadoEn.Location() != time.UTC {
+			t.Errorf("carga %d: el instante tenia que viajar en UTC, y vino en %s", i, c.CreadoEn.Location())
+		}
 		if !c.CreadoEn.Equal(cuando) || c.Cantidad != esp.cantidad || c.ClienteID != esp.cliente {
 			t.Errorf("carga %d: tenia que ser %s / %d paquetes / %s, y fue %s / %d / %s",
 				i, esp.instante, esp.cantidad, esp.cliente, c.CreadoEn.UTC().Format(time.RFC3339), c.Cantidad, c.ClienteID)

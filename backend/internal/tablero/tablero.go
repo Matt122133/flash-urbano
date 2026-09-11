@@ -107,6 +107,12 @@ func (r *Repositorio) Cargas(ctx context.Context) ([]Carga, error) {
 		if err := filas.Scan(&c.CreadoEn, &c.Cantidad, &c.ClienteID); err != nil {
 			return nil, fmt.Errorf("no se pudo leer una carga: %w", err)
 		}
+		// **En UTC, explicito.** El driver devuelve el instante en la zona del
+		// PROCESO —Montevideo en una maquina de desarrollo, UTC en Railway—, y la
+		// misma base respondia `-03:00` en un lado y `Z` en el otro. La web lo
+		// leia bien igual, porque es el mismo instante, pero una respuesta que
+		// cambia segun donde corre el servicio es una trampa para quien la mire.
+		c.CreadoEn = c.CreadoEn.UTC()
 		cargas = append(cargas, c)
 	}
 	return cargas, filas.Err()
