@@ -28,6 +28,16 @@ export function NavBar() {
   /** Solo el primer nombre: en el ancho de un telefono no entra mas. */
   const nombreCorto = usuario?.nombre?.trim().split(/\s+/)[0] ?? "";
 
+  /**
+   * El enlace al tablero de `025`, **solo para administracion** y fuera de
+   * `LINKS`, que es para todo el mundo.
+   *
+   * Aca `undefined` SI es "no mostrar": un enlace no puede preguntarle al
+   * servicio. Recien entrado `esAdmin` esta sin saber —el ingreso no lo trae— y
+   * el enlace aparece cuando `entrar()` termina de releer `/yo`, sin recargar.
+   */
+  const verTablero = usuario?.esAdmin === true;
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
@@ -68,6 +78,18 @@ export function NavBar() {
           {sesionResuelta &&
             (usuario ? (
               <div className="flex items-center gap-2">
+                {verTablero && (
+                  <Link
+                    href="/tablero"
+                    className={`rounded-md px-2 py-1 text-sm font-medium transition-colors ${
+                      pathname === "/tablero"
+                        ? "bg-brand/10 text-brand"
+                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
+                  >
+                    Tablero
+                  </Link>
+                )}
                 {/* El nombre es el acceso a la cuenta. No se agrega un item mas
                     a la navegacion: es donde la persona ya mira para saber
                     quien esta adentro, y una pantalla a la que no se llega es
@@ -183,6 +205,15 @@ export function NavBar() {
                   >
                     Mi cuenta
                   </Link>
+                  {verTablero && (
+                    <Link
+                      href="/tablero"
+                      onClick={() => setOpen(false)}
+                      className="block rounded-md px-3 py-2.5 text-base font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      Tablero
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={() => {

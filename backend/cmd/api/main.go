@@ -18,6 +18,10 @@
 // El aviso sale **fuera del camino de la respuesta** y **solo si el pedido es
 // nuevo de verdad**; si falta la credencial, el servicio arranca igual y se
 // queda sin avisos (FR-010).
+//
+// Desde 025 SI cuenta pedidos para el tablero de Diego, y solo eso: una ruta de
+// solo lectura, para administracion, que devuelve hechos y ningun monto. Quien
+// agrupa por periodo y suma es la web.
 package main
 
 import (
@@ -38,6 +42,7 @@ import (
 	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
 	"github.com/Matt122133/flash-urbano/backend/internal/pedidos"
 	"github.com/Matt122133/flash-urbano/backend/internal/rastro"
+	"github.com/Matt122133/flash-urbano/backend/internal/tablero"
 	"github.com/Matt122133/flash-urbano/backend/internal/usuarios"
 )
 
@@ -133,6 +138,7 @@ func correr() error {
 			codigo:   auth.NuevosHandlersCodigo(codigos, limites, enviador, repoUsuarios, sesiones, registro),
 			usuarios: usuarios.NuevosHandlers(repoUsuarios, cfg.EsAdmin),
 			pedidos:  pedidos.NuevosHandlers(repoPedidos, cfg.EsAdmin, avisador),
+			tablero:  tablero.NuevosHandlers(tablero.NuevoRepositorio(pool), cfg.EsAdmin),
 			resolver: sesiones.ResolverUsuario(repoUsuarios),
 		})),
 
@@ -179,6 +185,7 @@ type dependencias struct {
 	codigo   *auth.HandlersCodigo
 	usuarios *usuarios.Handlers
 	pedidos  *pedidos.Handlers
+	tablero  *tablero.Handlers
 
 	// resolver convierte una credencial en un usuario. Lo consume el middleware.
 	resolver func(context.Context, string) (*usuarios.Usuario, error)
@@ -243,6 +250,13 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 	// el middleware publicaria esos datos de todos los destinatarios y dejaria
 	// que cualquiera moviera pedidos ajenos.
 	mux.Handle("PATCH /admin/pedidos/{id}/estado", conSesion(dep.pedidos.CambiarEstado))
+
+	// El tablero de Diego (`025`). **Solo `GET`, y es FR-017**: el tablero mira,
+	// no escribe, y una prueba de main_test.go afirma que este camino no sirve
+	// ningun otro metodo. `conSesion` como las otras de admin: sin identificarse
+	// no se llega. Quien es administrador lo decide el handler contra
+	// ADMIN_EMAILS, antes de tocar la base — el 403 no lleva un solo dato.
+	mux.Handle("GET /admin/tablero", conSesion(dep.tablero.Ver))
 
 	return mux
 }

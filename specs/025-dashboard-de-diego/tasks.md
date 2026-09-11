@@ -30,13 +30,18 @@ aparecer como no rastreado según la rama.
 
 ## Fase 1: Preparación
 
-- [ ] T001 Con Docker Desktop levantado y `flash-pg-test` en el 55432, correr el
+- [X] T001 Con Docker Desktop levantado y `flash-pg-test` en el 55432, correr el
   `verify:` del plan con
   `TEST_DATABASE_URL='postgres://postgres:test@localhost:55432/flash_test?sslmode=disable'`
   y contar los SKIP (`go test ./... -p 1 -v 2>&1 | grep -c -- '--- SKIP'`).
   Anotar el resultado acá: es la línea de base. Esperado: verde y `0`. **Nunca
   contra `flash-pg-dev` (55433)**: el arnés de pruebas borra usuarios. Si Docker
   no está levantado, es de Mateo.
+  **Resultado (2026-09-11)**: verde. Web: lint, **224** pruebas, build. Go: vet,
+  build, **288 PASS**, 0 FAIL, **2 SKIP que no son de Postgres**: las dos de
+  `internal/avisos/proveedor_real_test.go`, que piden `FCM_CREDENCIAL_BASE64`
+  real. **Cero pruebas de base salteadas.** Esos 2 SKIP son la línea de base: más
+  de 2 al cerrar es una prueba de base que no corrió.
 
 ---
 
@@ -46,11 +51,11 @@ aparecer como no rastreado según la rama.
 para que pase. Escrita antes, se escribe para que falle, y sus controles
 positivos se ven en rojo sobre algo que todavía no existe.
 
-- [ ] T002 Crear `backend/internal/tablero/tablero.go` con **solo** la cláusula
+- [X] T002 Crear `backend/internal/tablero/tablero.go` con **solo** la cláusula
   `package tablero` y el comentario de paquete: qué es (contar pedidos para
   mirar, solo lectura), y por qué **no importa `internal/pedidos`** y no puede
   nombrar el precio (research D2). Sin tipos ni funciones todavía.
-- [ ] T003 Crear `backend/internal/tablero/sin_plata_test.go` con dos funciones
+- [X] T003 Crear `backend/internal/tablero/sin_plata_test.go` con dos funciones
   auxiliares y sus pruebas (research D9). Sin base de datos: estas corren
   siempre.
   - `nombresDePlata(fuente []byte) []string`: recorre el fuente con
@@ -71,13 +76,13 @@ positivos se ven en rojo sobre algo que todavía no existe.
     escaneó cero archivos** —si no, un directorio vacío o un camino mal armado
     la dejan en verde sin mirar nada—.
   - `cd backend && go test ./internal/tablero/` en verde.
-- [ ] T004 Crear el esqueleto de la pantalla, sin contenido todavía:
+- [X] T004 Crear el esqueleto de la pantalla, sin contenido todavía:
   `web/app/tablero/page.tsx` (componente de **servidor**: exporta `metadata` con
   `title` y `robots: { index: false, follow: false }`, y monta `<Tablero />`) y
   `web/components/tablero/tablero.tsx` (`"use client"`, exporta `Tablero`, que
   por ahora devuelve el "Un momento…" del estado 1). **Leer antes la guía de
   `metadata` en `web/node_modules/next/dist/docs/`** (`web/AGENTS.md`).
-- [ ] T005 En `web/lib/sin-precio-a-la-vista.test.ts`, agregar una prueba que
+- [X] T005 En `web/lib/sin-precio-a-la-vista.test.ts`, agregar una prueba que
   afirme que los archivos que el escaneo recorre **incluyen**
   `app/tablero/page.tsx` y `components/tablero/tablero.tsx`, reusando la misma
   función de recorrido de la guarda (no una lista aparte). Es el control
@@ -94,7 +99,7 @@ no, y la web sabe si la cuenta es admin.
 
 ### El servicio
 
-- [ ] T006 En `backend/internal/tablero/tablero.go`: tipos `Carga`
+- [X] T006 En `backend/internal/tablero/tablero.go`: tipos `Carga`
   (`CreadoEn time.Time` → `json:"creadoEn"`, `Cantidad int` → `"cantidad"`,
   `ClienteID string` → `"clienteId"`) y `Cliente` (`ID` → `"id"`, `Nombre
   *string` → `"nombre"`, **sin `omitempty`**, para que viaje `null`; `Email` →
@@ -108,7 +113,7 @@ no, y la web sabe si la cuenta es admin.
   - Los dos devuelven **slice vacío y no `nil`** sin filas.
   - Al terminar, `go test ./internal/tablero/` sigue verde: si la guarda de T003
     se pone en rojo, la consulta nombró algo que no debía.
-- [ ] T007 Crear `backend/internal/tablero/tablero_test.go`, contra Postgres, con
+- [X] T007 Crear `backend/internal/tablero/tablero_test.go`, contra Postgres, con
   un helper `repositorioDePrueba` que **se salta sin `TEST_DATABASE_URL`** y
   limpia en el orden que imponen los `RESTRICT`: `pedidos_estados`, `pedidos`,
   `usuarios` (copiar el de `internal/pedidos/pedido_test.go`). Los pedidos se
@@ -121,7 +126,7 @@ no, y la web sabe si la cuenta es admin.
   - `Clientes` incluye una cuenta **sin pedidos**, y una creada con
     `BuscarOCrear` sin `CompletarAlta` sale con `Nombre == nil`, no `""`.
   - Base vacía: los dos devuelven slice vacío, no `nil`.
-- [ ] T008 Crear `backend/internal/tablero/handlers.go`: `Handlers{repo,
+- [X] T008 Crear `backend/internal/tablero/handlers.go`: `Handlers{repo,
   esAdmin func(string) bool}`, `NuevosHandlers(repo, esAdmin)`, y
   `(h *Handlers) Ver(w, r)` para `GET /admin/tablero`:
   - Usuario del contexto con `usuarios.DeContexto`; si falta, `ErrorInterno`
@@ -130,7 +135,7 @@ no, y la web sabe si la cuenta es admin.
     base: el 403 no puede llevar un dato (SC-004).
   - 200 con `respuesta{Pedidos []Carga "pedidos", Clientes []Cliente
     "clientes"}`. Sin parámetros: se ignoran.
-- [ ] T009 Crear `backend/internal/tablero/handlers_test.go` con un `monta` como
+- [X] T009 Crear `backend/internal/tablero/handlers_test.go` con un `monta` como
   el de `internal/pedidos/handlers_test.go` (resolver contra un mapa,
   `httpx.ConSesion`, `httpx.ErrSesionInvalida` para el token desconocido) y los
   casos del contrato:
@@ -144,11 +149,11 @@ no, y la web sabe si la cuenta es admin.
   - FR-017 (solo lectura) **no** se prueba acá: un 405 sobre el `monta` de esta
     prueba solo diría algo del enrutador de la prueba. Va contra el enrutador
     real, en T011.
-- [ ] T010 Agregar a `backend/internal/tablero/sin_plata_test.go` la guarda de la
+- [X] T010 Agregar a `backend/internal/tablero/sin_plata_test.go` la guarda de la
   respuesta (D9): serializar una `respuesta` con una carga y un cliente de
   ejemplo, recorrer **todas las claves** del JSON y fallar si alguna coincide con
   `(?i)precio|monto|importe|costo`. Sin base.
-- [ ] T011 En `backend/cmd/api/main.go`: construir
+- [X] T011 En `backend/cmd/api/main.go`: construir
   `tablero.NuevosHandlers(tablero.NuevoRepositorio(pool), cfg.EsAdmin)`, sumarlo
   a `dependencias`, y montar `mux.Handle("GET /admin/tablero",
   conSesion(dep.tablero.Ver))` junto a las otras rutas de admin, con un
@@ -164,15 +169,24 @@ no, y la web sabe si la cuenta es admin.
   `DELETE` ya lo están. **Control positivo en la misma prueba**: la misma
   lectura sobre `/pedidos/{id}` sí encuentra `PATCH` y `DELETE`, así que la
   técnica sabe ver un método de escritura cuando existe.
-- [ ] T012 **Romper a propósito** y ver cada guarda de Go en rojo, revirtiendo
+- [X] T012 **Romper a propósito** y ver cada guarda de Go en rojo, revirtiendo
   después de cada una (quickstart Q2, filas 1 y 2): agregar `, precio` al
   `SELECT` de `Cargas` → rojo en T003; agregar el import de `internal/pedidos` a
   `tablero.go` → rojo en T003. Anotar acá qué prueba se puso en rojo y con qué
   mensaje.
+  **Resultado (2026-09-11)**: `, precio` en el `SELECT` → rojo en
+  `TestElTableroNoNombraLaPlata`, que cita el SQL entero. Import de
+  `internal/pedidos` → rojo en `TestElTableroNoImportaPedidos`. **Y una tercera
+  que no estaba en la lista**: `POST /admin/tablero` en `main.go` → rojo en
+  `TestElTableroEsDeSoloLectura` **con el preflight en verde**, que es
+  exactamente lo que G1 del analyze decía. También se rompió a propósito la
+  consulta con `WHERE estado <> 'entrega'`: rojo en
+  `TestCargasTraeTodosLosPedidosSinFiltrar` ("tenían que ser 3 cargas… y fueron
+  2"). Todo revertido y verde.
 
 ### La web
 
-- [ ] T013 [P] En `web/components/sesion/proveedor-sesion.tsx` (research D7):
+- [X] T013 [P] En `web/components/sesion/proveedor-sesion.tsx` (research D7):
   - Agregar al tipo `Usuario` el campo `esAdmin?: boolean`, con un comentario
     que diga sus **tres** valores: `true`/`false` los contesta `/yo`;
     **`undefined` es lo que deja el ingreso**, que no trae el campo porque `auth`
@@ -189,7 +203,7 @@ no, y la web sabe si la cuenta es admin.
     `vencio()`: la sesión se acaba de crear, y un aviso de sesión vencida en ese
     momento sería peor que no saber si es admin.
   - La rehidratación al abrir el sitio no cambia: ya lee `/yo`.
-- [ ] T014 [P] Crear `web/lib/tablero.ts` con los tipos que viajan
+- [X] T014 [P] Crear `web/lib/tablero.ts` con los tipos que viajan
   (`Carga { creadoEn: string; cantidad: number; clienteId: string }`,
   `Cliente { id: string; nombre: string | null; email: string }`,
   `RespuestaTablero { pedidos: Carga[]; clientes: Cliente[] }`) y el tipo
@@ -210,16 +224,16 @@ registrados; nadie más ve nada.
 **Prueba independiente**: entrar como admin y comparar el número con
 `SELECT count(*) FROM pedidos`; entrar con una cuenta común y no obtener nada.
 
-- [ ] T015 [US1] En `web/lib/tablero.ts`: las constantes de copy de research D10
+- [X] T015 [US1] En `web/lib/tablero.ts`: las constantes de copy de research D10
   (`TEXTO_TOTAL`, `BAJADA_TOTAL`, `TEXTO_SIN_PEDIDOS`, `TEXTO_ERROR`,
   `TEXTO_SOLO_ADMINISTRACION`) y `registrados(cargas: Carga[]): number`.
-- [ ] T016 [US1] Mover `sinComentarios` de `web/lib/sin-precio-a-la-vista.test.ts`
+- [X] T016 [US1] Mover `sinComentarios` de `web/lib/sin-precio-a-la-vista.test.ts`
   a un módulo nuevo, `web/lib/sin-comentarios.ts`, **sin cambiarle una línea**,
   e importarlo desde las dos pruebas. **Por qué no importarlo del archivo de
   pruebas directamente**: importar un `.test.ts` desde otro registra sus casos
   una segunda vez. La guarda de `013`/`024` tiene que seguir verde con el mismo
   número de casos que antes: contarlos antes y después.
-- [ ] T017 [US1] Crear `web/lib/tablero.test.ts` con:
+- [X] T017 [US1] Crear `web/lib/tablero.test.ts` con:
   - **FR-004a**: ningún texto exportado del módulo coincide con
     `/hist[oó]ric/i`, recorriendo los exports de tipo `string` (no una lista
     escrita a mano, que se desactualiza). **Control positivo**: la misma
@@ -230,7 +244,7 @@ registrados; nadie más ve nada.
     afirmar que no coincide con `/precio|monto|importe|costo/i` ni con
     `/\$\s*\d/`. Control positivo: la misma comprobación sobre
     `"const x = zona.precio"` da positivo, y sobre `"// precio"` da negativo.
-- [ ] T018 [US1] En `web/components/tablero/tablero.tsx`, los estados 1 a 6 de
+- [X] T018 [US1] En `web/components/tablero/tablero.tsx`, los estados 1 a 6 de
   [contracts/tablero.md](contracts/tablero.md) §2, en ese orden:
   - `useSesion()` para `cargando` y `usuario`.
   - Sin sesión: `<PanelIngreso onListo={() => {}} />` en el lugar (D8), sin el
@@ -253,12 +267,12 @@ registrados; nadie más ve nada.
     debajo. Con cero pedidos, además `TEXTO_SIN_PEDIDOS` (FR-015).
   - Mismo idioma visual que `/perfil` (`sectionClass`, `text-slate-*`,
     `border-brand`), contenedor más ancho que el suyo (`max-w-3xl`).
-- [ ] T019 [US1] En `web/components/nav-bar.tsx`, el enlace **"Tablero"** a
+- [X] T019 [US1] En `web/components/nav-bar.tsx`, el enlace **"Tablero"** a
   `/tablero` cuando `usuario?.esAdmin === true`, junto a *Mi cuenta*, **en la
   barra de escritorio y en el menú móvil** (D12). No va en `LINKS`: esa lista
   es para todo el mundo. Acá `undefined` **sí** es "no mostrar": el enlace
   aparece cuando la relectura de `/yo` de T013 contesta, sin recargar.
-- [ ] T020 [US1] `cd web && npm run lint && npm test && npm run build`. El build
+- [X] T020 [US1] `cd web && npm run lint && npm test && npm run build`. El build
   tiene que exportar `/tablero` como página estática; si falla por un límite de
   `Suspense`, es que algo usó `useSearchParams` —no debería: el estado va en el
   componente (D11)—.
@@ -276,7 +290,7 @@ paquetes, por fecha de carga y en hora de Montevideo.
 **Prueba independiente**: comparar cada fila de los tres cortes contra el SQL de
 quickstart Q4.
 
-- [ ] T021 [US2] En `web/lib/tablero.ts`, las funciones del corte (data-model.md
+- [X] T021 [US2] En `web/lib/tablero.ts`, las funciones del corte (data-model.md
   y research D3–D5):
   - `fechaEnMontevideo(instante: string): string` → `YYYY-MM-DD` con
     `Intl.DateTimeFormat("en-CA", { timeZone: "America/Montevideo", ... })`.
@@ -290,7 +304,7 @@ quickstart Q4.
     una sola fila del período de `hoy` en cero. `hoy` entra por parámetro
     (`YYYY-MM-DD` de Montevideo).
   - `TEXTO_CORTE`: la aclaración de FR-006a, que menciona la fecha de carga.
-- [ ] T022 [US2] En `web/lib/tablero.test.ts`, las invariantes 1 a 5, 7 y 8 de
+- [X] T022 [US2] En `web/lib/tablero.test.ts`, las invariantes 1 a 5, 7 y 8 de
   data-model.md, cada una con su caso:
   - **SC-006, y cómo NO escribirla** (analyze T1): `"2026-09-11T01:30:00Z"`
     (22:30 del 10 en Montevideo) cae en `2026-09-10`. **Pero esa afirmación sola
@@ -320,14 +334,14 @@ quickstart Q4.
   - Un mes sin cargas entre dos con cargas aparece en cero.
   - Cero cargas: una fila, la de `hoy`, en cero.
   - `TEXTO_CORTE` menciona la carga (`/carg/i`).
-- [ ] T023 [US2] En `web/components/tablero/tablero.tsx`: los tres botones de
+- [X] T023 [US2] En `web/components/tablero/tablero.tsx`: los tres botones de
   corte (Día, Semana, Mes) con `aria-pressed`, **Mes** por defecto, el
   `TEXTO_CORTE` pegado a ellos, y la tabla con encabezados *Período*,
   *Pedidos*, *Paquetes* sobre `resumir(...)`. `hoy` sale de
   `fechaEnMontevideo(new Date().toISOString())`, calculado en el componente y
   pasado a la función pura. Cambiar de corte **no** vuelve a llamar al
   servicio (D1).
-- [ ] T024 [US2] `cd web && npm run lint && npm test && npm run build`.
+- [X] T024 [US2] `cd web && npm run lint && npm test && npm run build`.
 
 **Checkpoint**: US1 + US2. SC-001 cumplido: "cuántos paquetes me pidieron este
 mes" es la primera fila.
@@ -342,23 +356,23 @@ corte.
 **Prueba independiente**: elegir un cliente conocido y comparar con el SQL con
 `WHERE usuario_id = '…'`.
 
-- [ ] T025 [US3] En `web/lib/tablero.ts`: `resumir` acepta `clienteId?:
+- [X] T025 [US3] En `web/lib/tablero.ts`: `resumir` acepta `clienteId?:
   string` y cuenta solo sus cargas, **con el mismo rango de períodos que sin
   filtro** (D5: las filas no aparecen ni desaparecen al filtrar);
   `rotuloCliente(c: Cliente): string` → `"Nombre — mail"`, o solo el mail si
   `nombre` es `null`; y `TEXTO_CLIENTE_SIN_PEDIDOS` (FR-011).
-- [ ] T026 [US3] En `web/lib/tablero.test.ts`, la invariante 6: con un cliente,
+- [X] T026 [US3] En `web/lib/tablero.test.ts`, la invariante 6: con un cliente,
   solo cuentan sus cargas y el rango es el mismo que sin filtro; un cliente sin
   cargas da `registrados: 0` y todas las filas en cero; dos clientes con el
   mismo nombre dan rótulos **distintos** (US3-4); `nombre: null` da solo el
   mail. **Control positivo del filtro**: el mismo juego de cargas sin
   `clienteId` da un total mayor —si no, el filtro podría no estar filtrando—.
-- [ ] T027 [US3] En `web/components/tablero/tablero.tsx`: el `<select>` con
+- [X] T027 [US3] En `web/components/tablero/tablero.tsx`: el `<select>` con
   "Todos los clientes" primero y `rotuloCliente` para cada cuenta, con `<label>`
   asociado. El cliente elegido es estado del componente, **separado del
   corte**: volver a "Todos" no toca el corte (FR-010). Con un cliente sin
   pedidos, `TEXTO_CLIENTE_SIN_PEDIDOS`.
-- [ ] T028 [US3] `cd web && npm run lint && npm test && npm run build`.
+- [X] T028 [US3] `cd web && npm run lint && npm test && npm run build`.
 
 **Checkpoint**: las tres historias.
 
@@ -366,19 +380,32 @@ corte.
 
 ## Fase 7: Cierre
 
-- [ ] T029 Actualizar `ARCHITECTURE.md`: `tablero/` en la lista de paquetes de
+- [X] T029 Actualizar `ARCHITECTURE.md`: `tablero/` en la lista de paquetes de
   `internal/` (sección *Module pattern*), y una entrada en *Current hotspots*
   para `backend/internal/tablero` + `web/lib/tablero.ts` que diga lo que se
   deshace fácil sin querer: **el paquete no importa `internal/pedidos` y hay
   una prueba que lo sostiene**, y el cálculo vive en la web a propósito, no en
   SQL (research D1, D2).
-- [ ] T030 `verify:` entero con `TEST_DATABASE_URL` y **cero SKIP** (quickstart
+- [X] T030 `verify:` entero con `TEST_DATABASE_URL` y **cero SKIP** (quickstart
   Q1). Anotar el conteo de pruebas de Go y de web.
-- [ ] T031 Romper a propósito las cuatro guardas de la web (quickstart Q2, filas
+  **Resultado (2026-09-11)**: verde. Web: lint, **267** pruebas (eran 224),
+  build con `/tablero` estático. Go: vet, build, **305 PASS** (eran 288), 0 FAIL,
+  **2 SKIP, los mismos de la línea de base** (FCM real, no Postgres).
+- [X] T031 Romper a propósito las cuatro guardas de la web (quickstart Q2, filas
   3 a 6), una por vez, y revertir. Anotar qué se puso en rojo. La fila 6 es la
   de T1: cambiar `fechaEnMontevideo` para que use `getDate()` y la zona del
   proceso tiene que poner en rojo la prueba de SC-006 **en esta máquina**, que
   está en Montevideo. Si queda verde, la prueba no protege nada.
+  **Resultado (2026-09-11)**, las cuatro en rojo y revertidas:
+  `<span>$ 150</span>` en `tablero.tsx` → rojo en `sin-precio-a-la-vista`
+  ("volvió a traer: un monto en pesos"). El componente movido fuera de
+  `components/` → rojo en "el tablero de 025 está entre lo que se mira".
+  `TEXTO_TOTAL = "Pedidos históricos"` → rojo en `TEXTO_TOTAL`.
+  `fechaEnMontevideo` con `getDate()` → **5 rojas**, entre ellas la de las 22:30.
+  **Y el contrafáctico de T1, medido**: con la misma implementación rota y el
+  `TZ` de Tokio apagado, las cinco pasan en verde en esta máquina, y la única que
+  falla es el control "el proceso está de verdad en otra zona". O sea que el
+  analyze tenía razón, y ese control es lo que impide que se repita.
 - [ ] T032 Pasarle a Mateo los comandos para levantar backend y sitio
   (`backend/dev.sh`, `cd web && npm run dev`) y **no dejar un dev server
   corriendo**. Correr con él el quickstart **Q3 a Q14** en el navegador, y
