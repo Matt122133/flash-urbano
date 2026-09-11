@@ -154,7 +154,13 @@ Two surfaces, built in this order:
    receives the package; Sobre
    Nosotros (hours, delivery zone map **without prices, for everyone**,
    historical volume);
-   Contacto (WhatsApp, email); Reseñas (last, deferred).
+   Contacto (WhatsApp, email); Reseñas (last, deferred). And, **for
+   administrators only**, the operator's **tablero**: how many orders are
+   registered, how many orders and packages per day, week or month, and the same
+   narrowed to one customer account (6.1.0). It counts; it never shows an
+   amount, and it does not read the stored `precio` (Principle V). It lives on
+   the web and not in the app because it is read sitting at a computer, not in
+   the street.
 
    Six things this list used to name and deliberately no longer does, on the
    client's own instruction: **the price on the public surface** (5.0.0 — and
@@ -182,8 +188,9 @@ Two surfaces, built in this order:
 2. **Admin Android app** — view packages created via the web, filter/select
    which to carry each day, generate an economical route from the admin's
    position, and give feedback at each lifecycle stage (Creación →
-   Aceptación/Recepción → Confirmación → Entrega), plus a dashboard with
-   daily totals and historical stats.
+   Aceptación/Recepción → Confirmación → Entrega). **The dashboard is not part
+   of this surface** — it is the web tablero above (6.1.0). What the operator
+   sees in the app are his working lists.
 
 No physical storefront exists; the business is pickup-and-delivery only —
 nothing in the product should assume a walk-in location.
@@ -205,9 +212,31 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 6.0.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-09-10
+**Version**: 6.1.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-09-11
 
 ### Amendment history
+
+- **6.1.0** (2026-09-11) — **The dashboard moves from the Android app's list to
+  the web's, for administrators only.** Since 1.0.0 the *Scope boundaries*
+  placed "a dashboard with daily totals and historical stats" inside the admin
+  app, copied from the client's original brief. The repo owner said on
+  2026-09-11 that it was always meant to live on the web — *"es más fácil el
+  manejo"* — and that the text had conflated it with what the operator sees in
+  the app, which is a different thing: his working lists.
+
+  **MINOR, not MAJOR.** No principle is reversed and no running code becomes
+  non-compliant: nothing had been built in either place. The item moves between
+  two lists of the same document. **No ADR**, same reasoning as 2.1.0 and
+  5.1.0.
+
+  **What does NOT change**: Principle V, word for word. The tablero counts orders
+  and packages and shows no amount; the prohibition on reading the stored
+  `precio` column applies to it exactly as it did to the dashboard this list
+  used to describe. **A tablero that ever needs money on screen is a MAJOR
+  amendment**, and the stored column has to be fixed first. Nor does the word
+  *historical* carry over: orders withdrawn under `022` are deleted, so the
+  total can go down and the screen may not call it historical. See
+  `specs/025-dashboard-de-diego/`.
 
 - **6.0.0** (2026-09-10) — **The price comes back for the customer who signs
   in, and only there.** The client's objection was never that the product speaks

@@ -28,7 +28,7 @@ Si al verlo Diego pide más, eso es un feature siguiente con su propia
 conversación — no una suposición nuestra hoy.
 
 **Lo que hace que valga la pena igual**: hoy Diego no tiene forma de contestar
-"¿cuántos paquetes moví este mes?" sin contarlos a mano en la app. La app lista
+"¿cuántos paquetes me pidieron este mes?" sin contarlos a mano en la app. La app lista
 pedidos para trabajar; no cuenta.
 
 ## La regla que no se toca, y ahora hay evidencia dura
@@ -91,6 +91,33 @@ Lo que pidió, felizmente, es **conteo**. Contar entra sin tocar nada.
   descartó también mostrar el remitente más frecuente como etiqueta: es
   información que hay que mantener y nadie pidió. (FR-009)
 
+### Sesión 2026-09-11
+
+- Q: ¿Con qué fecha cae cada pedido en su día, semana o mes del corte? → A:
+  **La fecha de carga** —cuándo el cliente lo confirmó—, en hora de Montevideo.
+  Nunca cambia y siempre existe, así que las filas de cualquier corte suman
+  exactamente el total de pedidos registrados. Se descartó la fecha de retiro
+  (el cliente la puede editar mientras el pedido está pendiente, y abre períodos
+  futuros) y la de entrega (cuenta solo los entregados, así que las filas dejan
+  de sumar el total). **Lo que el corte contesta es "cuánto me pidieron", no
+  "cuánto entregué"**, y la pantalla lo tiene que decir. (FR-005a, FR-006a)
+- Q: La constitución ubica el dashboard en la app Android y este spec lo pone en
+  la web; ¿cómo se resuelve? → A: **El tablero va en la web, y siempre fue
+  así** (Mateo, 2026-09-11): *"capaz se entreveró con lo que se ve en la app,
+  pero son cosas distintas; el dashboard va en la web porque es más fácil el
+  manejo"*. Lo que Diego ve en la app son sus listas de trabajo; el tablero es
+  otra cosa. **La constitución se corrige** con una enmienda MINOR (6.1.0): el
+  tablero pasa a la lista de la superficie web, solo para administradores, y
+  sale de la de la app. Sin ella, el documento de mayor autoridad del repo
+  describiría un dashboard en la app que no existe. Ver *Dependencias*.
+- Q: ¿Los pedidos cargados por cuentas administradoras —las de prueba— cuentan?
+  → A: **Cuentan todos.** El tablero cuenta lo que hay en la base, sin
+  excepciones. Si hay pedidos de prueba en producción, **se borran de la base**
+  antes de mostrarle el tablero a Diego; no se filtran en código. Filtrar por
+  administrador codificaría "un administrador nunca pide", y el día que Diego
+  cargue un pedido por un cliente de WhatsApp ese pedido desaparecería del
+  conteo sin aviso. (FR-004b)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Cuántos pedidos van (Priority: P1)
@@ -140,8 +167,9 @@ guarda de esa decisión:
 
 ### User Story 2 - Cuántos paquetes por período (Priority: P1)
 
-Diego quiere saber cuántos paquetes movió este mes. Elige el período —día,
-semana o mes— y ve el número de ese período.
+Diego quiere saber cuántos paquetes le pidieron este mes. Elige el período
+—día, semana o mes— y ve el número de ese período. Cada pedido cae en el período
+de **su fecha de carga**.
 
 **Why this priority**: Es el "reporte" que pidió, dicho con sus palabras:
 *"cuántos paquetes le hicieron por mes o por semana o por día"*. Es también el
@@ -221,13 +249,18 @@ que Diego puede notar está en el escenario 5:
   más probable del feature entero — ver *Dependencias*.
 - **Un cliente da de baja un pedido mientras Diego mira el tablero.** El número
   baja al recargar. Sin registro de bajas no hay nada que explique la diferencia.
-- **Pedidos con fecha de retiro futura.** El corte por período tiene que decir
-  con qué fecha corta —cuándo se cargó, o para cuándo es el retiro—, porque no son
-  la misma pregunta.
+- **Pedidos con fecha de retiro futura.** No abren períodos futuros: el corte es
+  por fecha de carga (§ Clarifications, 2026-09-11). Un pedido cargado hoy para
+  retirar el mes que viene cuenta **este** mes, y la pantalla dice con qué fecha
+  corta para que eso no sorprenda.
+- **Pedidos cargados pero todavía no entregados.** Cuentan igual, en el período
+  en que se cargaron. El corte mide lo pedido, no lo entregado.
 - **Zona horaria.** "Cuántos hoy" depende de dónde empieza el día. Montevideo, no
   UTC: un pedido de las 22:00 tiene que caer en su día y no en el siguiente.
 - **Una sola cuenta con casi todos los pedidos.** Es el caso real hoy, y hace que
-  el filtro por cliente parezca roto cuando funciona bien.
+  el filtro por cliente parezca roto cuando funciona bien. Si esa cuenta es de
+  pruebas, sus pedidos **cuentan** (FR-004b): la limpieza es de la base de
+  producción, antes de mostrárselo a Diego — ver *Dependencias*.
 - **Volumen mínimo.** Con una docena de pedidos, cualquier corte por día son doce
   filas de un dígito. El tablero tiene que verse razonable así, no solo con
   volumen.
@@ -254,10 +287,18 @@ que Diego puede notar está en el escenario 5:
 - **FR-004a**: El rótulo de ese total MUST NOT decir "histórico" ni prometer de
   ninguna otra forma que el número no puede bajar. Es la mitad de FR-004 que vive
   en la pantalla, y la que se pierde si no se escribe.
+- **FR-004b**: Los números MUST contar **todos** los pedidos de la base, sin
+  excluir los de ninguna cuenta —tampoco las administradoras—. Los pedidos de
+  prueba se limpian en la base, no se filtran en la consulta.
 - **FR-005**: El tablero MUST mostrar un corte por período con tres
   granularidades —**día, semana y mes**— elegibles por Diego.
+- **FR-005a**: Cada pedido MUST caer en el período de su **fecha de carga**
+  (cuándo se confirmó), sin importar su estado ni su fecha de retiro. Con eso,
+  las filas de cualquier corte MUST sumar el total de FR-004.
 - **FR-006**: Cada fila del corte MUST identificar sin ambigüedad de qué período
   habla.
+- **FR-006a**: La pantalla MUST decir que el corte es por fecha de carga, para
+  que un pedido con retiro en otro mes no parezca mal contado.
 - **FR-007**: Los períodos MUST calcularse en la zona horaria de Montevideo, no
   en UTC.
 - **FR-008**: Cada fila del corte MUST mostrar **dos** números: cuántos
@@ -301,8 +342,9 @@ que Diego puede notar está en el escenario 5:
 
 ### Key Entities
 
-- **Pedido**: ya existe. Aporta la fecha con que se corta, la `cantidad` de
-  paquetes y la cuenta que lo creó. **Su columna `precio` no se lee.**
+- **Pedido**: ya existe. Aporta la fecha con que se corta —**la de carga**, no
+  la de retiro ni la de entrega—, la `cantidad` de paquetes y la cuenta que lo
+  creó. **Su columna `precio` no se lee.**
 - **Cuenta (cliente)**: ya existe. Es lo que agrupa los pedidos. No se crea una
   entidad nueva.
 - **Período**: día, semana o mes en zona horaria de Montevideo. No es dato
@@ -312,8 +354,8 @@ que Diego puede notar está en el escenario 5:
 
 ### Measurable Outcomes
 
-- **SC-001**: Diego contesta "cuántos paquetes moví este mes" abriendo una
-  pantalla, sin contar a mano y sin pedirle nada a nadie.
+- **SC-001**: Diego contesta "cuántos paquetes me pidieron este mes" abriendo
+  una pantalla, sin contar a mano y sin pedirle nada a nadie.
 - **SC-002**: Los números del tablero coinciden con lo que hay en la base: el
   total, y las dos columnas de cada fila de cada uno de los tres cortes.
 - **SC-002a**: En un período con al menos un pedido de más de un paquete, la
@@ -356,11 +398,22 @@ que Diego puede notar está en el escenario 5:
   desplegado**, solo en el local. Es configuración, no código, y es la forma más
   probable de que el feature "no funcione" el día que se lo mostremos. Se verifica
   antes de dar el plan por hecho.
+- **La base de producción sin pedidos de prueba.** El tablero los cuenta
+  (FR-004b), así que un total inflado por pruebas es un número falso en la
+  primera pantalla que Diego ve. Borrarlos es una operación sobre datos de
+  producción, con la baja física de `022` como vía o desde la consola de
+  Railway, y **la decide Mateo pedido por pedido**, no una consulta a ciegas.
 - **Feature `024`, en el PR #37.** No hay dependencia de código, pero sí de
   documento: `024` enmendó el Principio V a 6.0.0 **sin levantar** la prohibición
   de leer `precio`, y este spec se apoya en esa versión. Esta rama sale de `024`;
   cuando se mergee, rebasa contra `master`.
-- **La constitución no se enmienda para este feature.** Es la diferencia con
-  `024`, y conviene que quede escrito: contar pedidos y paquetes no toca ningún
-  principio. **Si en algún momento este tablero necesita mostrar plata, ahí sí
-  hay enmienda**, y antes hay que arreglar de dónde sale el número.
+- **La constitución se enmienda, pero no por los números: por el lugar.**
+  Contar pedidos y paquetes no toca ningún principio, y eso sigue siendo cierto.
+  Lo que estaba mal era la **ubicación**: las *Scope boundaries* ponían "a
+  dashboard with daily totals and historical stats" en la lista de la app
+  Android, y el tablero va en la web (§ Clarifications, 2026-09-11). La 6.1.0 lo
+  corrige: MINOR y sin ADR, porque ningún principio se revierte —mismo
+  precedente que 2.1.0 y 5.1.0—. **El Principio V sale intacto**: la
+  prohibición de leer `precio` no se toca. **Si en algún momento este tablero
+  necesita mostrar plata, ahí sí hay enmienda MAJOR**, y antes hay que arreglar
+  de dónde sale el número.
