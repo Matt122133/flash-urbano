@@ -216,12 +216,27 @@ en la etiqueta impresa.
 
 ## Fase 6: Cierre
 
-- [ ] T025 `verify:` entero con `TEST_DATABASE_URL` y **cero `SKIP`**, las tres
+- [X] T025 `verify:` entero con `TEST_DATABASE_URL` y **cero `SKIP`**, las tres
   patas. La de Android es `.\gradlew.bat`, no `./gradlew` ni `gradlew.bat`.
-- [ ] T026 **Romper a propósito** las guardas nuevas y verlas en rojo: sacar el
+  **Corrido el 2026-09-12.** `verify:` entero por `cmd.exe` —como lo corre el
+  gate— con `TEST_DATABASE_URL` puesto: **exit 0**, 291 pruebas en la web, 223
+  PASS en Go y `BUILD SUCCESSFUL` en Android. **Cero pruebas salteadas por falta
+  de base**: los 2 `SKIP` son los de la credencial FCM, los mismos que en la
+  linea de base de T001.
+- [X] T026 **Romper a propósito** las guardas nuevas y verlas en rojo: sacar el
   `omitempty` de T003, devolver `""` en vez de `NULL` en T004, y meter la clave
   `comentario` en la consulta del tablero. Una prueba que afirma que algo no
   pasa no vale hasta que se la vio fallar.
+  **Hecho el 2026-09-12, siete guardas rotas y vistas en rojo**: el `omitempty`
+  del JSON, el tope contado en bytes en vez de caracteres, la columna colada en
+  la consulta del tablero, `comentarioParaMostrar` sin distinguir el texto en
+  blanco (7 pruebas en rojo), `repetir.ts` sin arrastrar el comentario —la que
+  evita que editar lo borre—, la etiqueta poniendo la clave siempre, y
+  `ignoreUnknownKeys` apagado en Kotlin, que tira **9 de las 11** pruebas de
+  `PedidoTest`. Todas volvieron a verde al restaurar.
+  **Una no probo nada al primer intento**: romper el tope tambien borraba el uso
+  del import de `utf8`, asi que fallaba la COMPILACION y no la prueba. Se
+  rehizo sacando tambien el import.
 - [ ] T027 Quickstart Q1–Q9 y Q12–Q14 en pantalla, con Mateo
   ([quickstart.md](quickstart.md)). Lo que no se reporte **se anota en el
   tracker con su disparador**, no se tilda.
