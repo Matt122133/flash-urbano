@@ -237,9 +237,17 @@ en la etiqueta impresa.
   **Una no probo nada al primer intento**: romper el tope tambien borraba el uso
   del import de `utf8`, asi que fallaba la COMPILACION y no la prueba. Se
   rehizo sacando tambien el import.
-- [ ] T027 Quickstart Q1–Q9 y Q12–Q14 en pantalla, con Mateo
+- [X] T027 Quickstart Q1–Q9 y Q12–Q14 en pantalla, con Mateo
   ([quickstart.md](quickstart.md)). Lo que no se reporte **se anota en el
   tracker con su disparador**, no se tilda.
+  **Corrido por Mateo el 2026-09-12, contra backend y sitio locales.** Q1 a Q9 y
+  Q12 a Q14, todos como el quickstart los describe. Tres etiquetas impresas
+  quedaron como evidencia y **se leyeron sus bytes, no se creyo la palabra**:
+  una con comentario (el bloque sale entre RETIRAR DE y FECHA DE RETIRO), una
+  sin comentario (**el bloque COMENTARIO no existe en el PDF**: salta de `Tel.`
+  a `FECHA DE RETIRO`, que es FR-009 en papel) y una con "Cobrar $300 al
+  recibir" **impreso**, sin ningun importe del sistema — el control positivo de
+  research D7.
 - [ ] T028 **Quickstart Q10 y Q11, en el teléfono**, que es lo que el `verify:`
   no ve. Q10 —**el APK viejo contra el servicio nuevo**— es el que decide si el
   servicio se puede desplegar antes que la app; si falla, cambia el orden de
