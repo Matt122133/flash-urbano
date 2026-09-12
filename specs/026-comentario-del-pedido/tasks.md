@@ -253,6 +253,28 @@ en la etiqueta impresa.
   servicio se puede desplegar antes que la app; si falla, cambia el orden de
   todo. Q11 mira que la tarjeta no se haya roto: nada de texto cortado, y a
   360 px también. En `012` dos defectos de esta clase compilaron perfecto.
+  **Q11 hecho el 2026-09-12, en un EMULADOR y no en el telefono de Mateo, a
+  proposito.** Se comprobo antes de instalar nada: `applicationId` es el mismo
+  en debug y en release, y el release se firma con la MISMA clave
+  (`signingConfigs.getByName("debug")`), asi que un `installDebug` **habria
+  pisado en silencio la app de produccion** del telefono y la habria dejado
+  apuntando a `localhost`. Con dos dispositivos conectados, ademas,
+  `gradlew installDebug` instala en los dos. Se uso `assembleDebug` mas
+  `adb -s emulator-5554 install`, apuntando por numero de serie, y se verifico
+  por lectura que el telefono quedara en `versionName=0.3.0`,
+  `lastUpdateTime 2026-09-01`.
+  **Lo que se vio, con capturas**: el bloque del comentario se distingue de las
+  direcciones y de los telefonos; **un comentario de 275 caracteres —casi el
+  tope— entra entero, sin cortar texto y con el boton "Lo tengo" completo**; los
+  saltos de linea se ven como saltos de linea; los pedidos sin comentario se ven
+  igual que antes; y todo eso tambien **a 360 dp** (`wm density 480`, restaurada
+  despues).
+  **Sigue faltando Q10**: el APK viejo contra el servicio nuevo no se puede
+  probar contra local, porque el release trae la URL de Railway compilada.
+  **Y un camino sigue sin evidencia**: el PDF con saltos de linea de verdad. Las
+  tres etiquetas impresas tenian comentarios de un solo renglon —el envuelto por
+  ancho si quedo probado—. `FU-0017` quedo con un comentario de tres renglones
+  en la base local a proposito, listo para imprimir.
 - [ ] T029 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
   quedado abierto, con disparador. Candidatos previsibles: que la tarjeta de la
   app no tiene prueba automática, y cualquier paso del quickstart sin reportar.
