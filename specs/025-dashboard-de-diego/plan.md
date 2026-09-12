@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El paquete nuevo: el endpoint, su consulta, y las guardas de FR-014. NO
   # importa internal/pedidos, y una prueba lo sostiene (research D2, D9).
