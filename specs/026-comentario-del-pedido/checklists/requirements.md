@@ -31,9 +31,15 @@
 
 ## Notes
 
-- **Todos los ítems pasan.** El único marcador que el spec dejó abierto —FR-006,
-  dónde lee el repartidor la indicación— lo contestó Mateo el 2026-09-12 y quedó
-  volcado en el spec como D1, junto con D2 (una sola indicación por pedido).
+- **Todos los ítems pasan (16/16).** El marcador que el spec dejó abierto
+  —FR-006, dónde lee el repartidor la indicación— lo contestó Mateo el
+  2026-09-12 y quedó como D1, junto con D2 (una sola indicación por pedido).
+- El `/speckit-clarify` del 2026-09-12 agregó tres decisiones más, en
+  `## Clarifications`: el tope de 280 caracteres (confirmado, no heredado del
+  borrador), la etiqueta **"Comentario"** —Mateo eligió la palabra del cliente
+  por sobre una etiqueta que explicara el campo, así que el encauzamiento pasó
+  al texto de ayuda, FR-001a— y que el comentario sigue la regla de `022` para
+  editarse, decidido a la vista de que soltarla era defendible.
 - La decisión de D1 **arrastra la app Android**, que es la superficie que el
   `verify:` casi no cubre: compila y corre pruebas JVM, y eso no dice que la
   pantalla se vea. El plan tiene que tratarlo como quickstart en el teléfono, no

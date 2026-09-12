@@ -25,6 +25,26 @@ cliente marcó la descripción del contenido como *"NO ES NECESARIO"*, y sigue s
 serlo. Lo que este campo agrega es **información del viaje**: cómo llegar, a
 quién buscar, qué tener en cuenta al retirar o al entregar.
 
+## Clarifications
+
+### Session 2026-09-12
+
+- Q: ¿Cuánto texto se permite en el comentario? → A: **280 caracteres.**
+  Confirmado explícitamente y no heredado del borrador: el tope queda en la base
+  y subirlo después es una migración. Entra de sobra cualquier indicación de
+  viaje, y el límite chico es lo que evita que el campo se convierta en el lugar
+  donde se escribe el pedido entero en prosa.
+- Q: ¿Cómo se llama el campo en pantalla? → A: **"Comentario"**, la palabra que
+  usa la lista MODIFICACIONES del cliente y la que Diego ya usa. Se propuso
+  "Indicaciones para el repartidor" —una etiqueta que dice quién lo lee encauza
+  el uso—, y Mateo eligió la palabra del cliente. El encauzamiento pasa entonces
+  al texto de ayuda debajo del campo (FR-001a), que es donde ahora descansa.
+- Q: ¿Hasta cuándo puede el cliente editar el comentario? → A: La misma regla que
+  `022`: sólo mientras el pedido está pendiente. Se evaluó explícitamente
+  soltarla —el comentario no afecta precio, zona ni ruta, y es el campo que uno
+  quiere arreglar tarde— y se descartó: abrirla pide un permiso distinto al del
+  resto del pedido y deja a Diego leyendo una versión vieja sin enterarse.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - La indicación llega a quien hace el viaje (Priority: P1)
@@ -120,16 +140,29 @@ de pedidos del perfil y en el resumen imprimible.
   hay tienda: pueden convivir versiones. Una versión que no conoce el campo
   tiene que seguir funcionando igual que hoy.
 
+## Terminología
+
+**"Comentario"** es la palabra de cara al cliente: la etiqueta del campo, y como
+se lo nombra en el resumen, en el impreso y en la app. En este spec el texto se
+llama también **"la indicación"** cuando se habla de su contenido, para no
+repetir la misma palabra en cada renglón: son lo mismo.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: El formulario de pedido MUST ofrecer un campo de texto libre para
-  una indicación dirigida al repartidor.
+  una indicación dirigida al repartidor, rotulado **"Comentario"**.
+- **FR-001a**: El campo MUST llevar un texto de ayuda que diga **quién lo lee y
+  para qué sirve**, con ejemplos del tipo "tocar timbre del 2" o "retirar por la
+  puerta de atrás". La etiqueta sola no dice para qué es el campo, así que la
+  ayuda es lo único que evita que se use para describir el paquete o para pedir
+  algo que el servicio no hace.
 - **FR-002**: El campo MUST ser **opcional**. Un pedido sin indicación se crea
   exactamente como hoy, sin pasos ni avisos nuevos.
-- **FR-003**: El campo MUST tener un tope de largo visible para el cliente
-  mientras escribe, y el sistema MUST rechazar un texto que lo supere.
+- **FR-003**: El campo MUST topear en **280 caracteres**, con el tope visible
+  para el cliente mientras escribe, y el sistema MUST rechazar un texto que lo
+  supere.
 - **FR-004**: El sistema MUST tratar un texto compuesto sólo de espacios en
   blanco como ausencia de indicación.
 - **FR-005**: El sistema MUST conservar el texto tal como lo escribió el
@@ -154,8 +187,11 @@ de pedidos del perfil y en el resumen imprimible.
   seguir funcionando sin cambios.
 - **FR-012**: El tablero de administración MUST seguir sin mostrar detalle de
   pedidos: cuenta pedidos y paquetes, y la indicación no aparece ahí.
-- **FR-013**: La indicación MUST viajar únicamente entre el cliente que la
-  escribió y la administración. Ningún otro cliente puede leerla.
+- **FR-013**: Ningún otro cliente MUST poder leer la indicación de un pedido
+  ajeno. **No es confidencial más allá de eso**: lo que se imprime es la
+  etiqueta que se pega al paquete, así que la indicación queda a la vista de
+  cualquiera que lo manipule, incluido quien recibe. Por eso FR-001a obliga a
+  que el texto de ayuda del campo lo avise (research D2).
 
 ### Key Entities
 
@@ -188,9 +224,6 @@ de pedidos del perfil y en el resumen imprimible.
 Son decisiones tomadas por defecto al escribir el spec. Cada una se puede
 revertir en el clarify; se listan para que se vean, no para darlas por firmes.
 
-- **El tope es de 280 caracteres.** Alcanza de sobra para las indicaciones que
-  motivaron el pedido y evita que el campo se convierta en el lugar donde el
-  cliente escribe un pedido entero en prosa.
 - **No se muestra en el tablero.** El `025` decidió que el tablero cuenta y no
   detalla; mostrar ahí el texto lo convertiría en otra cosa.
 - **No viaja en el aviso push** que el repartidor recibe al entrar un pedido
