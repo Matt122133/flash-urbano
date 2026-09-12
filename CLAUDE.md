@@ -84,6 +84,14 @@ over must live as versioned markdown, code, or schema inside this repo.
   while one exists in the current worktree. On an approved override, demote or
   complete the displaced plan and record the pause in that plan before opening
   the new one.
+- **MUST NOT** write real customer data — e-mail addresses, personal names, or
+  trading names — into the repo. **This repo is public**, and a commit on top
+  does not remove what is already in the history. Evidence taken from the
+  production database goes in by its functional reference ("the two real client
+  accounts") plus the order codes, which is what actually carries the argument.
+  The business's own published contact address is the one exception. Cheap
+  check before committing such evidence:
+  `git diff <base>..HEAD | grep "^+" | grep -oE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+"`.
 - **MUST NOT** perform opportunistic refactor or cleanup outside the plan's
   stated steps until `verify:` shows green.
 - **MUST NOT** hand-edit generated spec-kit skills under
