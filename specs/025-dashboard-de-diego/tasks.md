@@ -446,7 +446,7 @@ corte.
   del quickstart que haya quedado sin correr.
 - [X] T034 Commitear con el plan todavía `active`, stageando rutas explícitas.
   Abrir el PR con `gh pr create`; **mergear lo hace Mateo**.
-- [ ] T035 Después del merge y del deploy en Railway, **con Mateo**: quickstart
+- [X] T035 Después del merge y del deploy en Railway, **con Mateo**: quickstart
   Q15 — `ADMIN_EMAILS` en Railway incluye el mail de Diego; los pedidos de
   prueba en producción se listan y **Mateo decide cuáles se borran**; abrir
   `https://flashurbano.uy/tablero` como admin desde un navegador (el CORS de un
@@ -459,7 +459,64 @@ corte.
   esa cuenta, el tablero lo deja pasar sin tocar Railway. **Falta**: confirmar
   con Diego que esa es la cuenta con la que va a entrar, la limpieza de pedidos
   de prueba, y abrir el tablero en produccion desde un navegador.
-- [ ] T036 Pasar `plan.md` a `status: completed` en un commit aparte, **después**
+  **Avance del 2026-09-12, despues del merge de #38** (14:34 UTC) y del deploy
+  de las dos superficies. Verificado sin navegador y sin sesion, contra
+  produccion:
+  - La web: `https://flashurbano.uy/tablero` responde 200 y trae el `noindex`.
+  - La ruta existe en el servicio: `GET /admin/tablero` da 401 `no autorizado`,
+    y `/admin/no-existe-xyz` da 404 — o sea que el 401 es la ruta nueva, no un
+    comodin. **`POST /admin/tablero` da 405**: la guarda de solo lectura esta
+    viva en produccion.
+  - **El preflight de CORS del camino nuevo, medido contra produccion**: con
+    `Origin: https://flashurbano.uy` devuelve 204 con
+    `access-control-allow-origin: https://flashurbano.uy`; con un origen ajeno
+    devuelve 204 **sin** ese encabezado. Esto cubre lo que el paso del navegador
+    existia para atrapar, pero **no lo reemplaza**: sigue sin recorrerse la
+    llamada con una sesion admin real.
+  **Sigue faltando, y lo tiene que hacer Mateo**: (a) leer la base de produccion
+  —la sesion tiene denegada esa lectura— para listar los pedidos de prueba y
+  comparar el total con `SELECT count(*) FROM pedidos`; (b) confirmarle a Diego
+  la cuenta con la que entra; (c) abrir `/tablero` en un navegador con sesion
+  admin, y de paso el Q11 sin recargar que quedo en el tracker.
+
+  **Limpieza de pedidos de prueba, 2026-09-12.** Mateo listo los 23 pedidos de
+  produccion con la consulta sin `precio` y decidio por cuenta, no por pedido:
+  **los de las dos cuentas de clientes reales se quedan; el resto se borra.** Se fueron 17 (`FU-0001` a
+  `FU-0004`, `FU-0006` a `FU-0018`), incluido `FU-0007`, de la cuenta del propio
+  cliente, que se senalo como dudoso y Mateo igual borro. Quedaron
+  6: `FU-0005`, `FU-0019`, `FU-0020`, `FU-0021`, `FU-0022`, `FU-0023`.
+  **Como hubo que borrarlos**: ni la web ni `022` servian —el borrado de `022`
+  solo toca `estado = 'creacion'` y los 23 estaban en `aceptacion` o `entrega`—
+  y `pedidos_estados.pedido_id` es `ON DELETE RESTRICT`, asi que el `DELETE`
+  pelado falla. Se borro el historial y los pedidos en **una transaccion**, con
+  el `count(*)` de control antes del `COMMIT`. `pedidos_estados` es la unica FK
+  que apunta a `pedidos`, verificado en las migraciones.
+  **Valor esperado del tablero, calculado de las filas que quedaron** —es el
+  control positivo de la comparacion, no una lectura del propio tablero—:
+  **6 pedidos y 6 paquetes**; por dia 30/08 → 1 y 1, 10/09 → 3 y 3, 11/09 → 2 y
+  2; por semana, la del 24/08 → 1 y 1 y la del 07/09 → 5 y 5; por mes, agosto
+  → 1 y 1 y septiembre → 5 y 5; filtrando la cuenta con cinco pedidos da 5 y 5, y la otra 1 y 1.
+  Nota para no reportar un falso defecto: el desplegable sigue listando **todas**
+  las cuentas, con pedidos o sin ellos (`tablero.go:121` lo dice explicito), asi
+  que las cuentas de prueba siguen ahi y dan 0.
+
+  **Cerrado el 2026-09-12 por Mateo, en el navegador y en produccion.** Los
+  tres recorridos del Q11 **paso a paso y sin recargar** —admin desde el panel
+  de `/tablero`, admin desde `/ingresar`, y la cuenta comun desde `/tablero`—:
+  los tres como los describe el quickstart. Con eso queda recorrido el cruce C1
+  que el analyze encontro y que la validacion del 2026-09-11 no habia tocado:
+  el ingreso no trae `esAdmin`, y `entrar()` relee `/yo`.
+  **Los numeros del tablero dan 6**, que es el valor esperado calculado arriba a
+  partir de las filas que sobrevivieron a la limpieza. Y como el tablero lee la
+  base desde afuera de la transaccion, ese 6 **tambien demuestra que el `COMMIT`
+  tomo**: con la transaccion abierta la pantalla habria seguido diciendo 23.
+  **Lo unico que queda, y no depende de esta sesion ni de Mateo**: confirmarle a
+  Diego que entra con `flashurbanomvd@gmail.com`. Que esa cuenta esta en
+  `ADMIN_EMAILS` de produccion ya se verifico con el CLI el 2026-09-11; lo que
+  falta es preguntarle a el. Anotado en el tracker con el mismo disparador que
+  el resto: antes de mostrarle el tablero.
+
+- [X] T036 Pasar `plan.md` a `status: completed` en un commit aparte, **después**
   de T034: con el plan cerrado, el sensor rebota los archivos de código.
 
 ---
