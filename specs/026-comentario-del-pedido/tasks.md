@@ -248,7 +248,7 @@ en la etiqueta impresa.
   a `FECHA DE RETIRO`, que es FR-009 en papel) y una con "Cobrar $300 al
   recibir" **impreso**, sin ningun importe del sistema — el control positivo de
   research D7.
-- [ ] T028 **Quickstart Q10 y Q11, en el teléfono**, que es lo que el `verify:`
+- [X] T028 **Quickstart Q10 y Q11, en el teléfono**, que es lo que el `verify:`
   no ve. Q10 —**el APK viejo contra el servicio nuevo**— es el que decide si el
   servicio se puede desplegar antes que la app; si falla, cambia el orden de
   todo. Q11 mira que la tarjeta no se haya roto: nada de texto cortado, y a
@@ -275,6 +275,20 @@ en la etiqueta impresa.
   tres etiquetas impresas tenian comentarios de un solo renglon —el envuelto por
   ancho si quedo probado—. `FU-0017` quedo con un comentario de tres renglones
   en la base local a proposito, listo para imprimir.
+  **Cerrado el 2026-09-12.** El PDF con saltos de linea de verdad quedo
+  verificado leyendo los bytes: dos renglones terminan ANTES del ancho util
+  —o sea saltos del autor— y los dos siguientes son el envuelto por ancho de un
+  parrafo largo. Las dos rutas conviven.
+  **Q10, contra produccion y con control positivo.** Se cargo un pedido real con
+  comentario (`FU-0024`) y se comprobo en la web que el comentario estaba
+  guardado: **sin eso el servicio no manda la clave y la prueba pasa sin probar
+  nada**, que era el riesgo. Con la clave viajando, la app **0.3.0** —la vieja,
+  sin recompilar— abrio, trajo la lista, mostro el pedido entre los pendientes y
+  **no mostro el comentario, que es lo correcto**: no conoce el campo y lo
+  ignora. Sin error y sin lista vacia. Capturas tomadas del telefono de Mateo.
+  **Dato del entorno**: ese telefono **rechaza la inyeccion de eventos por adb**
+  (`SecurityException: INJECT_EVENTS`), asi que desde una sesion solo se puede
+  leer y capturar; los toques los da Mateo. Conveniente, ademas de seguro.
 - [ ] T029 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
   quedado abierto, con disparador. Candidatos previsibles: que la tarjeta de la
   app no tiene prueba automática, y cualquier paso del quickstart sin reportar.
