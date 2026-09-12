@@ -113,6 +113,19 @@ type Pedido struct {
 	DestinatarioNombre   string `json:"destinatarioNombre"`
 	DestinatarioTelefono string `json:"destinatarioTelefono"`
 
+	// La indicacion que el cliente le deja al repartidor sobre el viaje (026).
+	//
+	// **Puntero con `omitempty`, como `Direccion.Punto`, y no string vacio.**
+	// "Sin comentario" y "comentario vacio" tienen que ser UN estado: si
+	// viajara como `""`, cada pantalla decidiria por su cuenta si lo dibuja, y
+	// ahi es donde aparece el hueco que FR-009 prohibe. Nil omite la clave, que
+	// es la forma que el cliente Kotlin ya sabe leer.
+	//
+	// **No es la descripcion del paquete**, que el relevamiento descarto: es
+	// informacion del viaje. Y **no se interpreta**: es texto de una persona
+	// para otra, no una instruccion para el sistema.
+	Comentario *string `json:"comentario,omitempty"`
+
 	// Precio en pesos enteros, congelado al crear. Un cambio de precios
 	// posterior no reescribe pedidos viejos.
 	Precio int `json:"precio"`
@@ -224,6 +237,10 @@ type Nuevo struct {
 	DestinatarioNombre   string
 	DestinatarioTelefono string
 
+	// Nil es "sin comentario". Lo normaliza el handler ANTES de llegar aca:
+	// recorta los extremos y deja nil si no queda nada (contracts 1.1).
+	Comentario *string
+
 	Precio int
 	ZonaID int
 }
@@ -257,6 +274,7 @@ const columnas = `
 	paquete_tamano, cantidad,
 	to_char(retiro_fecha, 'YYYY-MM-DD'), to_char(retiro_hora, 'HH24:MI'),
 	destinatario_nombre, destinatario_telefono,
+	comentario,
 	precio, zona_id,
 	creado_en, actualizado_en,
 	e.receptor_nombre, e.receptor_documento`
@@ -332,6 +350,7 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 		&p.PaqueteTamano, &p.Cantidad,
 		&p.RetiroFecha, &p.RetiroHora,
 		&p.DestinatarioNombre, &p.DestinatarioTelefono,
+		&p.Comentario,
 		&p.Precio, &p.ZonaID,
 		&p.CreadoEn, &p.ActualizadoEn,
 		&recibioNombre, &recibioDocumento,
@@ -403,6 +422,7 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 			paquete_tamano, cantidad,
 			retiro_fecha, retiro_hora,
 			destinatario_nombre, destinatario_telefono,
+			comentario,
 			precio, zona_id
 		) VALUES (
 			$1, $2,
@@ -414,6 +434,7 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 			$17, $18,
 			$19::date, $20::time,
 			$21, $22,
+			$27,
 			$23, $24
 		)
 		ON CONFLICT (usuario_id, clave_idempotencia) DO NOTHING
@@ -440,6 +461,10 @@ func (r *Repositorio) Crear(ctx context.Context, n Nuevo) (*Pedido, bool, error)
 		n.DestinatarioNombre, n.DestinatarioTelefono,
 		n.Precio, n.ZonaID,
 		n.Entrega.Punto.Lat, n.Entrega.Punto.Lng,
+		// $27. Va al final y no en su lugar "natural" para no correr los 26
+		// placeholders que ya estaban: renumerarlos no da error de compilacion
+		// y pone cada valor en la columna de al lado.
+		n.Comentario,
 	)
 
 	var nuevoID string
@@ -792,6 +817,9 @@ func (r *Repositorio) Editar(ctx context.Context, id, usuarioID string, n Nuevo)
 			retiro_fecha = $22::date, retiro_hora = $23::time,
 			destinatario_nombre = $24, destinatario_telefono = $25,
 			precio = $26, zona_id = $27,
+			-- Nil lo deja en NULL, que es como se BORRA un comentario: el
+			-- cliente vacia el campo y el pedido vuelve a no tener ninguno.
+			comentario = $28,
 			actualizado_en = now()
 		WHERE id = $1 AND usuario_id = $2 AND estado = $3`
 
@@ -806,6 +834,7 @@ func (r *Repositorio) Editar(ctx context.Context, id, usuarioID string, n Nuevo)
 		n.RetiroFecha, n.RetiroHora,
 		n.DestinatarioNombre, n.DestinatarioTelefono,
 		n.Precio, n.ZonaID,
+		n.Comentario,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo editar el pedido: %w", err)

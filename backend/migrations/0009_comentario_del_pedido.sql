@@ -1,0 +1,82 @@
+-- 0009 — el comentario del pedido, de 026-comentario-del-pedido.
+--
+-- El cliente puede dejar una indicacion para el repartidor sobre el viaje:
+-- "tocar timbre del 2", "retirar por la puerta de atras", "llamar antes". Hoy
+-- eso viaja por WhatsApp y alguien lo transcribe, que es el problema que el
+-- producto vino a resolver. Lo pidio un cliente que usa el servicio.
+--
+-- **No es la descripcion del paquete.** Esa se descarto en el relevamiento
+-- original ("NO ES NECESARIO") y sigue afuera. Esto es informacion del viaje.
+--
+-- --------------------------------------------------------------------------
+-- Por que va en `pedidos` y no en una tabla aparte
+-- --------------------------------------------------------------------------
+--
+-- Es un atributo del pedido: uno por pedido, sin autor, sin historial, sin
+-- hilo. Una tabla aparte agregaria un JOIN a todas las consultas de `pedidos`
+-- a cambio de nada (research D4; constitucion, Principio III).
+--
+-- Es la decision contraria a la de `0006`, y a proposito: alli quien recibio
+-- pertenecia al EVENTO de entrega —dos entregas, dos receptores— y por eso fue
+-- a `pedidos_estados`. Un comentario no tiene evento: se escribe una vez y se
+-- pisa al editarlo, como el resto de los campos que `022` deja editar.
+--
+-- --------------------------------------------------------------------------
+-- Por que NULLABLE
+-- --------------------------------------------------------------------------
+--
+-- Por las dos razones, y las dos importan.
+--
+-- La primera es la del 2026-08-12, que `0006` ya dejo escrita: aquella
+-- migracion entro `entrega_punto` como NOT NULL creyendo que produccion estaba
+-- vacia, tenia filas, y **el servicio no arranco**. `pedidos` tiene filas
+-- reales. Una columna nullable no le exige nada a lo que ya esta.
+--
+-- La segunda es de modelo: "sin comentario" y "comentario vacio" tienen que
+-- ser UN SOLO estado. Con NOT NULL DEFAULT '' serian dos que se ven igual, y
+-- cada pantalla decidiria por su cuenta si '' se muestra — que es exactamente
+-- el hueco vacio que FR-009 prohibe. El servicio recorta y guarda NULL cuando
+-- no queda nada, asi que la regla vive en un solo lugar.
+--
+-- Y no se rellena nada: los pedidos que ya existen quedan en NULL, que no es
+-- un dato faltante. Es la verdad — no habia donde escribirlo.
+ALTER TABLE pedidos
+    ADD COLUMN comentario text;
+
+-- --------------------------------------------------------------------------
+-- El tope, y por que vive aca ademas de en el servicio
+-- --------------------------------------------------------------------------
+--
+-- 280 caracteres, confirmado con el cliente y no heredado de un borrador:
+-- alcanza de sobra para una indicacion de viaje, y el tope chico es lo que
+-- evita que el campo se vuelva el lugar donde se escribe el pedido entero en
+-- prosa. Subirlo despues es una migracion; bajarlo es peor, porque hay que
+-- decidir que hacer con lo ya escrito.
+--
+-- El navegador avisa mientras se escribe y el servicio rechaza con 400, pero
+-- **la base es la unica capa por la que pasan si o si las tres superficies y
+-- tambien la carga manual con psql**. Por eso el CHECK esta aca.
+--
+-- `char_length` y NO `octet_length`: el tope es de caracteres. Con bytes, una
+-- indicacion con enes y tildes valdria menos que la misma en ASCII, que seria
+-- una restriccion distinta segun el idioma de quien escribe.
+ALTER TABLE pedidos
+    ADD CONSTRAINT pedidos_comentario_largo
+    CHECK (comentario IS NULL OR char_length(comentario) <= 280);
+
+-- --------------------------------------------------------------------------
+-- Lo que esta migracion NO hace
+-- --------------------------------------------------------------------------
+--
+-- **No hay indice.** No se busca ni se ordena por comentario, y no se va a:
+-- es texto para leer, no un criterio. Un indice seria costo de escritura sin
+-- lectura que lo pague.
+--
+-- **No hay CHECK contra el texto vacio o los espacios.** El recorte lo hace el
+-- servicio antes de escribir, en un solo lugar (contracts 1.1). Duplicarlo como
+-- restriccion convertiria un dato normalizable en un fallo de transaccion.
+--
+-- **No toca `internal/tablero`.** Esa consulta nombra sus columnas —
+-- `SELECT creado_en, cantidad, usuario_id`— asi que la columna nueva no se
+-- cuela sola. Es el beneficio de no haber escrito `SELECT *`, y hay una prueba
+-- que lo sostiene (FR-012).

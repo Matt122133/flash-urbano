@@ -24,7 +24,7 @@ compilador.
 
 ## Fase 1: Preparación
 
-- [ ] T001 Correr el `verify:` del plan **antes de tocar nada** y anotar el
+- [X] T001 Correr el `verify:` del plan **antes de tocar nada** y anotar el
   resultado, con `TEST_DATABASE_URL` puesto y Docker Desktop levantado.
   **Contar los `SKIP`**: sin esa variable las pruebas Go contra Postgres se
   saltan solas y el verde no dice nada de la base. Esta corrida es la línea de
@@ -38,34 +38,34 @@ compilador.
 **La columna y el servicio.** Nada de la web ni de la app se puede probar hasta
 que el dato exista y viaje.
 
-- [ ] T002 Migración `backend/migrations/0009_comentario_del_pedido.sql`:
+- [X] T002 Migración `backend/migrations/0009_comentario_del_pedido.sql`:
   `ALTER TABLE pedidos ADD COLUMN comentario text` con
   `CHECK (comentario IS NULL OR char_length(comentario) <= 280)`. **Anulable y
   sin default**, y **sin rellenar nada**: `NULL` ya significa lo que pasó
   (data-model). `char_length` y no bytes, o una indicación con ñ valdría menos
   que la misma en ASCII.
-- [ ] T003 El campo en `backend/internal/pedidos/pedido.go`: en la estructura,
+- [X] T003 El campo en `backend/internal/pedidos/pedido.go`: en la estructura,
   en el `INSERT INTO pedidos`, en el `UPDATE pedidos SET` del camino de `022`, y
   en el scan de las dos lecturas. En el JSON va con **`omitempty`**: cuando no
   hay comentario **la clave desaparece**, no llega `null` — es la forma que el
   cliente Kotlin ya sabe leer y que `Direccion.punto` documenta.
-- [ ] T004 Validación y normalización en `backend/internal/pedidos/handlers.go`
+- [X] T004 Validación y normalización en `backend/internal/pedidos/handlers.go`
   (`Crear` y `Editar`): recortar los extremos, y **si lo que queda es vacío
   guardar `NULL`**; rechazar con `400` lo que pase de 280. **El recorte vive
   sólo acá**: si el navegador recortara también, serían dos implementaciones de
   la misma regla separándose de a poco.
-- [ ] T005 Pruebas en `backend/internal/pedidos/pedido_test.go`: crear con
+- [X] T005 Pruebas en `backend/internal/pedidos/pedido_test.go`: crear con
   comentario y sin él; 281 caracteres → `400`; **sólo espacios y saltos de línea
   → el pedido queda con `NULL`**, no con `""`; y **un comentario de tres
   renglones se lee con sus tres renglones**, que es el defecto clásico de un
   campo multilínea y no lo ve ningún tipo.
-- [ ] T006 [P] Prueba de que **el tablero no se enteró**, en
+- [X] T006 [P] Prueba de que **el tablero no se enteró**, en
   `backend/internal/tablero/tablero_test.go`: la respuesta de `/admin/tablero`
   no trae la clave `comentario` ni siquiera con un pedido que lo tiene. Es
   FR-012, y hoy se cumple gratis porque la consulta nombra sus columnas
   (research D5) — la prueba es para que siga siendo gratis.
 
-- [ ] T007 [P] `web/lib/comentario.ts`: **una función pura que decida si hay
+- [X] T007 [P] `web/lib/comentario.ts`: **una función pura que decida si hay
   comentario que mostrar** —recorta y devuelve el texto, o nada si queda vacío—
   y que la usen las cuatro pantallas de la web en vez de repetir cuatro veces
   un `if` sobre el string.
@@ -75,7 +75,7 @@ que el dato exista y viaje.
   archivo dice que montar un DOM sería infraestructura de más. Sacar la decisión
   a `lib/` la vuelve probable con lo que ya existe, que es exactamente el motivo
   por el que `etiqueta.ts` está separado de `etiqueta-pdf.ts`.
-- [ ] T008 [P] Pruebas en `web/lib/comentario.test.ts`: texto normal, `undefined`,
+- [X] T008 [P] Pruebas en `web/lib/comentario.test.ts`: texto normal, `undefined`,
   cadena vacía, **sólo espacios y saltos de línea**, y un texto con espacios
   alrededor —que se recorta sin tocar los saltos de adentro—.
   **Lo que esto NO cubre**: que el componente efectivamente no dibuje nada. Eso

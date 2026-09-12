@@ -2,7 +2,9 @@ package tablero
 
 import (
 	"context"
+	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -244,5 +246,56 @@ func TestSinNadaLasListasSonVaciasYNoNil(t *testing.T) {
 	}
 	if clientes == nil || len(clientes) != 0 {
 		t.Errorf("sin cuentas, Clientes tenia que ser un slice vacio y no nil; fue %#v", clientes)
+	}
+}
+
+// FR-012 de `026`: el tablero cuenta, y **no muestra el comentario del pedido**.
+//
+// Hoy esto se cumple gratis porque `Cargas` nombra las columnas que quiere
+// —`SELECT creado_en, cantidad, usuario_id`— en vez de un `SELECT *`. La prueba
+// existe para que **siga siendo gratis**: el dia que alguien agregue una
+// columna a la lista, o cambie la consulta por un `SELECT *`, esto se pone en
+// rojo antes de que el texto libre de un cliente aparezca en una pantalla que
+// se decidio que no muestra detalle.
+//
+// Se mira el JSON serializado y no la estructura: lo que importa es lo que sale
+// por el cable, que es lo unico que la pantalla puede llegar a dibujar.
+func TestElTableroNoTraeElComentarioDelPedido(t *testing.T) {
+	e := entornoDePrueba(t)
+	ctx := context.Background()
+
+	cuenta := e.unaCuenta(t, "ana@example.com", "Ana Perez")
+	id := e.unPedido(t, cuenta, "k-comentario", 1, "2026-09-10T13:00:00Z")
+
+	// El pedido trae un comentario bien visible: si se filtrara, se veria.
+	const texto = "TOCAR TIMBRE DEL 2, EL PORTON NO ABRE"
+	if _, err := e.pool.Exec(ctx, `UPDATE pedidos SET comentario = $2 WHERE id = $1`, id, texto); err != nil {
+		t.Fatalf("poniendole comentario al pedido: %v", err)
+	}
+
+	// Control positivo: si el UPDATE no hubiera escrito nada, la prueba pasaria
+	// sin probar nada.
+	var guardado *string
+	if err := e.pool.QueryRow(ctx, `SELECT comentario FROM pedidos WHERE id = $1`, id).Scan(&guardado); err != nil {
+		t.Fatalf("releyendo el comentario: %v", err)
+	}
+	if guardado == nil || *guardado != texto {
+		t.Fatalf("la prueba no sirve si el pedido no quedo con comentario: %v", guardado)
+	}
+
+	cargas, err := e.repo.Cargas(ctx)
+	if err != nil {
+		t.Fatalf("leyendo las cargas: %v", err)
+	}
+	if len(cargas) != 1 {
+		t.Fatalf("se esperaba 1 carga y hay %d", len(cargas))
+	}
+
+	crudo, err := json.Marshal(cargas)
+	if err != nil {
+		t.Fatalf("serializando las cargas: %v", err)
+	}
+	if strings.Contains(string(crudo), "comentario") || strings.Contains(string(crudo), "TIMBRE") {
+		t.Fatalf("el tablero no tendria que traer el comentario: %s", crudo)
 	}
 }
