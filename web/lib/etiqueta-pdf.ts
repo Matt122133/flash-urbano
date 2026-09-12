@@ -44,8 +44,11 @@ export function dibujarEtiqueta(e: Etiqueta): jsPDF {
   y = encabezado(doc, y);
   y = bloqueCodigo(doc, e.codigo, y);
   y = bloqueDireccion(doc, "ENTREGAR A", e.entrega, y, true);
-  // Sin reasignar: el pie se ancla al borde de la hoja, no al cursor.
-  bloqueDireccion(doc, "RETIRAR DE", e.retiro, y, false);
+  y = bloqueDireccion(doc, "RETIRAR DE", e.retiro, y, false);
+  // **Sin comentario no se dibuja NADA**, ni el titulo ni el espacio: la hoja
+  // sale identica a como salia antes de `026` (FR-009). Por eso la clave viene
+  // ausente y no vacia desde `etiqueta.ts`.
+  bloqueComentario(doc, e, y);
   pie(doc, e);
 
   return doc;
@@ -182,6 +185,43 @@ function escribirEnvuelto(
     cursor += interlineado(pt);
   }
   return cursor;
+}
+
+/**
+ * El comentario del cliente, debajo de las dos direcciones (026).
+ *
+ * **Va despues de las direcciones y no antes**: lo primero que Diego busca en
+ * la hoja es adonde va el paquete. El comentario es lo que lee *ademas*, y
+ * ponerlo arriba empujaria las direcciones hacia abajo en la unica parte de la
+ * hoja que se mira de lejos.
+ *
+ * Se envuelve con `escribirEnvuelto`, que ya parte por ancho util, **y ademas
+ * se respetan los renglones que escribio la persona**: un texto de tres
+ * indicaciones se imprime en tres bloques, no en un parrafo corrido. Los 280
+ * caracteres de tope acotan esto a unas pocas lineas.
+ */
+function bloqueComentario(doc: jsPDF, e: Etiqueta, y: number): void {
+  if (!e.comentario) return;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(GRIS);
+  doc.text("COMENTARIO", MARGEN, y);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(NEGRO);
+
+  let cursor = y + 2 + interlineado(8);
+  for (const renglon of e.comentario.split("\n")) {
+    // Un renglon vacio es una separacion que la persona puso a proposito: se
+    // respeta como espacio, sin llamar a `escribirEnvuelto` con texto vacio.
+    if (renglon.trim() === "") {
+      cursor += interlineado(11);
+      continue;
+    }
+    cursor = escribirEnvuelto(doc, renglon, MARGEN, cursor, UTIL, 11);
+  }
 }
 
 /** Fecha de retiro y cantidad, abajo (FR-006). */

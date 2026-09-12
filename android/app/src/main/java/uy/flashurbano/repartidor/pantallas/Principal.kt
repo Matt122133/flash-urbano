@@ -532,6 +532,58 @@ fun TarjetaPedido(
                 )
             }
 
+            // **El comentario del cliente** (026, FR-006a).
+            //
+            // Va DENTRO de la tarjeta y no detras de un toque. El contrato 4.2
+            // de `012` dice que la tarjeta muestra todo sin desplegar y que no
+            // se toca, con el motivo escrito: Diego no puede tener que tocar
+            // para leer algo parado en una puerta. Y es justo lo que se pidio:
+            // que sepa que hay una forma especifica de entregar **al decidir
+            // que lleva en el dia**, no despues de abrir algo.
+            //
+            // **Se ve distinto de las direcciones y los telefonos a proposito.**
+            // Como otra linea de texto pasaria por un dato mas del pedido; con
+            // fondo propio y el globo se lee como "alguien te dejo dicho algo".
+            //
+            // Solo aparece si hay comentario: sin el, la tarjeta queda
+            // exactamente como antes de este feature (FR-009). `isNullOrBlank`
+            // cubre los dos casos de "no hay" —la clave ausente y un texto en
+            // blanco que se haya colado por otro camino— con la misma decision
+            // que toman las tres pantallas de la web.
+            if (!pedido.comentario.isNullOrBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                ) {
+                    Row(modifier = Modifier.padding(10.dp)) {
+                        Icon(
+                            IconoComentario,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(18.dp).padding(top = 1.dp),
+                        )
+                        Column(modifier = Modifier.padding(start = 9.dp)) {
+                            Text(
+                                "COMENTARIO",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            // Sin `maxLines` NI `TextOverflow`: el texto se lee
+                            // entero. Cortarlo con puntos suspensivos en una
+                            // tarjeta que no se puede abrir seria esconder justo
+                            // lo que el cliente quiso avisar. El tope de 280 lo
+                            // acota a unos tres renglones.
+                            Text(
+                                pedido.comentario!!.trim(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                    }
+                }
+            }
+
             // **El estado crudo, solo si la app no lo conoce** (FR-011).
             //
             // `012` lo mostraba SIEMPRE, y tenia razon para su pantalla: era la

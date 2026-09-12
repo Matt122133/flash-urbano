@@ -9,6 +9,10 @@ import {
   ESTADO_DIRECCION_VACIO,
   type EstadoDireccion,
 } from "./bloque-direccion";
+import {
+  COMENTARIO_LARGO_MAXIMO,
+  comentarioParaMostrar,
+} from "@/lib/comentario";
 import { componerDireccion } from "@/lib/direccion";
 import {
   MENSAJE_RETIRO_EN_EL_PASADO,
@@ -69,6 +73,8 @@ export type FormState = {
   // vuelve**: al momento de pedir no se usa para nada.
   receiverName: string;
   receiverPhone: string;
+  /** La indicacion para el repartidor (026). Opcional. */
+  comentario: string;
   quantity: string;
 };
 
@@ -82,6 +88,7 @@ const INITIAL_STATE: FormState = {
   pickupTime: "",
   receiverName: "",
   receiverPhone: "",
+  comentario: "",
   quantity: "1",
 };
 
@@ -820,6 +827,48 @@ export function PedidoForm({
         </div>
       </section>
 
+      {/* FR-001: el comentario. Seccion propia y no dentro de "quien recibe",
+          porque la indicacion es del VIAJE —como llegar, a quien buscar, que
+          tener en cuenta— y no de la persona que recibe. */}
+      <section className={sectionClass}>
+        <h2 className="text-base font-semibold text-slate-900">
+          ¿Algo que debamos saber?
+        </h2>
+        {/* FR-001a: la etiqueta dice "Comentario" porque es la palabra que usa
+            el cliente, y sola no dice para que sirve el campo. **Este texto es
+            lo unico que encauza el uso**: sin el, un campo de texto libre se
+            llena de descripciones del paquete y de pedidos que el servicio no
+            atiende. Y avisa lo de la etiqueta impresa, que es informacion que
+            la persona necesita ANTES de escribir (research D2). */}
+        <p className="mt-1 text-sm text-slate-600">
+          Una indicación para quien pasa a retirar o a entregar: por ejemplo
+          «tocar timbre del 2», «retirar por la puerta de atrás» o «llamar antes
+          de llegar». Puede salir impresa en la etiqueta del paquete.
+        </p>
+        <div className="mt-4">
+          <Field label="Comentario" htmlFor="comentario" optional>
+            <textarea
+              id="comentario"
+              rows={3}
+              maxLength={COMENTARIO_LARGO_MAXIMO}
+              className={`${inputClass} resize-y`}
+              placeholder="Tocar timbre del 2. El portón de adelante no abre."
+              value={form.comentario}
+              onChange={(e) => update("comentario", e.target.value)}
+            />
+            {/* FR-003: el tope se ve MIENTRAS se escribe, no al chocarlo.
+                Aparece recien cerca del limite para no poner un contador
+                encima de un campo que casi nadie va a llenar hasta el tope. */}
+            {form.comentario.length > COMENTARIO_LARGO_MAXIMO - 40 && (
+              <p className="mt-1 text-xs text-slate-500">
+                {COMENTARIO_LARGO_MAXIMO - form.comentario.length} caracteres
+                restantes
+              </p>
+            )}
+          </Field>
+        </div>
+      </section>
+
       {errorDeEnvio && (
         <p
           role="alert"
@@ -864,6 +913,8 @@ function Confirmation({
 }) {
   const direccionRetiro = componerDireccion(form.retiro.direccion);
   const direccionEntrega = componerDireccion(form.entrega.direccion);
+  // La MISMA decision que toman la tarjeta de Mis pedidos, la etiqueta y la app.
+  const comentarioVisible = comentarioParaMostrar(form.comentario);
 
 
   // **La ENTREGA, no el retiro.** Hasta `013` esta linea leia
@@ -966,6 +1017,25 @@ function Confirmation({
           label="Recibe el paquete"
           value={`${form.receiverName} · ${form.receiverPhone}`}
         />
+        {/* FR-008 y FR-009: aparece **solo si hay comentario**. Sin comentario
+            no hay fila, ni etiqueta, ni espacio reservado: el resumen queda
+            identico a como se veia antes de este feature.
+
+            Quien decide es `comentarioParaMostrar`, la misma funcion que usan
+            las otras tres pantallas, para que no puedan desalinearse.
+
+            Ocupa las dos columnas y respeta los renglones: una indicacion de
+            tres lineas se lee como tres lineas, no como un parrafo pegado. */}
+        {comentarioVisible && (
+          <div className="sm:col-span-2">
+            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Comentario
+            </dt>
+            <dd className="mt-0.5 whitespace-pre-line text-slate-800">
+              {comentarioVisible}
+            </dd>
+          </div>
+        )}
       </dl>
 
       {/* FR-001: el motivo entero del feature. Hasta aca el pedido existia con
@@ -1000,6 +1070,7 @@ function Confirmation({
               entrega: form.entrega.direccion,
               destinatarioNombre: form.receiverName,
               destinatarioTelefono: form.receiverPhone,
+              comentario: form.comentario,
               fechaRetiro: form.pickupDate,
               cantidad: form.quantity,
             })

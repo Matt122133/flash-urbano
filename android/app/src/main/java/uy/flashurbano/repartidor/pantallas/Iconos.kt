@@ -90,3 +90,15 @@ val IconoTelefono: ImageVector = trazo(
 
 /** El tilde de confirmar. */
 val IconoTilde: ImageVector = trazo("tilde", "M20 6 9 17l-5-5")
+
+/**
+ * El globo de dialogo del comentario del pedido (026).
+ *
+ * **Un globo y no un signo de exclamacion**: lo que hay adentro es algo que
+ * ALGUIEN DIJO, no una alerta del sistema. Un triangulo de advertencia haria
+ * que una indicacion normal —"tocar timbre del 2"— se lea como un problema.
+ */
+val IconoComentario: ImageVector = trazo(
+    "comentario",
+    "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Matt122133/flash-urbano/backend/internal/avisos"
 	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
@@ -106,7 +107,20 @@ type peticionCrear struct {
 	RetiroCuando cuando            `json:"retiroCuando"`
 	Destinatario persona           `json:"destinatario"`
 	Cobro        cobro             `json:"cobro"`
+
+	// La indicacion para el repartidor (026). Opcional: la clave puede no
+	// venir, y un cuerpo identico al de antes de este feature sigue siendo
+	// valido.
+	Comentario string `json:"comentario"`
 }
+
+// ComentarioLargoMaximo es el tope del comentario, en CARACTERES.
+//
+// **Tiene que coincidir con el CHECK de la migracion `0009`**, que usa
+// `char_length`. Si aca se contaran bytes con `len()`, una indicacion con enes
+// y tildes se rechazaria antes de llegar al tope real, y el navegador —que
+// cuenta caracteres— mostraria un numero distinto del que el servicio aplica.
+const ComentarioLargoMaximo = 280
 
 type persona struct {
 	Nombre   string `json:"nombre"`
@@ -316,6 +330,20 @@ func (h *Handlers) aNuevo(usuarioID, clave string, p peticionCrear) (*Nuevo, str
 		}
 	}
 
+	// El comentario se recorta en los extremos y, si no queda nada, es nil:
+	// "sin comentario" y "comentario en blanco" son el mismo estado (FR-004).
+	// `opcional` ya hace exactamente eso, asi que no se escribe de nuevo.
+	//
+	// **El recorte vive SOLO aca.** Si el navegador tambien recortara, serian
+	// dos implementaciones de la misma regla separandose de a poco; y si
+	// recortara solo el navegador, un pedido cargado por otro camino entraria
+	// con espacios. Este es el unico punto por el que pasan todas las
+	// escrituras: `Editar` tambien llama a esta funcion.
+	comentario := opcional(p.Comentario)
+	if comentario != nil && utf8.RuneCountInString(*comentario) > ComentarioLargoMaximo {
+		return nil, "el comentario es demasiado largo"
+	}
+
 	// **El punto que se exige es el de ENTREGA, no el de retiro** (011): de el
 	// sale la zona y el precio. Un pedido sin punto de retiro es valido y se
 	// guarda igual — es el caso de una direccion que no resolvio (FR-015) o de
@@ -377,6 +405,7 @@ func (h *Handlers) aNuevo(usuarioID, clave string, p peticionCrear) (*Nuevo, str
 		RetiroHora:           limpio(p.RetiroCuando.Hora),
 		DestinatarioNombre:   limpio(p.Destinatario.Nombre),
 		DestinatarioTelefono: limpio(p.Destinatario.Telefono),
+		Comentario:           comentario,
 		Precio:               p.Cobro.Precio,
 		ZonaID:               p.Cobro.ZonaID,
 	}, ""

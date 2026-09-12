@@ -12,6 +12,7 @@
 // lugar donde podria romperse, porque es donde el valor deja de recalcularse y
 // se congela.
 
+import { comentarioParaMostrar } from "./comentario";
 import type { Direccion } from "./direccion";
 import { resolverZona } from "./zona-lookup";
 
@@ -36,6 +37,8 @@ export type DatosDelPedido = {
   hora: string;
   destinatarioNombre: string;
   destinatarioTelefono: string;
+  /** La indicacion para el repartidor (026). Vacia es "no dejo ninguna". */
+  comentario: string;
 };
 
 /** El cuerpo que espera POST /pedidos. Ver specs/007/contracts/pedidos.md. */
@@ -66,6 +69,10 @@ export type CuerpoPedido = {
   paquete: { tamano: TamanoPaquete; cantidad: number };
   retiroCuando: { fecha: string; hora: string };
   destinatario: { nombre: string; telefono: string };
+  // **Opcional, y se OMITE cuando no hay**, como el punto de retiro: el cuerpo
+  // de un pedido sin comentario queda identico al de antes de este feature.
+  // Mandar `""` obligaria al servicio a distinguir dos formas de lo mismo.
+  comentario?: string;
   cobro: { zonaId: number; precio: number };
 };
 
@@ -112,6 +119,8 @@ export function armarCuerpoPedido(datos: DatosDelPedido): ArmadoDelCuerpo {
   // mensaje sobre JSON en vez de sobre la cantidad.
   const cantidad = Number.parseInt(datos.cantidad, 10);
 
+  const comentario = comentarioParaMostrar(datos.comentario);
+
   return {
     ok: true,
     cuerpo: {
@@ -154,6 +163,14 @@ export function armarCuerpoPedido(datos: DatosDelPedido): ArmadoDelCuerpo {
         nombre: datos.destinatarioNombre.trim(),
         telefono: datos.destinatarioTelefono.trim(),
       },
+      // Mismo idioma que el punto de retiro, arriba: la clave desaparece si no
+      // hay nada que mandar. `comentarioParaMostrar` es la que decide si hay
+      // algo, para que la pantalla y el cuerpo no puedan estar en desacuerdo.
+      //
+      // Recortar aca NO reemplaza al servicio: el sigue normalizando, y es la
+      // unica autoridad sobre lo que se guarda (contrato 1.1). Esto es lo mismo
+      // que ya hace cada `.trim()` de arriba.
+      ...(comentario ? { comentario } : {}),
       cobro: { zonaId: zona.id, precio: zona.precio },
     },
   };

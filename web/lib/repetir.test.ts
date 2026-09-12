@@ -131,6 +131,26 @@ describe("camposDelPedido", () => {
     expect(c.quantity).toBe("2");
   });
 
+  // **Esta prueba no es sobre repetir: es sobre no BORRAR.**
+  //
+  // Al editar, el pedido se guarda ENTERO, asi que un campo que el formulario
+  // no trajo se pisa con lo que este vacio. Sin esta linea en
+  // `camposDelPedido`, abrir un pedido para cambiarle la direccion le borraria
+  // el comentario sin decir nada. Es el mismo defecto que se vio el 2026-09-06
+  // con la fecha de retiro, y la unica diferencia es que este no se nota: el
+  // cliente no ve que perdio lo que habia escrito.
+  it("arrastra el comentario, que es lo que evita que editar lo borre", () => {
+    const c = camposDelPedido(unPedido({ comentario: "Tocar timbre del 2" }));
+    expect(c.comentario).toBe("Tocar timbre del 2");
+  });
+
+  // El servicio OMITE la clave cuando no hay comentario, asi que lo que llega
+  // es `undefined` y no `null` ni `""`. El formulario necesita una cadena.
+  it("deja el comentario vacio cuando el pedido no trae la clave", () => {
+    const c = camposDelPedido(unPedido());
+    expect(c.comentario).toBe("");
+  });
+
   it("NO devuelve fecha, hora, precio ni zona", () => {
     // Es el caso que hace observable a FR-014 y FR-015. Sin el, alguien agrega
     // `pickupDate` "para completar el mapeo" y precarga una fecha que ya paso.

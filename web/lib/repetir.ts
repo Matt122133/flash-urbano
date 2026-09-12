@@ -60,6 +60,8 @@ export type CamposRepetidos = {
     cooperativa: boolean;
     punto: Punto | null;
   };
+  /** La indicacion para el repartidor (026). */
+  comentario: string;
 };
 
 /** Los tres tamanos que el servicio acepta. */
@@ -138,6 +140,15 @@ export function camposDelPedido(pedido: PedidoGuardado): CamposRepetidos {
     quantity: String(pedido.cantidad),
     receiverName: pedido.destinatarioNombre,
     receiverPhone: pedido.destinatarioTelefono,
+    // **Esto NO es solo para repetir: sin esta linea, EDITAR un pedido le
+    // borra el comentario.** Al editar se guarda el pedido ENTERO, asi que un
+    // campo que el formulario no trajo se pisa con lo que este vacio — es
+    // exactamente el defecto que se vio el 2026-09-06 con la fecha de retiro.
+    //
+    // Para repetir tambien corresponde: el resto de los campos se repiten, y
+    // hacer la excepcion sin motivo seria la sorpresa. `??` porque el servicio
+    // OMITE la clave cuando no hay comentario.
+    comentario: pedido.comentario ?? "",
     // **La entrega ya no sale de aca desde `011`**: ubica, asi que se rehidrata
     // con `entregaParaRehidratar()` y su punto decide el precio. Lo que sale de
     // aca es el RETIRO, que paso a ser el texto que antes era la entrega.

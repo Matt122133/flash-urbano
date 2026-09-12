@@ -236,6 +236,9 @@ export type PedidoGuardado = {
 
   destinatarioNombre: string;
   destinatarioTelefono: string;
+  // **Opcional porque el servicio OMITE la clave cuando no hay comentario**
+  // (contrato 1.3), igual que `punto`. No llega `null`: no llega.
+  comentario?: string;
 
   /**
    * Quién recibió el paquete, cuando está entregado (`016`).

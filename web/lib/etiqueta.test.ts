@@ -83,8 +83,26 @@ const DESDE_SERVICIO: PedidoParaEtiqueta = {
 };
 
 /** Todo el texto de una etiqueta, para poder afirmar sobre lo que NO aparece. */
+/**
+ * La etiqueta como texto, **sin el comentario del cliente**.
+ *
+ * La exclusion es deliberada y es de `026`. Las guardas de abajo afirman que
+ * **el producto** no muestra importes, tamaño ni cedula. El comentario no lo
+ * escribe el producto: lo escribe el cliente, y si el pone "cobrar $300 al
+ * recibir" eso **tiene que salir impreso** — censurarlo seria el producto
+ * editando lo que una persona le quiso decir a otra.
+ *
+ * Sin esta linea, la guarda del Principio V se pondria en rojo por un texto que
+ * no viola nada, y el arreglo obvio y equivocado seria filtrar el comentario.
+ * Ver research D7 de `026`; hay una prueba abajo que fija las dos mitades.
+ */
 function textoDe(e: Etiqueta): string {
-  return JSON.stringify(e);
+  // Se arma el objeto sin la clave en vez de desestructurar y descartar: el
+  // descarte deja una variable sin usar que el linter marca, y silenciarla con
+  // un guion bajo esconderia por que existe esta linea.
+  return JSON.stringify(
+    Object.fromEntries(Object.entries(e).filter(([clave]) => clave !== "comentario")),
+  );
 }
 
 describe("la etiqueta lleva lo que tiene que llevar", () => {
@@ -358,5 +376,75 @@ describe("el producto entrega un archivo, no imprime (FR-017)", () => {
   it("EL CONTROL POSITIVO: el detector reconoce una llamada a print", () => {
     const falso = "function f() { window.print(); }";
     expect(falso).toMatch(/\bwindow\s*\.\s*print\s*\(/);
+  });
+});
+
+// El comentario en la etiqueta (026).
+describe("el comentario", () => {
+  // FR-009: sin comentario **la clave no esta**, igual que `zona`. Asi el
+  // dibujo no tiene que decidir si deja un renglon, y una etiqueta sin
+  // comentario sale identica a como salia antes de este feature.
+  it("no pone la clave cuando el pedido no tiene comentario", () => {
+    const e = etiquetaDelPedido(DESDE_SERVICIO);
+    expect("comentario" in e).toBe(false);
+  });
+
+  it("lo pone cuando lo hay, desde el pedido guardado", () => {
+    const e = etiquetaDelPedido({ ...DESDE_SERVICIO, comentario: "Tocar timbre del 2" });
+    expect(e.comentario).toBe("Tocar timbre del 2");
+  });
+
+  // Un comentario de solo espacios no dibuja un bloque vacio en el papel.
+  it("no pone la clave cuando el comentario es solo espacios", () => {
+    const e = etiquetaDelPedido({ ...DESDE_SERVICIO, comentario: "   " });
+    expect("comentario" in e).toBe(false);
+  });
+
+  // FR-005: los renglones llegan al papel. Aplanarlos convertiria tres
+  // indicaciones en un parrafo.
+  it("conserva los renglones", () => {
+    const tres = "Llamar antes' + ESC + 'Preguntar por la encargada' + ESC + 'Retirar por atras";
+    const e = etiquetaDelPedido({ ...DESDE_SERVICIO, comentario: tres });
+    expect(e.comentario?.split("' + ESC + '")).toHaveLength(3);
+  });
+
+  // **El control positivo del Principio V, y es el que mas facil se lee mal.**
+  //
+  // La etiqueta no puede mostrar NINGUN importe del producto, y hay una guarda
+  // que lo sostiene. Pero el comentario es texto que escribio el cliente: si el
+  // pone "$300" ahi adentro, **tiene que salir impreso**. No es el precio del
+  // producto, es lo que una persona le escribio a otra, y censurarlo seria el
+  // producto editando lo que el cliente quiso decir.
+  //
+  // Si algun dia la guarda del precio se pone en rojo por esto, esta mal
+  // escrita la guarda, no el producto (research D7).
+  it("no censura un importe que el cliente escribio en su comentario", () => {
+    const e = etiquetaDelPedido({
+      ...DESDE_SERVICIO,
+      comentario: "Cobrar $300 al recibir",
+    });
+    expect(e.comentario).toBe("Cobrar $300 al recibir");
+  });
+
+  // **Las dos mitades de la regla, en una sola prueba**, porque por separado
+  // cada una se puede satisfacer de la forma equivocada.
+  //
+  // Mitad 1: un "$" escrito por el cliente **no** pone en rojo la guarda del
+  // Principio V. Mitad 2: un precio puesto por el PRODUCTO si la pone, aunque
+  // el comentario este limpio. Si algun dia alguien "arregla" el falso positivo
+  // filtrando el texto del cliente, la mitad 1 sigue verde y esta prueba
+  // deja de tener sentido: por eso la mitad 2 esta al lado.
+  it("distingue el importe del cliente del importe del producto", () => {
+    const conPlataDelCliente = etiquetaDelPedido({
+      ...DESDE_SERVICIO,
+      comentario: "Cobrar $300 al recibir",
+    });
+    expect(textoDe(conPlataDelCliente)).not.toContain("$");
+
+    const conPlataDelProducto = {
+      ...conPlataDelCliente,
+      precio: 350,
+    } as unknown as Etiqueta;
+    expect(textoDe(conPlataDelProducto).toLowerCase()).toContain("precio");
   });
 });

@@ -42,6 +42,10 @@ function datos(extra: Partial<DatosDelPedido> = {}): DatosDelPedido {
     hora: "10:30",
     destinatarioNombre: "Juan Gomez",
     destinatarioTelefono: "098765432",
+    // Por defecto SIN comentario, que es el caso de la enorme mayoria de los
+    // pedidos: asi cada prueba que no lo menciona esta comprobando de paso que
+    // el campo opcional no ensucia el cuerpo.
+    comentario: "",
     ...extra,
   };
 }
@@ -224,5 +228,46 @@ describe("claveDeIntento", () => {
     } finally {
       crypto.randomUUID = original;
     }
+  });
+});
+
+// El comentario del pedido (026).
+describe("el comentario", () => {
+  // FR-002: opcional de verdad. **El cuerpo de un pedido sin comentario tiene
+  // que quedar identico al de antes de este feature**, no con la clave en
+  // vacio: si apareciera `comentario: ""`, el servicio tendria que distinguir
+  // dos formas de "no hay".
+  it("no pone la clave cuando no hay comentario", () => {
+    const armado = armarCuerpoPedido(datos());
+    expect(armado.ok).toBe(true);
+    if (!armado.ok) return;
+    expect("comentario" in armado.cuerpo).toBe(false);
+  });
+
+  it("manda el comentario cuando lo hay", () => {
+    const armado = armarCuerpoPedido(datos({ comentario: "Tocar timbre del 2" }));
+    expect(armado.ok).toBe(true);
+    if (!armado.ok) return;
+    expect(armado.cuerpo.comentario).toBe("Tocar timbre del 2");
+  });
+
+  // FR-004: lo que es solo espacios no viaja. Es la misma regla que aplica el
+  // servicio, y aca evita mandar basura que el iba a descartar igual.
+  it("no manda la clave si el comentario es solo espacios", () => {
+    const armado = armarCuerpoPedido(datos({ comentario: "   \n  " }));
+    expect(armado.ok).toBe(true);
+    if (!armado.ok) return;
+    expect("comentario" in armado.cuerpo).toBe(false);
+  });
+
+  // FR-005: los renglones sobreviven el armado del cuerpo. Aplanarlos aca seria
+  // invisible para el tipo y para el compilador.
+  it("conserva los saltos de linea", () => {
+    const tres = "Llamar antes\nPreguntar por la encargada\nRetirar por atras";
+    const armado = armarCuerpoPedido(datos({ comentario: `  ${tres}  ` }));
+    expect(armado.ok).toBe(true);
+    if (!armado.ok) return;
+    expect(armado.cuerpo.comentario).toBe(tres);
+    expect(armado.cuerpo.comentario?.split("\n")).toHaveLength(3);
   });
 });
