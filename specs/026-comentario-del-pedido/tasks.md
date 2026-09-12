@@ -95,32 +95,32 @@ manda el campo y la app vieja lo ignora (research D3).
 **Prueba independiente**: cargar un pedido con una indicación desde la web y
 verla en el teléfono, sin que nadie la reenvíe por otro canal.
 
-- [ ] T009 [US1] `web/lib/pedido.ts`: el campo en `DatosDelPedido` (lo que se
+- [X] T009 [US1] `web/lib/pedido.ts`: el campo en `DatosDelPedido` (lo que se
   tipea) y en `CuerpoPedido` (lo que se manda), y que `armarCuerpoPedido()` lo
   arrastre. **Omitir la clave cuando está vacío**, para que el cuerpo de un
   pedido sin comentario sea byte por byte el de hoy.
-- [ ] T010 [P] [US1] Pruebas en `web/lib/pedido.test.ts`: con comentario, sin
+- [X] T010 [P] [US1] Pruebas en `web/lib/pedido.test.ts`: con comentario, sin
   comentario, y con saltos de línea adentro.
-- [ ] T011 [US1] El campo en `web/components/pedido-form.tsx`: multilínea,
+- [X] T011 [US1] El campo en `web/components/pedido-form.tsx`: multilínea,
   **opcional**, rotulado **"Comentario"**, con contador y tope de 280. Y el
   **texto de ayuda debajo**, que es lo que hace el trabajo que la etiqueta sola
   no hace (FR-001a): decir quién lo lee, dar ejemplos —"tocar timbre del 2",
   "retirar por la puerta de atrás"— **y avisar que puede salir impreso en la
   etiqueta del paquete** (research D2).
-- [ ] T012 [US1] Cablear el estado en `web/components/pedido/crear-pedido.tsx` y
+- [X] T012 [US1] Cablear el estado en `web/components/pedido/crear-pedido.tsx` y
   mostrarlo en el resumen de confirmación **sólo si hay comentario**, usando
   `lib/comentario.ts` de T007 y no un `if` propio: sin comentario, ni etiqueta ni
   hueco (FR-009).
-- [ ] T013 [P] [US1] `android/app/src/main/java/uy/flashurbano/repartidor/datos/Pedido.kt`:
+- [X] T013 [P] [US1] `android/app/src/main/java/uy/flashurbano/repartidor/datos/Pedido.kt`:
   el campo **opcional con `null` por defecto**, como `Direccion.punto`. No
   declararlo no-nulo: rompería la app con datos que ya existen.
-- [ ] T014 [P] [US1] Pruebas en
+- [X] T014 [P] [US1] Pruebas en
   `android/app/src/test/java/uy/flashurbano/repartidor/datos/PedidoTest.kt`:
   decodificar un pedido **con** la clave, **sin** la clave, y —control positivo
   de research D3— **uno con una clave que la app no conoce**, que tiene que
   seguir decodificando. Ese último es el que demuestra que el servicio se puede
   desplegar antes que el APK.
-- [ ] T015 [US1] El bloque en `TarjetaPedido`, en
+- [X] T015 [US1] El bloque en `TarjetaPedido`, en
   `android/app/src/main/java/uy/flashurbano/repartidor/pantallas/Principal.kt`:
   **dentro de la tarjeta**, visualmente distinto de las direcciones y los
   teléfonos, y **sólo en los pedidos que lo tienen**.
@@ -165,7 +165,10 @@ el papel.
 **Prueba independiente**: crear con indicación y encontrarla en *Mis pedidos* y
 en la etiqueta impresa.
 
-- [ ] T019 [P] [US3] El campo en el tipo `PedidoGuardado`, en `web/lib/api.ts`.
+- [X] T019 [P] [US3] El campo en el tipo `PedidoGuardado`, en `web/lib/api.ts`.
+  **Adelantado en la Fase 3 y no por comodidad**: sin el tipo, `repetir.ts` no
+  podia arrastrar el comentario, y sin eso **editar un pedido se lo borraba**.
+  Ver T024.
   **Sólo el tipo.** Meter una llamada en el camino del formulario pone en rojo
   la guarda de `cotizar-abierto.test.ts`, que existe para que el formulario
   funcione con el servicio caído.
@@ -181,8 +184,14 @@ en la etiqueta impresa.
   rojo por eso, está mal escrita la guarda.
 - [ ] T023 [US3] Dibujarlo en `web/lib/etiqueta-pdf.ts`, respetando los saltos
   de línea del texto.
-- [ ] T024 [P] [US3] Que "repetir pedido" lo arrastre, en `web/lib/repetir.ts` y
+- [X] T024 [P] [US3] Que "repetir pedido" lo arrastre, en `web/lib/repetir.ts` y
   `web/lib/repetir.test.ts`.
+  **Adelantado a la Fase 3 por un defecto que el plan no habia visto**: al
+  editar, el pedido se guarda ENTERO, asi que un campo que el formulario no trae
+  se pisa con vacio —lo dice `crear-pedido.tsx`, y es el defecto que se vio el
+  2026-09-06 con la fecha de retiro—. Sin esta linea, abrir un pedido para
+  cambiarle la direccion **le borraba el comentario en silencio**. Dejo de ser
+  opcional: la prueba que lo guarda esta escrita y dice por que.
   **Esta tarea no sale de ningún FR y es a propósito**: es una decisión de
   diseño (research D6), no un requisito del cliente. Se hace porque el resto de
   los campos se repiten y la excepción sin motivo sería la sorpresa. **Es la

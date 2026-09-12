@@ -161,4 +161,62 @@ class PedidoTest {
         // perderle un paquete a Diego.
         assertEquals(Seccion.PENDIENTES, seccionDe("en_camino"))
     }
+
+    // El comentario del pedido (026).
+
+    /** Un pedido con comentario, de tres renglones. */
+    private val conComentario = completo.replace(
+        """"precio": 300""",
+        """"comentario": "Tocar timbre del 2\nEl porton no abre\nPreguntar por la encargada",
+          "precio": 300""",
+    )
+
+    /**
+     * FR-006: el comentario llega y se lee entero, con sus renglones.
+     *
+     * Los saltos son lo que se rompe sin que nadie lo note: el tipo es `String`
+     * con renglones o sin ellos.
+     */
+    @Test
+    fun `el comentario llega con sus renglones`() {
+        val p = json.decodeFromString<Pedido>(conComentario)
+        assertNotNull(p.comentario)
+        assertEquals(3, p.comentario!!.split("\n").size)
+        assertTrue(p.comentario!!.startsWith("Tocar timbre del 2"))
+    }
+
+    /**
+     * FR-010: un pedido **sin** comentario se lee igual que siempre.
+     *
+     * El servicio OMITE la clave cuando no hay comentario, asi que este es el
+     * caso de todos los pedidos que existen hoy. Si `comentario` fuera `String`
+     * no nulable, esto tiraria la lista entera.
+     */
+    @Test
+    fun `un pedido sin comentario se lee y queda en nulo`() {
+        val p = json.decodeFromString<Pedido>(completo)
+        assertNull(p.comentario)
+    }
+
+    /**
+     * **FR-011, y es el que habilita el orden de despliegue.**
+     *
+     * Un campo que la app NO conoce no la puede romper: por eso el lector tiene
+     * `ignoreUnknownKeys`, y este es el control positivo de que sigue puesto.
+     *
+     * Mientras esto pase, **el servicio se puede desplegar antes que el APK**, y
+     * el telefono de Diego sigue funcionando con la version que ya tiene
+     * instalada — que importa porque la app se instala a mano y no hay tienda.
+     */
+    @Test
+    fun `un campo que la app no conoce no rompe la lectura`() {
+        val conCampoFuturo = completo.replace(
+            """"precio": 300""",
+            """"algoQueTodaviaNoExiste": { "vaya": "uno" },
+          "precio": 300""",
+        )
+        val p = json.decodeFromString<Pedido>(conCampoFuturo)
+        assertEquals("FU-0001", p.codigo)
+        assertNull(p.comentario)
+    }
 }

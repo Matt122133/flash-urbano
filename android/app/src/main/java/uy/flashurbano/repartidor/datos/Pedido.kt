@@ -69,6 +69,22 @@ data class Pedido(
     val retiroHora: String = "",
     val destinatarioNombre: String = "",
     val destinatarioTelefono: String = "",
+
+    /**
+     * La indicacion que el cliente dejo para el viaje (026): "tocar timbre del
+     * 2", "retirar por la puerta de atras", "llamar antes de llegar".
+     *
+     * **Nulable con `null` por defecto, como `Direccion.punto`, y por la misma
+     * razon**: el servicio marca el campo `omitempty`, asi que un pedido sin
+     * comentario **no trae la clave** — no llega `null`, desaparece. Declararlo
+     * `String` no nulable haria que la app no pudiera leer su propia lista en
+     * cuanto apareciera un pedido sin comentario, que hoy son todos.
+     *
+     * **No es la descripcion del paquete** y **no se interpreta**: es texto de
+     * una persona para otra.
+     */
+    val comentario: String? = null,
+
     val precio: Int = 0,
     val zonaId: Int = 0,
 

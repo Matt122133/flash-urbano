@@ -121,6 +121,7 @@ function aDatos(form: FormState): DatosDelPedido {
     hora: "16:00",
     destinatarioNombre: form.receiverName,
     destinatarioTelefono: form.receiverPhone,
+    comentario: form.comentario,
   };
 }
 
@@ -677,6 +678,10 @@ async function desdeUnPedido(
     quantity: campos.quantity,
     receiverName: campos.receiverName,
     receiverPhone: campos.receiverPhone,
+    // Sin esto, editar un pedido le BORRA el comentario: el pedido se guarda
+    // entero y lo que el formulario no trajo se pisa con vacio. Ver el
+    // comentario de `camposDelPedido` en `lib/repetir.ts`.
+    comentario: campos.comentario,
     retiro,
     // **La fecha de retiro viaja SOLO al editar, y las dos respuestas son
     // correctas.** `camposDelPedido` la deja afuera a proposito (FR-014 de
