@@ -65,6 +65,24 @@ que el dato exista y viaje.
   FR-012, y hoy se cumple gratis porque la consulta nombra sus columnas
   (research D5) — la prueba es para que siga siendo gratis.
 
+- [ ] T007 [P] `web/lib/comentario.ts`: **una función pura que decida si hay
+  comentario que mostrar** —recorta y devuelve el texto, o nada si queda vacío—
+  y que la usen las cuatro pantallas de la web en vez de repetir cuatro veces
+  un `if` sobre el string.
+  **Por qué existe**: FR-009 —sin comentario, ni etiqueta ni hueco— es una regla
+  de presentación que hoy no puede probarse: el repo **no tiene pruebas de
+  componentes**, `vitest.config.ts` corre en `node` con `include: lib/**` y el
+  archivo dice que montar un DOM sería infraestructura de más. Sacar la decisión
+  a `lib/` la vuelve probable con lo que ya existe, que es exactamente el motivo
+  por el que `etiqueta.ts` está separado de `etiqueta-pdf.ts`.
+- [ ] T008 [P] Pruebas en `web/lib/comentario.test.ts`: texto normal, `undefined`,
+  cadena vacía, **sólo espacios y saltos de línea**, y un texto con espacios
+  alrededor —que se recorta sin tocar los saltos de adentro—.
+  **Lo que esto NO cubre**: que el componente efectivamente no dibuje nada. Eso
+  sigue siendo el quickstart Q3, a ojo. Lo que la prueba garantiza es que las
+  cuatro pantallas **toman la misma decisión**, que es donde estaba el riesgo
+  real de que una se desalineara.
+
 **Punto de control**: acá el servicio se puede desplegar solo. La web vieja no
 manda el campo y la app vieja lo ignora (research D3).
 
@@ -77,31 +95,32 @@ manda el campo y la app vieja lo ignora (research D3).
 **Prueba independiente**: cargar un pedido con una indicación desde la web y
 verla en el teléfono, sin que nadie la reenvíe por otro canal.
 
-- [ ] T007 [US1] `web/lib/pedido.ts`: el campo en `DatosDelPedido` (lo que se
+- [ ] T009 [US1] `web/lib/pedido.ts`: el campo en `DatosDelPedido` (lo que se
   tipea) y en `CuerpoPedido` (lo que se manda), y que `armarCuerpoPedido()` lo
   arrastre. **Omitir la clave cuando está vacío**, para que el cuerpo de un
   pedido sin comentario sea byte por byte el de hoy.
-- [ ] T008 [P] [US1] Pruebas en `web/lib/pedido.test.ts`: con comentario, sin
+- [ ] T010 [P] [US1] Pruebas en `web/lib/pedido.test.ts`: con comentario, sin
   comentario, y con saltos de línea adentro.
-- [ ] T009 [US1] El campo en `web/components/pedido-form.tsx`: multilínea,
+- [ ] T011 [US1] El campo en `web/components/pedido-form.tsx`: multilínea,
   **opcional**, rotulado **"Comentario"**, con contador y tope de 280. Y el
   **texto de ayuda debajo**, que es lo que hace el trabajo que la etiqueta sola
   no hace (FR-001a): decir quién lo lee, dar ejemplos —"tocar timbre del 2",
   "retirar por la puerta de atrás"— **y avisar que puede salir impreso en la
   etiqueta del paquete** (research D2).
-- [ ] T010 [US1] Cablear el estado en `web/components/pedido/crear-pedido.tsx` y
-  mostrarlo en el resumen de confirmación **sólo si hay comentario**: sin
-  comentario, ni etiqueta ni hueco (FR-009).
-- [ ] T011 [P] [US1] `android/app/src/main/java/uy/flashurbano/repartidor/datos/Pedido.kt`:
+- [ ] T012 [US1] Cablear el estado en `web/components/pedido/crear-pedido.tsx` y
+  mostrarlo en el resumen de confirmación **sólo si hay comentario**, usando
+  `lib/comentario.ts` de T007 y no un `if` propio: sin comentario, ni etiqueta ni
+  hueco (FR-009).
+- [ ] T013 [P] [US1] `android/app/src/main/java/uy/flashurbano/repartidor/datos/Pedido.kt`:
   el campo **opcional con `null` por defecto**, como `Direccion.punto`. No
   declararlo no-nulo: rompería la app con datos que ya existen.
-- [ ] T012 [P] [US1] Pruebas en
+- [ ] T014 [P] [US1] Pruebas en
   `android/app/src/test/java/uy/flashurbano/repartidor/datos/PedidoTest.kt`:
   decodificar un pedido **con** la clave, **sin** la clave, y —control positivo
   de research D3— **uno con una clave que la app no conoce**, que tiene que
   seguir decodificando. Ese último es el que demuestra que el servicio se puede
   desplegar antes que el APK.
-- [ ] T013 [US1] El bloque en `TarjetaPedido`, en
+- [ ] T015 [US1] El bloque en `TarjetaPedido`, en
   `android/app/src/main/java/uy/flashurbano/repartidor/pantallas/Principal.kt`:
   **dentro de la tarjeta**, visualmente distinto de las direcciones y los
   teléfonos, y **sólo en los pedidos que lo tienen**.
@@ -124,14 +143,14 @@ esté pendiente. Misma regla que `022`, decidida en el clarify y no heredada.
 **Prueba independiente**: crear con indicación, editarla desde el perfil con el
 pedido pendiente, y ver la nueva en el teléfono.
 
-- [ ] T014 [US2] El campo en el camino de edición: `Editar` en
+- [ ] T016 [US2] El campo en el camino de edición: `Editar` en
   `backend/internal/pedidos/handlers.go`, con la misma validación de T004. Un
   comentario vacío o ausente **borra el que había** (pasa a `NULL`).
-- [ ] T015 [P] [US2] Pruebas en `backend/internal/pedidos/pedido_test.go`:
+- [ ] T017 [P] [US2] Pruebas en `backend/internal/pedidos/pedido_test.go`:
   editar el comentario de un pedido pendiente; **borrarlo** y que quede `NULL`;
   y que un pedido **ya tomado** rechace la edición igual que hoy rechaza el
   resto de los campos.
-- [ ] T016 [US2] El campo en el formulario de edición, en
+- [ ] T018 [US2] El campo en el formulario de edición, en
   `web/components/pedido/crear-pedido.tsx`. Con el pedido ya tomado **no se
   puede editar y se ve el mismo motivo** que `022` ya muestra para los demás
   campos — no un botón que falle al tocarlo.
@@ -146,23 +165,23 @@ el papel.
 **Prueba independiente**: crear con indicación y encontrarla en *Mis pedidos* y
 en la etiqueta impresa.
 
-- [ ] T017 [P] [US3] El campo en el tipo `PedidoGuardado`, en `web/lib/api.ts`.
+- [ ] T019 [P] [US3] El campo en el tipo `PedidoGuardado`, en `web/lib/api.ts`.
   **Sólo el tipo.** Meter una llamada en el camino del formulario pone en rojo
   la guarda de `cotizar-abierto.test.ts`, que existe para que el formulario
   funcione con el servicio caído.
-- [ ] T018 [US3] Mostrarlo en `web/components/pedido/tarjeta-pedido.tsx`, sólo
-  cuando existe.
-- [ ] T019 [US3] Qué dice el impreso, en `web/lib/etiqueta.ts`: el comentario en
+- [ ] T020 [US3] Mostrarlo en `web/components/pedido/tarjeta-pedido.tsx`, sólo
+  cuando existe, con `lib/comentario.ts` de T007.
+- [ ] T021 [US3] Qué dice el impreso, en `web/lib/etiqueta.ts`: el comentario en
   un bloque propio y legible. **Sin comentario, la etiqueta sale exactamente
   como hoy**, ni un renglón corrido.
-- [ ] T020 [P] [US3] Pruebas en `web/lib/etiqueta.test.ts`: con y sin
+- [ ] T022 [P] [US3] Pruebas en `web/lib/etiqueta.test.ts`: con y sin
   comentario, y **el control positivo de research D7** — una etiqueta cuyo
   comentario diga `Cobrar $300` **tiene que salir con ese texto**. Es texto del
   cliente, no un precio del producto: si la guarda del Principio V se pone en
   rojo por eso, está mal escrita la guarda.
-- [ ] T021 [US3] Dibujarlo en `web/lib/etiqueta-pdf.ts`, respetando los saltos
+- [ ] T023 [US3] Dibujarlo en `web/lib/etiqueta-pdf.ts`, respetando los saltos
   de línea del texto.
-- [ ] T022 [P] [US3] Que "repetir pedido" lo arrastre, en `web/lib/repetir.ts` y
+- [ ] T024 [P] [US3] Que "repetir pedido" lo arrastre, en `web/lib/repetir.ts` y
   `web/lib/repetir.test.ts`.
   **Esta tarea no sale de ningún FR y es a propósito**: es una decisión de
   diseño (research D6), no un requisito del cliente. Se hace porque el resto de
@@ -174,30 +193,30 @@ en la etiqueta impresa.
 
 ## Fase 6: Cierre
 
-- [ ] T023 `verify:` entero con `TEST_DATABASE_URL` y **cero `SKIP`**, las tres
+- [ ] T025 `verify:` entero con `TEST_DATABASE_URL` y **cero `SKIP`**, las tres
   patas. La de Android es `.\gradlew.bat`, no `./gradlew` ni `gradlew.bat`.
-- [ ] T024 **Romper a propósito** las guardas nuevas y verlas en rojo: sacar el
+- [ ] T026 **Romper a propósito** las guardas nuevas y verlas en rojo: sacar el
   `omitempty` de T003, devolver `""` en vez de `NULL` en T004, y meter la clave
   `comentario` en la consulta del tablero. Una prueba que afirma que algo no
   pasa no vale hasta que se la vio fallar.
-- [ ] T025 Quickstart Q1–Q9 y Q12–Q14 en pantalla, con Mateo
+- [ ] T027 Quickstart Q1–Q9 y Q12–Q14 en pantalla, con Mateo
   ([quickstart.md](quickstart.md)). Lo que no se reporte **se anota en el
   tracker con su disparador**, no se tilda.
-- [ ] T026 **Quickstart Q10 y Q11, en el teléfono**, que es lo que el `verify:`
+- [ ] T028 **Quickstart Q10 y Q11, en el teléfono**, que es lo que el `verify:`
   no ve. Q10 —**el APK viejo contra el servicio nuevo**— es el que decide si el
   servicio se puede desplegar antes que la app; si falla, cambia el orden de
   todo. Q11 mira que la tarjeta no se haya roto: nada de texto cortado, y a
   360 px también. En `012` dos defectos de esta clase compilaron perfecto.
-- [ ] T027 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
+- [ ] T029 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
   quedado abierto, con disparador. Candidatos previsibles: que la tarjeta de la
   app no tiene prueba automática, y cualquier paso del quickstart sin reportar.
-- [ ] T028 Commitear **con el plan todavía `active`**, stageando rutas
+- [ ] T030 Commitear **con el plan todavía `active`**, stageando rutas
   explícitas. Con el plan cerrado el sensor rebota los archivos de código.
-- [ ] T029 Después del merge y del deploy: **publicar el APK** con
+- [ ] T031 Después del merge y del deploy: **publicar el APK** con
   `scripts/publicar-app.sh vX.Y.Z` y que **Diego lo instale**. Hasta acá la
   feature **no está entregada**: el código en `master` no la pone en el
   teléfono de otra persona.
-- [ ] T030 Confirmar con Diego que ve el comentario en un pedido de verdad, y
+- [ ] T032 Confirmar con Diego que ve el comentario en un pedido de verdad, y
   recién después pasar `plan.md` a `status: completed`, en un commit aparte.
 
 ---
@@ -206,26 +225,32 @@ en la etiqueta impresa.
 
 ```text
 Fase 1 (T001)
-  └─ Fase 2: la columna y el servicio (T002 → T003 → T004 → T005, T006)
-       ├─ Fase 3: US1 — web (T007→T010) y app (T011→T013), independientes entre sí
-       ├─ Fase 4: US2 — edición (T014→T016)
-       └─ Fase 5: US3 — Mis pedidos, etiqueta y repetir (T017→T022)
-            └─ Fase 6: cierre (T023→T030)
+  └─ Fase 2: la columna, el servicio, y la decisión compartida de la web
+       (T002 → T003 → T004 → T005, T006) y (T007 → T008)
+       ├─ Fase 3: US1 — web (T009→T012) y app (T013→T015), independientes entre sí
+       ├─ Fase 4: US2 — edición (T016→T018)
+       └─ Fase 5: US3 — Mis pedidos, etiqueta y repetir (T019→T024)
+            └─ Fase 6: cierre (T025→T032)
 ```
 
 - **T002 bloquea todo.** Sin la columna no hay nada que probar.
+- **T007 bloquea las tareas de web que muestran el comentario** (T012, T020,
+  T021): las cuatro pantallas tienen que tomar la misma decisión, no cuatro
+  `if` propios. No bloquea nada del servicio ni de la app.
 - **La web y la app no se bloquean entre sí** una vez que el servicio manda el
   campo. Es la propiedad que evita coordinar un despliegue con un teléfono
   ajeno.
 - **US2 y US3 no dependen entre sí**, y ninguna bloquea a US1.
-- **T029 y T030 son lo último, y no son código.**
+- **T031 y T032 son lo último, y no son código.**
 
 ## Paralelo
 
 - T006 con T005 (archivos distintos).
-- T008, T011 y T012 entre sí, y con cualquier tarea de web de la Fase 3.
-- T017, T020 y T022 entre sí.
-- **Las dos mitades de US1** —web (T007–T010) y app (T011–T013)— son dos
+- **T007 y T008 con toda la Fase 2 del servicio**: son otro archivo y otra
+  superficie, no se tocan con la migración ni con Go.
+- T010, T013 y T014 entre sí, y con cualquier tarea de web de la Fase 3.
+- T019, T022 y T024 entre sí.
+- **Las dos mitades de US1** —web (T009–T012) y app (T013–T015)— son dos
   carriles enteros que no se tocan.
 
 ## MVP

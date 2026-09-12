@@ -13,6 +13,11 @@ covers:
   # El tipo del formulario y el armado del cuerpo. Modulo puro, con pruebas.
   - web/lib/pedido.ts
   - web/lib/pedido.test.ts
+  # La decision de "hay comentario que mostrar", afuera de los componentes para
+  # que sea probable: el repo no tiene pruebas de componentes y montar un DOM
+  # seria infraestructura de mas (vitest corre en node, include lib/**).
+  - web/lib/comentario.ts
+  - web/lib/comentario.test.ts
   # El tipo PedidoGuardado. OJO: se toca el TIPO, nunca se mete una llamada en
   # el camino del formulario; cotizar-abierto.test.ts lo guarda.
   - web/lib/api.ts
@@ -207,6 +212,13 @@ lean como cobertura faltante:
   eliminar un pedido ajeno. El comentario viaja adentro del pedido, asi que
   hereda esa autorizacion sin agregar nada. **Lo que si hay que cuidar es no
   agregar un camino nuevo** que devuelva pedidos sin ese filtro.
+- **FR-009 — sin indicación, ninguna pantalla dibuja un hueco.** No se prueba
+  automáticamente **el dibujo**, porque el repo no tiene pruebas de componentes
+  y montarlas sería la infraestructura que el Principio III desaconseja y que
+  `vitest.config.ts` rechaza por escrito. Lo que sí se prueba es **la decisión**,
+  sacada a `lib/comentario.ts` (T007/T008): las cuatro pantallas la comparten,
+  así que no pueden desalinearse. Que además no dibujen nada lo mira el
+  quickstart Q3, a ojo, y eso queda dicho y no disimulado.
 - **FR-011 — una app vieja no se rompe.** Lo cumple `ignoreUnknownKeys`, que ya
   esta puesto en `Pedido.kt` (research D3). La tarea T012 no lo construye: lo
   **demuestra**, que es distinto y es lo que hace que se pueda desplegar el

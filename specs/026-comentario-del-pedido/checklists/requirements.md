@@ -51,6 +51,12 @@
   detalle que la app no tiene (F1); `covers:` no incluía
   `backend/internal/tablero/`, que T006 necesita (F2); FR-013 no decía quién lo
   cumple (F3); T022 no salía de ningún FR y ahora lo declara (F4); y "tres
-  superficies" contra "cuatro pantallas" (F6). **Queda abierto F5**: FR-009 —sin
-  comentario no hay hueco— sólo lo mira el quickstart, sin prueba automática en
-  la web.
+  superficies" contra "cuatro pantallas" (F6). **F5 también se atendió**, pero no
+  como pedía el hallazgo: FR-009 no puede probarse sobre el componente porque el
+  repo **no tiene pruebas de componentes** —`vitest.config.ts` corre en `node`
+  con `include: lib/**` y dice por escrito que montar un DOM sería
+  infraestructura de más—, y armarla contradiría el Principio III. Se sacó la
+  **decisión** a `lib/comentario.ts` (T007/T008), que sí es probable con lo que
+  ya existe y garantiza que las cuatro pantallas no se desalineen. **Que además
+  no dibujen nada sigue siendo el quickstart Q3, a ojo**, y está dicho en el
+  plan en vez de disimulado.
