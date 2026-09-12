@@ -5,6 +5,7 @@ import type { DireccionGuardada, PedidoGuardado } from "@/lib/api";
 import { useState } from "react";
 
 import { BotonImprimir } from "@/components/pedido/boton-imprimir";
+import { comentarioParaMostrar } from "@/lib/comentario";
 import { ErrorApi, eliminarPedido } from "@/lib/api";
 import { credencial } from "@/lib/sesion";
 import { etiquetaDelPedido } from "@/lib/etiqueta";
@@ -37,6 +38,7 @@ export function TarjetaPedido({
   // guardado. Si esta linea desapareciera, el feature seguiria siendo seguro:
   // se veria un boton que devuelve un error.
   const pendiente = pedido.estado === "creacion";
+  const comentario = comentarioParaMostrar(pedido.comentario);
 
   return (
     <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -127,6 +129,24 @@ export function TarjetaPedido({
             titulo="Recibe"
             valor={`${pedido.destinatarioNombre} · ${pedido.destinatarioTelefono}`}
           />
+          {/* El comentario (026), **solo si lo hay**: sin el, la tarjeta queda
+              igual que antes de este feature (FR-009). Decide la misma funcion
+              que en el resumen, la etiqueta y la app.
+
+              Va ultimo y ocupa el ancho entero: es lo unico de la tarjeta que
+              puede tener varios renglones, y `whitespace-pre-line` los conserva
+              — una lista de tres indicaciones se lee como tres, no como un
+              parrafo pegado. */}
+          {comentario && (
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Comentario
+              </dt>
+              <dd className="mt-0.5 whitespace-pre-line break-words text-slate-700">
+                {comentario}
+              </dd>
+            </div>
+          )}
         </dl>
         {/* **El motivo, escrito** (FR-011). Un boton que desaparece sin
             explicacion es un producto que parece roto: la persona no vio lo que

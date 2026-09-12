@@ -1070,6 +1070,7 @@ function Confirmation({
               entrega: form.entrega.direccion,
               destinatarioNombre: form.receiverName,
               destinatarioTelefono: form.receiverPhone,
+              comentario: form.comentario,
               fechaRetiro: form.pickupDate,
               cantidad: form.quantity,
             })

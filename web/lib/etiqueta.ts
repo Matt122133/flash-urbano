@@ -17,6 +17,7 @@
 //
 // Modulo puro: sin red, sin `window`, sin React. Corre en Node bajo Vitest,
 // igual que `lib/repetir.ts`, que existe por exactamente esta razon.
+import { comentarioParaMostrar } from "./comentario";
 import { componerDireccion, type Direccion } from "./direccion";
 import { resolverZona } from "./zona-lookup";
 
@@ -63,12 +64,29 @@ export type Etiqueta = {
   /** `YYYY-MM-DD` tal como se guarda. No es un instante. */
   fechaRetiro: string;
   cantidad: number;
+  /**
+   * La indicacion del cliente para el viaje (026). **Ausente y no vacia**
+   * cuando no hay, por el mismo motivo que `zona`: el dibujo no tiene que
+   * decidir si deja el renglon, y sin comentario la hoja sale EXACTAMENTE como
+   * antes de este feature (FR-009).
+   *
+   * **Este texto lo escribio el cliente y va pegado al paquete**, asi que lo
+   * lee cualquiera que lo manipule. No es confidencial, y el formulario se lo
+   * avisa a quien escribe (research D2).
+   */
+  comentario?: string;
 };
 
 /** El nombre de la zona de un punto, o ausente si no hay punto o no hay zona. */
 function zonaDe(punto: { lat: number; lng: number } | null | undefined): string | undefined {
   if (!punto) return undefined;
   return resolverZona(punto.lat, punto.lng)?.nombre;
+}
+
+/** Deja fuera la clave cuando no hay comentario, igual que `conZona`. */
+function conComentario(base: Omit<Etiqueta, "comentario">, crudo: string | null | undefined): Etiqueta {
+  const texto = comentarioParaMostrar(crudo);
+  return texto === null ? base : { ...base, comentario: texto };
 }
 
 /** Deja fuera la clave cuando no hay zona, en vez de ponerla en `undefined`. */
@@ -93,8 +111,9 @@ export function etiquetaDelFormulario(datos: {
   destinatarioTelefono: string;
   fechaRetiro: string;
   cantidad: string | number;
+  comentario?: string;
 }): Etiqueta {
-  return {
+  return conComentario({
     codigo: datos.codigo,
     entrega: conZona(
       {
@@ -112,7 +131,7 @@ export function etiquetaDelFormulario(datos: {
     fechaRetiro: datos.fechaRetiro,
     // El formulario lo tiene como texto de un `<input>`; el servicio como numero.
     cantidad: Number(datos.cantidad),
-  };
+  }, datos.comentario);
 }
 
 /**
@@ -139,6 +158,8 @@ export type PedidoParaEtiqueta = {
   entrega: DireccionParaEtiqueta;
   retiroFecha: string;
   cantidad: number;
+  /** Ausente cuando el servicio no lo manda: no llega `null`, no llega. */
+  comentario?: string;
 };
 
 type DireccionParaEtiqueta = {
@@ -171,7 +192,7 @@ function comoDireccion(d: DireccionParaEtiqueta): Direccion {
  * punto. Ahi la etiqueta sale igual, sin el bloque de zona.
  */
 export function etiquetaDelPedido(p: PedidoParaEtiqueta): Etiqueta {
-  return {
+  return conComentario({
     codigo: p.codigo,
     entrega: conZona(
       {
@@ -188,7 +209,7 @@ export function etiquetaDelPedido(p: PedidoParaEtiqueta): Etiqueta {
     },
     fechaRetiro: p.retiroFecha,
     cantidad: p.cantidad,
-  };
+  }, p.comentario);
 }
 
 /** Nombre del archivo descargado. Lleva el codigo para que dos no se pisen (FR-016). */

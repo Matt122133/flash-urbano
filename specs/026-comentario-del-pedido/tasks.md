@@ -143,14 +143,24 @@ esté pendiente. Misma regla que `022`, decidida en el clarify y no heredada.
 **Prueba independiente**: crear con indicación, editarla desde el perfil con el
 pedido pendiente, y ver la nueva en el teléfono.
 
-- [ ] T016 [US2] El campo en el camino de edición: `Editar` en
+- [X] T016 [US2] El campo en el camino de edición: `Editar` en
   `backend/internal/pedidos/handlers.go`, con la misma validación de T004. Un
   comentario vacío o ausente **borra el que había** (pasa a `NULL`).
-- [ ] T017 [P] [US2] Pruebas en `backend/internal/pedidos/pedido_test.go`:
+  **Quedo hecho sin escribir codigo, y se verifico en vez de suponerlo**:
+  `Editar` reusa `aNuevo` —decision de `022`, "sin eso editar seria una puerta
+  de atras para guardar un pedido que crear habria rechazado"—, asi que la
+  validacion y el recorte de T004 aplican a los dos caminos por construccion.
+- [X] T017 [P] [US2] Pruebas en `backend/internal/pedidos/pedido_test.go`:
   editar el comentario de un pedido pendiente; **borrarlo** y que quede `NULL`;
   y que un pedido **ya tomado** rechace la edición igual que hoy rechaza el
   resto de los campos.
-- [ ] T018 [US2] El campo en el formulario de edición, en
+  **Parcialmente cubierto por pruebas que ya existian, y se comprobo cual.**
+  Editar y borrar el comentario los cubre `TestSePuedeEditarYBorrarElComentario`
+  (escrita en la Fase 2). Que un pedido **ya tomado** rechace la edicion ya lo
+  cubre `TestUnPedidoTomadoYaNoSeEditaNiSeElimina` de `022`, para el pedido
+  entero: el comentario lo hereda porque el `UPDATE` es uno solo con
+  `WHERE estado = 'creacion'`. **No se escribio una prueba duplicada.**
+- [X] T018 [US2] El campo en el formulario de edición, en
   `web/components/pedido/crear-pedido.tsx`. Con el pedido ya tomado **no se
   puede editar y se ve el mismo motivo** que `022` ya muestra para los demás
   campos — no un botón que falle al tocarlo.
@@ -172,17 +182,21 @@ en la etiqueta impresa.
   **Sólo el tipo.** Meter una llamada en el camino del formulario pone en rojo
   la guarda de `cotizar-abierto.test.ts`, que existe para que el formulario
   funcione con el servicio caído.
-- [ ] T020 [US3] Mostrarlo en `web/components/pedido/tarjeta-pedido.tsx`, sólo
+  **Tambien quedo hecho solo**: editar usa el MISMO `PedidoForm` que crear, y el
+  cuerpo que manda sale de `armarCuerpoPedido`, que desde T009 lleva el
+  comentario. El motivo a la vista cuando el pedido ya no se puede editar es el
+  de `022` y no cambio. Verificado leyendo `crear-pedido.tsx`, no asumido.
+- [X] T020 [US3] Mostrarlo en `web/components/pedido/tarjeta-pedido.tsx`, sólo
   cuando existe, con `lib/comentario.ts` de T007.
-- [ ] T021 [US3] Qué dice el impreso, en `web/lib/etiqueta.ts`: el comentario en
+- [X] T021 [US3] Qué dice el impreso, en `web/lib/etiqueta.ts`: el comentario en
   un bloque propio y legible. **Sin comentario, la etiqueta sale exactamente
   como hoy**, ni un renglón corrido.
-- [ ] T022 [P] [US3] Pruebas en `web/lib/etiqueta.test.ts`: con y sin
+- [X] T022 [P] [US3] Pruebas en `web/lib/etiqueta.test.ts`: con y sin
   comentario, y **el control positivo de research D7** — una etiqueta cuyo
   comentario diga `Cobrar $300` **tiene que salir con ese texto**. Es texto del
   cliente, no un precio del producto: si la guarda del Principio V se pone en
   rojo por eso, está mal escrita la guarda.
-- [ ] T023 [US3] Dibujarlo en `web/lib/etiqueta-pdf.ts`, respetando los saltos
+- [X] T023 [US3] Dibujarlo en `web/lib/etiqueta-pdf.ts`, respetando los saltos
   de línea del texto.
 - [X] T024 [P] [US3] Que "repetir pedido" lo arrastre, en `web/lib/repetir.ts` y
   `web/lib/repetir.test.ts`.
