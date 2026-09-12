@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: draft
+status: active
 covers:
   # La columna nueva. Migracion 0009, sin relleno de datos.
   - backend/migrations/
@@ -40,7 +40,7 @@ covers:
   # spec-kit escribe aca cual es el feature activo.
   - .specify/feature.json
 verify: cd web && npm run lint && npm test && npm run build && cd ../backend && go vet ./... && go test ./... -p 1 && go build ./... && cd ../android && .\gradlew.bat assembleDebug testDebugUnitTest
-analyzed:
+analyzed: 2026-09-12
 ---
 
 # Implementation Plan: El comentario del pedido
