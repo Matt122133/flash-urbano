@@ -6,6 +6,10 @@ covers:
   - backend/migrations/
   # Insert, update (el camino de 022), scan y validacion del tope.
   - backend/internal/pedidos/
+  # SOLO la prueba: que el tablero siga sin traer el comentario (FR-012, T006).
+  # El paquete no se toca; lo que se agrega es la guarda de que sigue sin
+  # tocarse. Sin este prefijo el sensor rebota el commit de T006.
+  - backend/internal/tablero/
   # El tipo del formulario y el armado del cuerpo. Modulo puro, con pruebas.
   - web/lib/pedido.ts
   - web/lib/pedido.test.ts
@@ -168,26 +172,45 @@ el teléfono de otra persona.
 
 ## Lo que hay que mirar al aprobar este plan
 
-**Una decisión del diseño se aparta de la letra del spec, y es a propósito.**
+**Una respuesta del clarify describía una pantalla que no existe, y el spec se
+corrigió.**
 
-El spec, en D1, dice que la app **marca** el pedido en la lista y el texto
-completo se lee **al abrirlo**. **En la app no existe "abrir un pedido"**: el
-contrato §4.2 de `012` fija que la tarjeta muestra todo sin desplegar y que no se
-toca, con el motivo escrito en el código —Diego no puede tener que tocar para
-leer algo parado en una puerta—.
+La respuesta original decía que la app **marca** el pedido en la lista y que el
+texto completo se lee **al abrirlo**. **En la app no existe "abrir un pedido"**:
+el contrato §4.2 de `012` fija que la tarjeta muestra todo sin desplegar y que
+no se toca, con el motivo escrito en el código —Diego no puede tener que tocar
+para leer algo parado en una puerta—.
 
-El plan resuelve poniendo **el comentario dentro de la tarjeta**, como bloque
-propio y sólo en los pedidos que lo tienen (research D1). Cumple lo que la
-respuesta buscaba —que Diego lo sepa al decidir qué lleva— sin romper 4.2.
+El diseño pone **el comentario dentro de la tarjeta**, como bloque propio y sólo
+en los pedidos que lo tienen (research D1): cumple lo que la respuesta buscaba
+—que Diego lo sepa al decidir qué lleva— sin romper §4.2. **FR-006a y la sección
+D1 del spec se reescribieron el 2026-09-12** para decir eso, así que spec, plan,
+contrato y tareas dicen hoy lo mismo. Lo encontró el `/speckit-analyze` (F1).
 
-**Si se prefiere la pantalla de detalle, se puede**: el costo es enmendar el
-contrato de `012`, y entonces este plan cambia.
+**Si se prefiere igual la pantalla de detalle, se puede**: el costo es enmendar
+el contrato de `012`, y entonces este plan cambia.
 
 Lo segundo, más chico pero conviene saberlo antes: **lo que se imprime es la
 etiqueta que se pega al paquete**, no un resumen privado. Poner ahí el comentario
 —que es lo pedido— significa que lo lee cualquiera que manipule el paquete, así
 que FR-013 se corrigió para no prometer una confidencialidad que el papel no da,
 y el texto de ayuda del campo tiene que avisarlo (research D2).
+
+## Requisitos que ya estan cumplidos, y por quien
+
+Dos requisitos del spec **no generan trabajo**, y conviene decirlo para que no se
+lean como cobertura faltante:
+
+- **FR-013 — ningun otro cliente puede leer la indicacion de un pedido ajeno.**
+  Lo cumple el camino de lectura que ya existe: `Mios` devuelve solo los pedidos
+  del usuario de la sesion, y `022` ya tiene prueba de que no se puede editar ni
+  eliminar un pedido ajeno. El comentario viaja adentro del pedido, asi que
+  hereda esa autorizacion sin agregar nada. **Lo que si hay que cuidar es no
+  agregar un camino nuevo** que devuelva pedidos sin ese filtro.
+- **FR-011 — una app vieja no se rompe.** Lo cumple `ignoreUnknownKeys`, que ya
+  esta puesto en `Pedido.kt` (research D3). La tarea T012 no lo construye: lo
+  **demuestra**, que es distinto y es lo que hace que se pueda desplegar el
+  servicio antes que el APK.
 
 ## Riesgos
 

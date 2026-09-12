@@ -130,7 +130,9 @@ de pedidos del perfil y en el resumen imprimible.
 - **Saltos de línea dentro del comentario.** Se conservan al leerlo; una lista
   de tres renglones no se lee como un párrafo pegado.
 - **Caracteres que rompen una pantalla.** Comillas, ñ, tildes, emoji: se
-  guardan y se muestran como se escribieron, en las tres superficies.
+  guardan y se muestran como se escribieron, en las **cuatro pantallas** donde
+  aparece: el resumen de confirmación, *Mis pedidos*, la etiqueta impresa y la
+  tarjeta de la app.
 - **Un comentario que el cliente usa para pedir algo que el servicio no hace**
   (cambiar la dirección, coordinar otro día). El producto no lo interpreta: es
   texto para una persona, no una instrucción para el sistema.
@@ -171,9 +173,13 @@ repetir la misma palabra en cada renglón: son lo mismo.
   la par de la dirección: aparece en toda pantalla que muestre el pedido —el
   resumen de confirmación, el resumen imprimible, los pedidos del perfil, y la
   app del repartidor—, no en una pantalla propia.
-- **FR-006a**: En la app del repartidor, la lista MUST **marcar** los pedidos
-  que traen indicación, para que se vea sin abrirlos cuál tiene algo que leer;
-  el texto completo se lee al abrir el pedido.
+- **FR-006a**: En la app del repartidor, la indicación MUST leerse **dentro de
+  la tarjeta del pedido**, en un bloque propio y visualmente distinto de las
+  direcciones y los teléfonos, y **sólo en los pedidos que la tienen**.
+  **No se crea pantalla de detalle y no se pliega nada**: el contrato §4.2 de
+  `012` fija que la tarjeta muestra todo sin desplegar y que no se toca, porque
+  el repartidor no puede tener que tocar para leer algo parado en una puerta.
+  Así Diego lo sabe **al decidir qué lleva en el día**, que es lo que D1 buscaba.
 - **FR-007**: El cliente MUST poder editar y borrar la indicación **bajo la
   misma regla que `022` ya aplica al resto del pedido**: mientras esté
   pendiente, y con el mismo motivo a la vista cuando ya no se puede.
@@ -213,7 +219,7 @@ repetir la misma palabra en cada renglón: son lo mismo.
   indicación— se siguen viendo y operando igual que antes, en la web y en la
   app.
 - **SC-004**: Una indicación con tildes, ñ, comillas y tres renglones se lee
-  íntegra y con sus renglones en las tres superficies donde aparece.
+  íntegra y con sus renglones en las cuatro pantallas donde aparece.
 - **SC-005**: Un cliente que se equivocó puede corregir la indicación mientras
   el pedido esté pendiente, y el repartidor pasa a ver la corregida.
 - **SC-006**: Las indicaciones que hoy viajan por WhatsApp para los pedidos
@@ -256,10 +262,17 @@ No es información para una sola superficie: se comporta **como la dirección de
 entrega**. Aparece en el resumen, en el resumen imprimible, en los pedidos del
 perfil y en la app del repartidor. Recogido en FR-006 y FR-008.
 
-En la app, además, **la lista marca los pedidos que traen indicación**, "para
-que sepa si hay alguna forma específica de entregar algo" — o sea que la marca
-existe para que Diego lo sepa **al decidir qué lleva**, no recién al abrir el
-pedido. Recogido en FR-006a.
+En la app, la intención fue "que le marca el pedido justamente para que sepa si
+hay alguna forma específica de entregar algo": que Diego lo sepa **al decidir
+qué lleva**, no después.
+
+**Cómo se cumple, corregido tras el diseño**: la respuesta hablaba de marcar en
+la lista y leer el texto al abrir el pedido, pero **en la app no existe abrir un
+pedido** — el contrato §4.2 de `012` fija que la tarjeta muestra todo sin
+desplegar y que no se toca. La indicación va entonces **dentro de la tarjeta**,
+como bloque propio, que cumple la intención de forma más directa que una marca:
+Diego lee el texto sin tocar nada. Recogido en FR-006a; el hallazgo está en
+research D1.
 
 **Consecuencia que hay que tener presente**: esto arrastra la app Android. Ver
 *Dependencias*: la función no está entregada hasta que el teléfono de Diego la

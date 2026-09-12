@@ -97,8 +97,9 @@ tienen**.
 **No se crea pantalla de detalle y no se pliega nada.** El contrato §4.2 de
 `012` dice que la tarjeta muestra todo sin desplegar y que no se toca, con el
 motivo escrito: Diego no puede tener que tocar para leer algo parado en una
-puerta. Ver research D1 — **esto se aparta de la letra de D1 del spec y es lo
-primero que hay que mirar al aprobar el plan**.
+puerta. Es lo que pide FR-006a, que se corrigió el 2026-09-12 con lo que
+encontró research D1: la respuesta original del clarify describía una pantalla
+de detalle que no existe.
 
 ### 3.2 Compatibilidad hacia atrás
 

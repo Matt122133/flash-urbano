@@ -44,9 +44,10 @@ crecimiento a unos tres renglones, y sólo en los pedidos que traen indicación.
   tendría que llamar al cliente para enterarse, que es el canal que esta función
   vino a sacar del medio.
 
-**Esto contradice la letra de D1 y hay que decirlo en la promoción del plan.** Si
-Mateo prefiere la pantalla de detalle, se puede: cuesta enmendar el contrato 4.2
-de `012`, no este plan.
+**Esto contradecía la letra de D1, y el spec se corrigió el 2026-09-12** para
+que FR-006a y la sección D1 digan lo que este hallazgo obliga; lo detectó el
+`/speckit-analyze` (F1). Si Mateo prefiriera igual la pantalla de detalle, se
+puede: cuesta enmendar el contrato §4.2 de `012`, no este plan.
 
 ---
 

@@ -46,3 +46,11 @@
   como verde de CI.
 - La mención al cliente que pidió la función va **sin nombre ni correo**: el
   repo es público (ver la restricción en `AGENTS.md`).
+- El `/speckit-analyze` del 2026-09-12 encontró 6 hallazgos, 2 de ellos CRITICAL,
+  y se corrigieron cinco: FR-006a y la sección D1 describían una pantalla de
+  detalle que la app no tiene (F1); `covers:` no incluía
+  `backend/internal/tablero/`, que T006 necesita (F2); FR-013 no decía quién lo
+  cumple (F3); T022 no salía de ningún FR y ahora lo declara (F4); y "tres
+  superficies" contra "cuatro pantallas" (F6). **Queda abierto F5**: FR-009 —sin
+  comentario no hay hueco— sólo lo mira el quickstart, sin prueba automática en
+  la web.
