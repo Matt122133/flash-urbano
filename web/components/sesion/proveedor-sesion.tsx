@@ -41,6 +41,20 @@ export type Usuario = {
   perfilCompleto: boolean;
   /** Null mientras no haya guardado ninguna. */
   retiro: RetiroGuardado | null;
+  /**
+   * Si la cuenta es administradora. Lo usa el tablero de `025`.
+   *
+   * **Tiene TRES valores, no dos.** `true` y `false` los contesta `/yo`.
+   * **`undefined` es lo que deja el ingreso**: la respuesta de los dos caminos de
+   * entrada no trae el campo, porque `auth` no conoce la configuracion a
+   * proposito (ver el comentario de `EsAdmin` en `usuarios.Vista`). `undefined`
+   * significa "no se", no "no": tratarlo como `false` le decia a Diego que no
+   * era administrador justo despues de entrar (specs/025, analyze C1).
+   *
+   * **No es una guarda.** El que niega es el servicio, con un 403; esto solo le
+   * ahorra a una pantalla una llamada que ya sabe que va a fallar.
+   */
+  esAdmin?: boolean;
 };
 
 /** Lo que devuelven los dos caminos de ingreso. */
@@ -143,6 +157,29 @@ export function ProveedorSesion({ children }: { children: React.ReactNode }) {
     guardar({ credencial: respuesta.credencial, expiraEn: respuesta.expiraEn });
     setUsuario(respuesta.usuario);
     setAviso(null);
+
+    /**
+     * La respuesta del ingreso no dice si la cuenta es administradora: solo
+     * `/yo` lo contesta. Sin esta relectura, la navegacion no muestra el enlace
+     * al tablero hasta recargar (specs/025, research D7).
+     *
+     * **Copia SOLO `esAdmin`, nunca el usuario entero.** Esta llamada compite con
+     * *completar el alta*: si la persona guarda nombre y telefono antes de que
+     * `/yo` conteste, pisar todo le devolveria `perfilCompleto: false` y el
+     * formulario de alta volveria a aparecer. Y solo si sigue siendo la misma
+     * cuenta: si salio mientras tanto, no hay nada que actualizar.
+     *
+     * **Un fallo se traga, incluido un 401.** La sesion se acaba de crear; un
+     * aviso de "tu sesion vencio" en este momento seria peor que no saber si es
+     * admin. Queda `undefined`, y el tablero le pregunta al servicio.
+     */
+    pedir<Usuario>("/yo", { credencial: respuesta.credencial })
+      .then((u) =>
+        setUsuario((actual) =>
+          actual && actual.id === u.id ? { ...actual, esAdmin: u.esAdmin } : actual,
+        ),
+      )
+      .catch(() => {});
   }, []);
 
   const vencio = useCallback(() => {

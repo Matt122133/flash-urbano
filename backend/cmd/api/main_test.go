@@ -94,6 +94,7 @@ func TestElPreflightAutorizaTodosLosMetodosQueSirveElEnrutador(t *testing.T) {
 		"/pedidos/6f1b0f1e-0000-4000-8000-000000000000",
 		"/admin/pedidos",
 		"/admin/pedidos/6f1b0f1e-0000-4000-8000-000000000000/estado",
+		"/admin/tablero",
 	}
 
 	for _, camino := range caminos {
@@ -118,5 +119,58 @@ func TestElPreflightAutorizaTodosLosMetodosQueSirveElEnrutador(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// metodosServidos devuelve los metodos que el enrutador real sirve para un
+// camino, leidos de la cabecera `Allow` de un 405 — la misma tecnica que la
+// prueba de arriba.
+func metodosServidos(t *testing.T, camino string) []string {
+	t.Helper()
+
+	r := httptest.NewRequest("METODOINVENTADO", camino, nil)
+	w := httptest.NewRecorder()
+	rutas(nil, dependencias{}).ServeHTTP(w, r)
+
+	var metodos []string
+	for _, m := range strings.Split(w.Header().Get("Allow"), ",") {
+		if m = strings.TrimSpace(m); m != "" {
+			metodos = append(metodos, m)
+		}
+	}
+	if len(metodos) == 0 {
+		t.Fatalf("%s no tiene ninguna ruta registrada", camino)
+	}
+	return metodos
+}
+
+// TestElTableroEsDeSoloLectura es FR-017 de `025` sobre el enrutador REAL: el
+// camino del tablero no sirve nada fuera de GET (y el HEAD que el ServeMux suma
+// solo por el patron GET).
+//
+// **La prueba del preflight de arriba NO cubre esto**: solo exige que lo servido
+// este autorizado por el CORS, y PATCH y DELETE ya lo estan. Montar un metodo de
+// escritura sobre /admin/tablero la dejaria en verde.
+//
+// Con su control positivo: la misma lectura sobre el camino de un pedido SI
+// encuentra PATCH y DELETE, asi que la tecnica sabe ver un metodo de escritura
+// cuando existe.
+func TestElTableroEsDeSoloLectura(t *testing.T) {
+	lectura := map[string]bool{"GET": true, "HEAD": true}
+
+	for _, m := range metodosServidos(t, "/admin/tablero") {
+		if !lectura[m] {
+			t.Errorf("/admin/tablero sirve %s: el tablero mira, no escribe (FR-017 de 025)", m)
+		}
+	}
+
+	escritura := map[string]bool{}
+	for _, m := range metodosServidos(t, "/pedidos/6f1b0f1e-0000-4000-8000-000000000000") {
+		if !lectura[m] {
+			escritura[m] = true
+		}
+	}
+	if !escritura["PATCH"] || !escritura["DELETE"] {
+		t.Fatalf("el control positivo fallo: /pedidos/{id} tenia que servir PATCH y DELETE, y se leyo %v", escritura)
 	}
 }

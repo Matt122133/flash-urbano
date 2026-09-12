@@ -86,7 +86,8 @@ Inside `backend/`, the layout is the standard Go one: `cmd/api/` is the only
 executable and does the wiring; everything else lives under `internal/` and is
 grouped **by domain, not by layer** — `auth/` (both login paths and sessions),
 `usuarios/` (the profile), `correo/` (sending mail), `rastro/` (the audit
-trail), `db/`, `httpx/`, `config/`. Migrations are embedded in the binary
+trail), `tablero/` (counting orders for the operator's dashboard, since `025`),
+`db/`, `httpx/`, `config/`. Migrations are embedded in the binary
 (`migrations/`), so deploying and migrating are the same act.
 
 ```text
@@ -332,6 +333,31 @@ default; components that need interactivity (forms, nav toggle) are marked
   pedido equivocado, y en pantalla no se ve nada raro. Es la forma, con mas
   superficie, del defecto que este mismo hook produjo el 2026-08-14.
 
+- `backend/internal/tablero/` + `web/lib/tablero.ts` — **el tablero de Diego
+  (`025`)**, en `/tablero`, solo para administracion: cuantos pedidos hay
+  registrados y cuantos pedidos y paquetes entraron por dia, semana o mes, por
+  fecha de carga en hora de Montevideo. **Cuenta; nunca muestra plata.** Tres
+  cosas que se deshacen facil sin querer:
+
+  **El paquete del servicio NO importa `internal/pedidos`**, y
+  `sin_plata_test.go` lo sostiene junto con que ninguna fuente del paquete nombre
+  la plata. Alla vive el campo con el importe de cada pedido y la columna que la
+  constitucion prohibe leer para un tablero (Principio V). Reusar las columnas o
+  el tipo de `pedidos` "para no repetir" pone esa guarda en rojo, y tiene razon.
+
+  **El servicio devuelve hechos y la web cuenta**, a proposito: una fila minima
+  por pedido, y `lib/tablero.ts` agrupa, filtra y suma. La zona horaria y el
+  inicio de la semana son lo que mas facil se rompe, y en `lib/` tienen una
+  prueba que corre siempre; en SQL solo la veria una prueba de Go que se salta
+  sin base. **Esa prueba corre con el proceso en Tokio**: la maquina de
+  desarrollo esta en Montevideo, y una implementacion que usara la zona local
+  pasaria ahi por casualidad. Pasar a agregar en SQL es cambiar el cuerpo de la
+  respuesta, no la pantalla — el umbral esta en el tracker.
+
+  **`usuario.esAdmin` tiene tres valores en la web.** El ingreso no lo trae
+  —solo `/yo`—, asi que recien entrado es `undefined`, y eso significa "no se",
+  no "no". El tablero le pregunta al servicio y el 403 decide; `entrar()` relee
+  `/yo` y copia solo ese campo para que la navegacion muestre el enlace.
 - `web/lib/zona-lookup.ts` — resolves which delivery zone a marked point falls
   in, and therefore **whether the order can be taken at all**. **Since `011` the
   point it is asked about is the DELIVERY point, not the pickup one**
