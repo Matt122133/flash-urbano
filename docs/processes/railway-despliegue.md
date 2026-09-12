@@ -190,6 +190,38 @@ explica. Correr esos desde PowerShell.
 que está versionado y fuera del `covers:` del plan activo: el sensor de
 pre-commit rebota el commit. Con el CLI alcanza.
 
+### Borrar pedidos en producción
+
+Hecho una vez, el 2026-09-12, para sacar los pedidos de prueba antes de mostrarle
+el tablero al cliente. Tres cosas que no son obvias y cuestan una corrida:
+
+- **La web no sirve.** El borrado de `022` sólo toca `estado = 'creacion'` y sólo
+  la cuenta propia: un pedido que el repartidor ya movió no ofrece *Eliminar*.
+- **El `DELETE` pelado falla.** `pedidos_estados.pedido_id` es
+  `ON DELETE RESTRICT` —y es la única clave foránea que apunta a `pedidos`—, así
+  que hay que borrar el historial primero, **en la misma transacción**:
+
+  ```sql
+  BEGIN;
+  DELETE FROM pedidos_estados
+   WHERE pedido_id IN (SELECT id FROM pedidos WHERE codigo IN ('FU-....', ...));
+  DELETE FROM pedidos WHERE codigo IN ('FU-....', ...);
+  SELECT count(*) FROM pedidos;   -- control ANTES de confirmar
+  COMMIT;                         -- o ROLLBACK si el número no es el esperado
+  ```
+
+  El número esperado se calcula **antes** de mirar, a partir de las filas que
+  deberían sobrevivir. Comparar contra eso es una prueba; leer el resultado y
+  asentir no lo es.
+- **El prompt de psql no dice si la transacción sigue abierta.** Con un `COMMIT`
+  olvidado, la sesión que borró ve el número nuevo y **todas las demás siguen
+  viendo el viejo**, con las filas bloqueadas. Lo que demuestra que confirmó es
+  mirar el número **desde otra conexión** —el tablero en el navegador sirve—, no
+  el `SELECT` de la misma sesión.
+
+Cualquier consulta sobre `pedidos` en producción **no puede nombrar la columna
+`precio`**: lo prohíbe el Principio V de la constitución.
+
 ## Qué falta
 
 - La variable de repositorio **`NEXT_PUBLIC_API_URL`** en GitHub, apuntando al
