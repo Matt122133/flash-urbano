@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -172,5 +173,64 @@ func TestElTableroEsDeSoloLectura(t *testing.T) {
 	}
 	if !escritura["PATCH"] || !escritura["DELETE"] {
 		t.Fatalf("el control positivo fallo: /pedidos/{id} tenia que servir PATCH y DELETE, y se leyo %v", escritura)
+	}
+}
+
+// 027, FR-021: /salud nombra el ambiente **en las dos respuestas**.
+//
+// La degradada es la que importa y la que se olvida: saber a cual de los dos
+// servicios identicos se le esta pegando importa **especialmente** cuando algo
+// anda mal, que es justo cuando uno mira /salud.
+//
+// Prueba `armarSalud` y no el handler a proposito. El handler necesita una base
+// viva para llegar al camino sano, asi que una prueba que pasara por el se
+// saltearia sola sin `TEST_DATABASE_URL` — y el campo habria quedado sin cubrir
+// en silencio. El 2026-09-13 la linea de base tenia **136 pruebas salteadas**
+// por eso mismo; esta no suma una mas.
+func TestSaludNombraElAmbienteEnLasDosRespuestas(t *testing.T) {
+	casos := []struct {
+		nombre       string
+		baseOK       bool
+		quieroEstado int
+		quieroBase   string
+	}{
+		{"base viva", true, 200, "ok"},
+		{"base caida", false, 503, "sin conexion"},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			estado, cuerpo := armarSalud(caso.baseOK, "staging")
+
+			if estado != caso.quieroEstado {
+				t.Errorf("estado: quiero %d, dio %d", caso.quieroEstado, estado)
+			}
+			if cuerpo.Base != caso.quieroBase {
+				t.Errorf("base: quiero %q, dio %q", caso.quieroBase, cuerpo.Base)
+			}
+			if cuerpo.Ambiente != "staging" {
+				t.Errorf("ambiente: quiero %q, dio %q", "staging", cuerpo.Ambiente)
+			}
+		})
+	}
+}
+
+// El campo viaja con la llave que el contrato promete (contracts/salud.md).
+//
+// Sin esto, renombrar la etiqueta de JSON pasaria en verde: las pruebas de
+// arriba leen el campo de Go, no lo que sale por el cable.
+func TestElCuerpoDeSaludSerializaLaLlaveAmbiente(t *testing.T) {
+	_, cuerpo := armarSalud(true, config.AmbienteDesconocido)
+
+	crudo, err := json.Marshal(cuerpo)
+	if err != nil {
+		t.Fatalf("no se pudo serializar: %v", err)
+	}
+
+	texto := string(crudo)
+	for _, quiero := range []string{`"estado":"ok"`, `"base":"ok"`, `"ambiente":"desconocido"`} {
+		if !strings.Contains(texto, quiero) {
+			t.Errorf("falta %s en %s", quiero, texto)
+		}
 	}
 }

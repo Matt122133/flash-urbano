@@ -97,14 +97,25 @@ process.env.GITHUB_PAGES === "true"`), así que el punto de enganche existe. Un
 módulo puro en `web/lib/` es además la forma que el repo ya usa para lo probable:
 `vitest.config.ts` corre en `node` con `include: ["lib/**/*.test.ts"]`.
 
-**El riesgo**: que `next.config.ts` no pueda importar un módulo TypeScript local
-con la resolución que usa Next para cargar su config. **No se verificó.** Es lo
-primero que hay que probar, antes de construir nada encima.
+**RESUELTO el 2026-09-13 (T002): el import funciona.** Next 16.2.12 compila la
+config a `next.config.compiled.js` con el módulo importado adentro — se vio en
+el rastro del error del control positivo. Las tres corridas dieron lo esperado:
+publicación con la URL de producción compila, publicación con otra URL **falla
+con salida 1**, y sin `GITHUB_PAGES` cualquier URL compila. La doc del repo
+(`node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/index.md`)
+lo respalda: la config es "a regular Node.js module" usado en las fases de build
+y de servidor.
 
-**Salida si falla**: mover la invocación al script `build` de
-`web/package.json` (`node ... && next build`), dejando el módulo puro donde
-está para que las pruebas lo sigan cubriendo. Por eso `web/package.json` entra
-al `covers:` aunque probablemente no se toque.
+**La salida no se necesitó**: mover la invocación al script `build` de
+`web/package.json`. `web/package.json` se deja igual en el `covers:` — quitarlo
+ahora no gana nada y lo dejaría sin autorizar si el enganche tuviera que
+moverse.
+
+**Lo que el spike enseñó y no estaba previsto**: el build local **ya carga
+`web/.env.local`** (lo dice: `Environments: .env.local`). O sea que apuntar la
+web local a staging cambia también lo que ve `npm run build`, no sólo
+`npm run dev`. Es exactamente el caso que FR-008a protege, y ahora está
+comprobado y no supuesto.
 
 **Lo que la guarda NO debe hacer**: fallar en desarrollo. Apuntar la web local a
 staging es el uso normal de esta feature (FR-011, FR-008a). Sin
