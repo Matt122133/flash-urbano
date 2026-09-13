@@ -248,7 +248,7 @@ en la etiqueta impresa.
   a `FECHA DE RETIRO`, que es FR-009 en papel) y una con "Cobrar $300 al
   recibir" **impreso**, sin ningun importe del sistema — el control positivo de
   research D7.
-- [ ] T028 **Quickstart Q10 y Q11, en el teléfono**, que es lo que el `verify:`
+- [X] T028 **Quickstart Q10 y Q11, en el teléfono**, que es lo que el `verify:`
   no ve. Q10 —**el APK viejo contra el servicio nuevo**— es el que decide si el
   servicio se puede desplegar antes que la app; si falla, cambia el orden de
   todo. Q11 mira que la tarjeta no se haya roto: nada de texto cortado, y a
@@ -275,17 +275,49 @@ en la etiqueta impresa.
   tres etiquetas impresas tenian comentarios de un solo renglon —el envuelto por
   ancho si quedo probado—. `FU-0017` quedo con un comentario de tres renglones
   en la base local a proposito, listo para imprimir.
-- [ ] T029 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
+  **Cerrado el 2026-09-12.** El PDF con saltos de linea de verdad quedo
+  verificado leyendo los bytes: dos renglones terminan ANTES del ancho util
+  —o sea saltos del autor— y los dos siguientes son el envuelto por ancho de un
+  parrafo largo. Las dos rutas conviven.
+  **Q10, contra produccion y con control positivo.** Se cargo un pedido real con
+  comentario (`FU-0024`) y se comprobo en la web que el comentario estaba
+  guardado: **sin eso el servicio no manda la clave y la prueba pasa sin probar
+  nada**, que era el riesgo. Con la clave viajando, la app **0.3.0** —la vieja,
+  sin recompilar— abrio, trajo la lista, mostro el pedido entre los pendientes y
+  **no mostro el comentario, que es lo correcto**: no conoce el campo y lo
+  ignora. Sin error y sin lista vacia. Capturas tomadas del telefono de Mateo.
+  **Dato del entorno**: ese telefono **rechaza la inyeccion de eventos por adb**
+  (`SecurityException: INJECT_EVENTS`), asi que desde una sesion solo se puede
+  leer y capturar; los toques los da Mateo. Conveniente, ademas de seguro.
+- [X] T029 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
   quedado abierto, con disparador. Candidatos previsibles: que la tarjeta de la
   app no tiene prueba automática, y cualquier paso del quickstart sin reportar.
-- [ ] T030 Commitear **con el plan todavía `active`**, stageando rutas
+- [X] T030 Commitear **con el plan todavía `active`**, stageando rutas
   explícitas. Con el plan cerrado el sensor rebota los archivos de código.
-- [ ] T031 Después del merge y del deploy: **publicar el APK** con
+- [X] T031 Después del merge y del deploy: **publicar el APK** con
   `scripts/publicar-app.sh vX.Y.Z` y que **Diego lo instale**. Hasta acá la
   feature **no está entregada**: el código en `master` no la pone en el
   teléfono de otra persona.
-- [ ] T032 Confirmar con Diego que ve el comentario en un pedido de verdad, y
+- [X] T032 Confirmar con Diego que ve el comentario en un pedido de verdad, y
   recién después pasar `plan.md` a `status: completed`, en un commit aparte.
+  **Cerrado el 2026-09-13.** Diego instalo la `v0.4.0` y Mateo dio la entrega
+  por buena; con eso `026` queda entregado y el plan pasa a `completed` en el
+  commit siguiente a este.
+
+**Cierre de las cuatro ultimas, para que quede el rastro y no la memoria:**
+
+- **T029** quedo pagada con la fila del 2026-09-12 en
+  `docs/tech-debt-tracker.md`: la tarjeta de la app no tiene prueba automatica
+  y `026` le agrego un bloque de texto de un tercero, hasta 280 caracteres, en
+  una tarjeta que no se despliega. Disparador: la proxima vez que se toque
+  `TarjetaPedido`, o el primer defecto visual que Diego reporte.
+- **T030** se hizo con el plan todavia `active`, que es el orden que el sensor
+  de cobertura exige; el trabajo entro por el **PR #41** y esta en `master`
+  (merge `c161ba3`).
+- **T031** el APK `v0.4.0` se publico con `scripts/publicar-app.sh`, con la
+  huella de firma de siempre (`1dbade77...`), asi que entro encima de la
+  instalada sin desinstalar nada. Diego lo bajo.
+- **T032** confirmado. **32 de 32.**
 
 ---
 
