@@ -78,6 +78,13 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
   Android app, a second secret in the service, and why the Admin SDK was
   rejected on a measurement of 76 modules against 2. Closes the `High` row that
   blocked promoting the site.
+- [`decisions/separate-staging-environment.md`](decisions/separate-staging-environment.md)
+  — two isolated Railway environments rather than two Postgres schemas in one
+  database, because the private network is isolated per environment and the
+  cheap option's separation hung on a `search_path` whose failure mode is
+  silent. Records the measured cost that removed the money objection
+  (~US$0.58/month against US$5 included), and the new risk it creates: the
+  production site published against the staging backend.
 
 ## Processes
 
