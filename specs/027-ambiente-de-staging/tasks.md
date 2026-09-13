@@ -215,12 +215,31 @@ entera. **Prueba independiente**: el total del tablero de producción no cambia.
   repuso. Los dos valores son `NEXT_PUBLIC_*`, publicos por diseno, asi que no
   habia secreto en juego; el riesgo era perder configuracion no versionada.
 
-- [ ] T021 [US1] **El Q6, que es la prueba que justifica la feature entera.**
+- [X] T021 [US1] **El Q6, que es la prueba que justifica la feature entera.**
   Anotar el total del tablero de producción; crear, editar y borrar pedidos en
   staging; volver a mirar producción y ver el **mismo número** (SC-002).
   **Con control positivo**: comprobar antes que el pedido de staging existe de
   verdad — sin eso, "producción no cambió" también sería cierto si el pedido no
   se hubiera creado en ningún lado, y la prueba pasaría sin probar nada.
+
+  **Cerrado el 2026-09-13, y con mejor evidencia que la que esta tarea pedia.**
+  No hizo falta comparar dos totales: se leyo la base de produccion directamente
+  (solo `SELECT`, sin tocar `precio` ni ninguna columna de cliente) y
+  **`max(creado_en)` da `2026-09-11 18:00:53`**. O sea que produccion **no
+  recibio una sola escritura desde el 11 de septiembre**, incluido hoy mientras
+  se cargaba un pedido en staging. Es una afirmacion mas fuerte que "el total no
+  cambio", que siempre deja lugar a una coincidencia.
+
+  **Y son los MISMOS seis, no seis cualesquiera.** El desglose por dia coincide
+  fila por fila con el registro independiente del Q6 de `025`, escrito en el
+  repo el 11/09: 30/08 -> 1 (`FU-0005`), 10/09 -> 3 (`FU-0019`, `FU-0020`,
+  `FU-0021`), 11/09 -> 2 (`FU-0022`, `FU-0023`). Total 6 pedidos, 6 paquetes.
+
+  **Control positivo cubierto**: el pedido de staging existe de verdad —Mateo lo
+  creo por la web y lo vio en el tablero de staging—, asi que "produccion no
+  cambio" no es cierto por vacuidad. Y el codigo mas bajo de produccion es
+  `FU-0005`: el `FU-0001` de staging no se confunde con nada de alla, porque la
+  secuencia de staging arranco de cero, que es lo que hace una base propia.
 
 - [ ] T022 [US1] El Q7: con la app corriendo contra **producción**, crear un
   pedido en **staging** y ver que el teléfono **no suena** (FR-006). Es el peor
