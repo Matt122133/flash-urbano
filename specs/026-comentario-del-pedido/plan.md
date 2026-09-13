@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La columna nueva. Migracion 0009, sin relleno de datos.
   - backend/migrations/
