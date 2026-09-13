@@ -16,6 +16,22 @@ porqué de la forma está en
 **Ningún secreto vive acá.** El repo es público: este documento nombra
 variables, no valores.
 
+## La regla
+
+**Todo desarrollo se prueba primero en staging, y después pasa a producción.**
+Decidido el 2026-09-13, apenas el ambiente existió.
+
+Las excepciones son reales y tienen nombre: **un hotfix** de algo que está roto
+en producción ahora mismo, y **lo que sólo se puede ver en producción** — sus
+datos, su dominio, su escala. Tomar una es una decisión, no un descuido: se dice
+cuál aplica y por qué, en el PR o en el plan.
+
+Lo que **no** es una excepción es "el cambio es chico". Todos los defectos
+silenciosos que juntó este repo parecían chicos.
+
+Está también como gate en [`AGENTS.md`](../../AGENTS.md) y su copia `CLAUDE.md`,
+que es lo que un agente lee al arrancar.
+
 ## Para qué es, y para qué no
 
 Es **para Mateo**, para poder crear pedidos y probar cambios contra un backend

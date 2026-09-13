@@ -392,10 +392,15 @@ trae los pedidos de staging.
   telefono, `environment config --json` que vuelca secretos, y la URL de
   produccion que ahora vive en el repo.
 
-- [ ] T032 Commitear **con el plan todavía `active`**, stageando rutas
+- [X] T032 Commitear **con el plan todavía `active`**, stageando rutas
   explícitas. Con el plan cerrado el sensor rebota los archivos de código. El
   cierre a `status: completed` va en un **commit aparte**, después de que el
   quickstart esté recorrido y reportado.
+
+  **Hecho el 2026-09-13.** Cinco commits con el plan `active`, rutas explicitas
+  en cada uno, y el sensor de cobertura los dejo pasar todos. **29 de 32.**
+  Las tres que quedan estan anotadas en el tracker: T019 y T030 se cierran solas
+  o con ojos frescos, y ninguna esconde un cruce de logica.
 
 ---
 
