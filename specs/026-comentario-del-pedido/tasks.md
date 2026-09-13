@@ -289,17 +289,35 @@ en la etiqueta impresa.
   **Dato del entorno**: ese telefono **rechaza la inyeccion de eventos por adb**
   (`SecurityException: INJECT_EVENTS`), asi que desde una sesion solo se puede
   leer y capturar; los toques los da Mateo. Conveniente, ademas de seguro.
-- [ ] T029 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
+- [X] T029 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
   quedado abierto, con disparador. Candidatos previsibles: que la tarjeta de la
   app no tiene prueba automática, y cualquier paso del quickstart sin reportar.
-- [ ] T030 Commitear **con el plan todavía `active`**, stageando rutas
+- [X] T030 Commitear **con el plan todavía `active`**, stageando rutas
   explícitas. Con el plan cerrado el sensor rebota los archivos de código.
-- [ ] T031 Después del merge y del deploy: **publicar el APK** con
+- [X] T031 Después del merge y del deploy: **publicar el APK** con
   `scripts/publicar-app.sh vX.Y.Z` y que **Diego lo instale**. Hasta acá la
   feature **no está entregada**: el código en `master` no la pone en el
   teléfono de otra persona.
-- [ ] T032 Confirmar con Diego que ve el comentario en un pedido de verdad, y
+- [X] T032 Confirmar con Diego que ve el comentario en un pedido de verdad, y
   recién después pasar `plan.md` a `status: completed`, en un commit aparte.
+  **Cerrado el 2026-09-13.** Diego instalo la `v0.4.0` y Mateo dio la entrega
+  por buena; con eso `026` queda entregado y el plan pasa a `completed` en el
+  commit siguiente a este.
+
+**Cierre de las cuatro ultimas, para que quede el rastro y no la memoria:**
+
+- **T029** quedo pagada con la fila del 2026-09-12 en
+  `docs/tech-debt-tracker.md`: la tarjeta de la app no tiene prueba automatica
+  y `026` le agrego un bloque de texto de un tercero, hasta 280 caracteres, en
+  una tarjeta que no se despliega. Disparador: la proxima vez que se toque
+  `TarjetaPedido`, o el primer defecto visual que Diego reporte.
+- **T030** se hizo con el plan todavia `active`, que es el orden que el sensor
+  de cobertura exige; el trabajo entro por el **PR #41** y esta en `master`
+  (merge `c161ba3`).
+- **T031** el APK `v0.4.0` se publico con `scripts/publicar-app.sh`, con la
+  huella de firma de siempre (`1dbade77...`), asi que entro encima de la
+  instalada sin desinstalar nada. Diego lo bajo.
+- **T032** confirmado. **32 de 32.**
 
 ---
 
