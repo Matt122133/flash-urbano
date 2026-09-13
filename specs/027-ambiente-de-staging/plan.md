@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La guarda del cruce de cables: modulo puro, su prueba, y el enganche.
   - web/lib/url-del-api.ts
