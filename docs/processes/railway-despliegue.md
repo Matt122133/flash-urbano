@@ -9,24 +9,47 @@ existen sólo dentro de Railway. Este documento nombra variables, no valores.
 
 ## Qué hay desplegado
 
-Proyecto `sunny-healing` (`2cef0777-ae34-4d23-94c9-eadb278ad44a`), entorno
-`production` (`af0bd840-d3aa-4717-a156-1e190a30742d`), plan **Hobby**.
+Proyecto `sunny-healing` (`2cef0777-ae34-4d23-94c9-eadb278ad44a`), plan
+**Hobby**. **Desde el 2026-09-13 hay DOS entornos** (`027`):
 
-| Servicio | ID | Qué es |
-|---|---|---|
-| `flash-urbano` | `61f3bbde-abc3-41c7-9bc8-2486a23e9282` | El servicio Go, desde GitHub |
-| `postgis` | `f7618814-c973-4a1d-a838-c852876bafe0` | Postgres 17.5 + PostGIS 3.5 |
+| Entorno | ID |
+|---|---|
+| `production` | `af0bd840-d3aa-4717-a156-1e190a30742d` |
+| `staging` | `ba3b7879-f0a4-486d-99a5-2a3e51654215` |
 
-El API es público en **`https://flash-urbano-production.up.railway.app`**, con
-el dominio generado por Railway apuntando al puerto `8080`. Todavía **no** está
-detrás de `flashurbano.uy` — ver
-[`dominio-y-dns.md`](dominio-y-dns.md).
+| Servicio | ID | Qué es | Dónde |
+|---|---|---|---|
+| `flash-urbano` | `61f3bbde-abc3-41c7-9bc8-2486a23e9282` | El servicio Go, desde GitHub | `production` |
+| `flash-urbano-staging` | `6f34f11b-7726-449a-9909-a6aed983bd87` | El servicio Go de staging, **sin fuente**, se sube a mano | `staging` |
+| `postgis` | `f7618814-c973-4a1d-a838-c852876bafe0` | Postgres 17.5 + PostGIS 3.5 | los dos, con **volumen propio en cada uno** |
+
+El API de producción es público en
+**`https://flash-urbano-production.up.railway.app`**, con el dominio generado por
+Railway apuntando al puerto `8080`. El de staging, en
+**`https://flash-urbano-staging-staging.up.railway.app`**.
+
+Todo lo de staging —cómo se despliega, cómo se apunta la web, y las dos trampas
+del CLI que costaron un incidente— vive en [`staging.md`](staging.md). Acá abajo
+se describe **producción**.
 
 ### El servicio Go
 
-- **Fuente**: repo `Matt122133/flash-urbano`, rama **`backend-auth`**.
-  `master` no tiene el backend todavía, y la rama no se mergea hasta cerrar la
-  Fase 4 del plan.
+- **Fuente**: repo `Matt122133/flash-urbano`, rama **`master`**. (Hasta el
+  cierre de `006` fue `backend-auth`; este documento lo decía todavía en
+  septiembre y era falso.)
+
+  **Esa conexión cuelga del SERVICIO, no del entorno.** Un
+  `railway service source disconnect --service flash-urbano --environment X` la
+  saca **en todos los entornos**, aunque el flag sugiera lo contrario — el
+  `--environment` resuelve el servicio, no acota el cambio. Pasó el 2026-09-13 y
+  dejó producción sin auto-despliegue hasta restaurarla. Para reponerla:
+
+  ```bash
+  railway service source connect --repo Matt122133/flash-urbano     --branch master --service flash-urbano --environment production
+  ```
+
+  Y después **verificar** repo, rama, Root Directory (`backend`) y builder
+  (`DOCKERFILE`), que es lo que se perdió y lo que hay que ver de vuelta.
 - **Root Directory**: **`backend`**. Sin eso el build corre sobre la raíz del
   repo, donde no hay `go.mod` ni `Dockerfile`.
 
@@ -96,18 +119,24 @@ alguna. Los nombres y qué significan están en
 | `DATABASE_URL` | `${{postgis.DATABASE_PRIVATE_URL}}` | ✅ real |
 | `CORS_ORIGENES` | `https://matt122133.github.io` | ✅ real |
 | `ADMIN_EMAILS` | la dirección de quien administra hoy | ✅ real |
-| `GOOGLE_CLIENT_ID` | `PENDIENTE-fase-3` | ⚠️ **relleno** |
-| `CORREO_API_KEY` | `PENDIENTE-fase-4` | ⚠️ **relleno** |
-| `CORREO_REMITENTE` | `PENDIENTE-fase-4` | ⚠️ **relleno** |
+| `GOOGLE_CLIENT_ID` | el cliente OAuth real | ✅ real |
+| `CORREO_API_KEY` | la clave de Resend | ✅ real |
+| `CORREO_REMITENTE` | una dirección del dominio verificado | ✅ real |
+| `FCM_CREDENCIAL_BASE64` | la credencial de avisos | ✅ real, y **la única opcional** |
 
-Los tres rellenos son deliberados y **el valor es a propósito inválido**: el
-servicio exige que estén definidas para arrancar, pero Google y el correo se
-construyen en las Fases 3 y 4. Un valor con forma verosímil habría hecho creer
-que el ingreso funciona; `PENDIENTE-fase-3` no engaña a nadie. **Reemplazarlos
-es parte de esas fases, no un pendiente suelto.**
+**Los tres rellenos `PENDIENTE-fase-N` que este documento describió hasta el
+2026-09-13 ya no existen**: se reemplazaron al cerrar las Fases 3 y 4, y el
+texto quedó viejo casi un mes. Si alguna vez vuelve a aparecer un valor así, es
+un pendiente de verdad.
 
-`CORS_ORIGENES` lleva **sólo el origen de Pages**. Cuando el sitio se mude a
-`flashurbano.uy` hay que agregarlo acá — es configuración, no código (FR-023).
+`FCM_CREDENCIAL_BASE64` es la única que **no** impide arrancar si falta: se lee
+después del corte por faltantes, a propósito (FR-010). En `staging` **no se
+carga**, y eso es lo que impide que una prueba le haga sonar el teléfono a
+Diego.
+
+`CORS_ORIGENES` lleva el origen de Pages **y `https://flashurbano.uy`**, que es
+donde el sitio vive desde el 2026-08-10. En `staging` lleva `http://localhost:3000`
+y nada más.
 
 ## Verificar que está vivo
 

@@ -268,15 +268,31 @@ entera. **Prueba independiente**: el total del tablero de producción no cambia.
 **Meta**: ver un cambio de backend corriendo sin mergearlo. **Prueba
 independiente**: staging sirve algo que `master` no tiene.
 
-- [ ] T023 [US2] Desplegar a staging un cambio que **no esté en `master`** y
+- [X] T023 [US2] Desplegar a staging un cambio que **no esté en `master`** y
   comprobar las dos mitades: staging lo sirve, y producción sigue sirviendo lo
   de `master` (FR-010, FR-018). Confirma de paso que el servicio no está atado
   al repositorio.
 
-- [ ] T024 [US2] El Q9: leer con el CLI **la fecha del último despliegue de
+  **Cerrado el 2026-09-13, y salio como efecto de otra cosa.** El primer
+  `railway up` a staging se hizo desde el arbol de trabajo, parado en la rama
+  `027`, asi que staging quedo corriendo codigo que **no esta en `master`**. Las
+  dos mitades quedaron probadas en una sola consulta: staging contesta
+  `{"estado":"ok","base":"ok","ambiente":"staging"}` y produccion contesta
+  `{"estado":"ok","base":"ok"}`, **sin el campo**, porque sigue en `master`. Eso
+  es SC-003 — un cambio de backend visto corriendo de verdad sin mergearlo.
+
+- [X] T024 [US2] El Q9: leer con el CLI **la fecha del último despliegue de
   staging** y ver que es la de recién. Es la comprobación externa que FR-020
   pide para no depender de la memoria, y lo que se escriba acá es lo que va al
   procedimiento en T026.
+
+  **Cerrado el 2026-09-13.** El comando es
+  `railway deployment list --service flash-urbano-staging --environment staging --json`,
+  y quedo en el procedimiento. **Con la trampa que se encontro usandolo**:
+  cambiar una variable dispara un redespliegue que **reusa el ultimo codigo
+  subido**, asi que la fecha puede ser reciente sin que hayas subido nada nuevo
+  — se vio con el despliegue de las 17:14, disparado por cargar
+  `CORREO_API_KEY`, que superseded al `railway up` de las 17:00.
 
 ---
 
@@ -315,11 +331,16 @@ trae los pedidos de staging.
 
 ## Fase 6: Que quede escrito, y cierre
 
-- [ ] T026 Escribir `docs/processes/staging.md` (FR-014): cómo se despliega,
+- [X] T026 Escribir `docs/processes/staging.md` (FR-014): cómo se despliega,
   cómo se apunta la web, **cómo se vuelve a producción**, y —obligatorio por
   FR-020— **cómo saber qué versión está corriendo en staging**. Que diga también
   lo que FR-023 exige: el campo `ambiente` dice a cuál se le está pegando, no si
   el código es el tuyo.
+
+  **Escrito el 2026-09-13** en `docs/processes/staging.md`, con las dos
+  preguntas separadas que FR-023 exige que no se confundan, la app solo en
+  emulador, la nota de la mudanza de dominio (FR-009a), y las dos trampas del
+  CLI que costaron el incidente.
 
   **Y una frase que es fácil de omitir y cara de perder** (FR-009a): desde este
   trabajo, **mudar el dominio del sitio incluye cambiar la URL esperada en el
@@ -328,30 +349,48 @@ trae los pedidos de staging.
   código; eso cambió, y el único lugar donde alguien lo va a leer a tiempo es
   este procedimiento.
 
-- [ ] T027 Refrescar `docs/processes/railway-despliegue.md` (FR-015). Hoy
+- [X] T027 Refrescar `docs/processes/railway-despliegue.md` (FR-015). Hoy
   describe el estado de `006` y es **falso en tres puntos**: dice que el
   servicio despliega de la rama `backend-auth` (despliega de `master`), que el
   sitio todavía no está en `flashurbano.uy`, y que `GOOGLE_CLIENT_ID`,
   `CORREO_API_KEY` y `CORREO_REMITENTE` son rellenos `PENDIENTE-fase-N`. Sumar
   el entorno `staging` a la tabla de qué hay desplegado.
 
-- [ ] T028 [P] Indexar el procedimiento nuevo en `docs/README.md`, una línea.
+  **Hecho el 2026-09-13.** Las tres afirmaciones falsas quedaron corregidas
+  —rama `master` y no `backend-auth`, el dominio, y las tres variables que
+  figuraban como relleno `PENDIENTE-fase-N`— y se sumo la tabla de los dos
+  entornos y los tres servicios. Se agrego ademas, en la seccion de la fuente,
+  la advertencia de que `source disconnect` no respeta `--environment`, que es
+  donde alguien la va a necesitar.
 
-- [ ] T029 [P] El Q10: **volver a medir** el costo con staging andando, sobre
+- [X] T028 [P] Indexar el procedimiento nuevo en `docs/README.md`, una línea.
+
+- [X] T029 [P] El Q10: **volver a medir** el costo con staging andando, sobre
   una ventana de 24 h, y comprobar que el proyecto sigue dentro de los US$5
   incluidos (SC-005, FR-013). La cifra de `research.md` es una extrapolación
   anterior a que staging existiera; reportarla de nuevo en vez de medir no
   satisface el criterio.
+
+  **Medido el 2026-09-13** sobre una hora con los dos ambientes andando:
+  **~US$1,48/mes** contra los **US$5 incluidos**. SC-005 se cumple con holgura.
+  **Es una estimacion alta a proposito**: esa hora tuvo builds, despliegues y
+  migraciones. Ojo con un detalle al repetirla: agrupado por servicio, `postgis`
+  **suma los dos entornos**, porque comparten id de servicio.
 
 - [ ] T030 El Q11: releer el procedimiento escrito **sin usar nada de lo que
   quedó en la cabeza** durante la ejecución, y ver si alcanza para levantar la
   web contra staging (SC-006). Cualquier paso que sólo funcione si ya sabías
   algo, se escribe.
 
-- [ ] T031 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
+- [X] T031 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que haya
   quedado abierto, con disparador. Candidato previsible: que la URL de
   producción ahora viva en el repo (FR-009a) y que mudar de dominio pase a
   incluir ese cambio.
+
+  **Cuatro filas nuevas el 2026-09-13**: el alcance de `service delete` sin
+  comprobar, la app de staging que no puede convivir con la de produccion en un
+  telefono, `environment config --json` que vuelca secretos, y la URL de
+  produccion que ahora vive en el repo.
 
 - [ ] T032 Commitear **con el plan todavía `active`**, stageando rutas
   explícitas. Con el plan cerrado el sensor rebota los archivos de código. El

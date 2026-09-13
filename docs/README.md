@@ -89,6 +89,12 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
 ## Processes
 
 - [`processes/harness.md`](processes/harness.md) — the operating manual.
+- [`processes/staging.md`](processes/staging.md) — el segundo ambiente: para
+  qué es y para qué no, cómo se despliega a mano, cómo saber **a cuál le estás
+  pegando** y **si es tu código el que corre** (son preguntas distintas), la app
+  sólo en emulador, y las dos trampas del CLI de Railway que costaron un
+  incidente en producción: la fuente es del servicio y no del entorno, y
+  `environment config --json` vuelca los secretos.
 - [`processes/speckit-loop.md`](processes/speckit-loop.md) — the per-feature
   loop runbook.
 - [`processes/dev-setup.md`](processes/dev-setup.md) — toolchain, commands, and
