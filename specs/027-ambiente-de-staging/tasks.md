@@ -158,11 +158,26 @@ costaría un despliegue.
   `migracion aplicada: 0001_esquema_inicial.sql`. Es el Q2, y prueba FR-004 —
   la base estaba vacía y se llenó sola, sin ningún paso manual.
 
-- [ ] T018 **El Q5, y va acá y no al final: si falla, bloquea todo.** Pedir un
+- [X] T018 **El Q5, y va acá y no al final: si falla, bloquea todo.** Pedir un
   código de acceso en staging y **recibirlo**. Resend exige remitentes
   verificados, y un remitente rechazado deja staging **sin forma de entrar**
   (FR-016a). Comprobar además que el remitente se distingue del de producción de
   un vistazo.
+
+  **Cerrado el 2026-09-13, con las dos mitades.** Se pidio un codigo en los
+  **dos** ambientes con la misma direccion. Los dos devolvieron `204`, que por
+  si solo no prueba nada —el endpoint contesta `204` pase lo que pase, para no
+  revelar quien esta registrado— y por eso lo que se leyo fue el log: en
+  ninguno aparecio `auth: no se pudo enviar el codigo`, que es la linea que
+  delata un envio rechazado. Despues Mateo confirmo en la bandeja: **llegaron
+  los dos**, y el de staging **se reconoce como staging de un vistazo**. El
+  dominio verificado cubre cualquier direccion suya, asi que FR-016a no
+  requirio trabajo extra.
+
+  **De paso quedo probado el camino de correo de produccion despues de rotar la
+  clave de Resend**, que era el riesgo real de esa rotacion: una clave mal
+  puesta **no impide arrancar** —el enviador solo guarda la cadena— asi que el
+  servicio se habria visto sano con el ingreso roto para todos los clientes.
 
 - [ ] T019 El Q3: pedir `/salud` a los dos ambientes y ver que dicen
   `production` y `staging`. Es la primera vez que FR-021 se ejerce contra dos
@@ -188,10 +203,17 @@ costaría un despliegue.
 **Meta**: Mateo carga lo que quiera en staging y la base de producción no se
 entera. **Prueba independiente**: el total del tablero de producción no cambia.
 
-- [ ] T020 [US1] Apuntar `web/.env.local` a staging y levantar `npm run dev`.
+- [X] T020 [US1] Apuntar `web/.env.local` a staging y levantar `npm run dev`.
   **Leer el archivo antes de escribirlo**: existe, está cubierto por
   `web/.gitignore`, y si se pisa no hay de dónde traerlo. Con esto FR-011 queda
   probado sin construir nada.
+
+  **Hecho el 2026-09-13.** El archivo quedo con **las tres** opciones —staging,
+  produccion y el backend local— y una sola sin comentar, asi que cambiar de
+  ambiente es mover un `#`. **Cuidado que casi se pierde**: el valor que habia
+  era `http://localhost:8080`, no produccion, y la primera edicion lo borro. Se
+  repuso. Los dos valores son `NEXT_PUBLIC_*`, publicos por diseno, asi que no
+  habia secreto en juego; el riesgo era perder configuracion no versionada.
 
 - [ ] T021 [US1] **El Q6, que es la prueba que justifica la feature entera.**
   Anotar el total del tablero de producción; crear, editar y borrar pedidos en
