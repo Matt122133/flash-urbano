@@ -241,10 +241,25 @@ entera. **Prueba independiente**: el total del tablero de producción no cambia.
   `FU-0005`: el `FU-0001` de staging no se confunde con nada de alla, porque la
   secuencia de staging arranco de cero, que es lo que hace una base propia.
 
-- [ ] T022 [US1] El Q7: con la app corriendo contra **producción**, crear un
+- [X] T022 [US1] El Q7: con la app corriendo contra **producción**, crear un
   pedido en **staging** y ver que el teléfono **no suena** (FR-006). Es el peor
   defecto posible de esta feature —molestar a Diego con una prueba— y la
   comprobación cuesta un minuto.
+
+  **Cerrado el 2026-09-13, y con su control positivo, que era lo dificil.** Al
+  crear el pedido en staging el telefono **no sono**. Eso solo no probaba nada:
+  una prueba negativa necesita saber que el telefono suena cuando debe, y
+  justamente ese dia se habia rotado la credencial de Firebase sin poder
+  confirmarla. **El control llego despues**: Mateo creo y elimino un pedido en
+  **produccion** y le llegaron **dos** notificaciones — que es exactamente lo que
+  corresponde, porque el servicio avisa en tres momentos (`Avisar`,
+  `AvisarEdicion`, `AvisarBaja`) y crear+eliminar son dos. O sea que el telefono
+  suena, y el silencio de staging significa algo.
+
+  **Y esta garantizado por construccion, no por configuracion cuidadosa**: se
+  verifico sobre el servicio que corre que `FCM_CREDENCIAL_BASE64` **no existe**
+  en staging, con lo cual `construirAvisador` devuelve un avisador mudo. Staging
+  no puede avisar aunque alguien quisiera.
 
 ---
 
@@ -270,13 +285,31 @@ independiente**: staging sirve algo que `master` no tiene.
 **Meta**: mirar la app con datos de prueba. **Prueba independiente**: la lista
 trae los pedidos de staging.
 
-- [ ] T025 [US3] El Q8: `.\gradlew.bat assembleDebug -PurlDeDebug=<url de
+- [X] T025 [US3] El Q8: `.\gradlew.bat assembleDebug -PurlDeDebug=<url de
   staging>` y **`adb -s emulator-5554 install`**. **Nunca `installDebug`, y
   nunca contra un teléfono**: mismo `applicationId` y misma firma que el
   release, así que pisa la app de producción en silencio y la deja apuntando al
   lado equivocado; y con dos dispositivos conectados instala en los dos.
   Comprobar **por lectura** que los teléfonos siguen en la versión de producción
   antes de instalar nada.
+
+  **Cerrado el 2026-09-13, en emulador y sin acercarse a ningun telefono.**
+  `assembleDebug -PurlDeDebug=<url de staging>` compilo, y se verifico que la URL
+  quedo **dentro del binario** leyendo el `BuildConfig.java` generado, no
+  suponiendolo. Se instalo con `adb -s emulator-5554 install -r`, nunca
+  `installDebug`: `adb devices` mostraba **cero dispositivos** conectados antes
+  de empezar, asi que no habia telefono que pisar.
+
+  **Lo que se vio**: la app trae `FU-0001` y `FU-0002` de staging —produccion
+  arranca en `FU-0005`, asi que no se pueden confundir— con el bloque
+  **COMENTARIO** de `026` bien renderizado. FR-012 cumplido: la app apunta a
+  staging **sin tocar una linea de codigo**.
+
+  **Un detalle que la app manejo bien**: `install -r` conserva los datos, asi que
+  quedo una sesion vieja de una instalacion anterior contra otro backend. Staging
+  no la conoce —las sesiones se validan contra la base, y la suya nacio vacia— y
+  la app mostro **"La sesion vencio. Ingresa otra vez."** en vez de un error
+  crudo. Es la clase de defecto que aparecio en `012`, y aca no aparecio.
 
 ---
 
