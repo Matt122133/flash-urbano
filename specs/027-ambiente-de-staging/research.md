@@ -229,3 +229,53 @@ los dos; se usa `adb -s <serie> install`.
 
 Por eso el `verify:` de este plan **no lleva la pata de Android**: no se toca una
 línea de `android/`.
+
+---
+
+## D11 — La fuente es del servicio, no del entorno (descubierto ejecutando)
+
+**Decision**: staging tiene un **servicio propio**, `flash-urbano-staging`, y no
+la instancia duplicada de `flash-urbano`.
+
+**Rationale**: no estaba previsto y costo un incidente. `railway environment new
+staging --duplicate production` **reusa el mismo servicio** — el id
+`61f3bbde-...` aparece en los dos entornos— y en Railway **la fuente de codigo
+cuelga del servicio, no de la instancia por entorno**. Comprobado en las dos
+direcciones el 2026-09-13:
+
+- `railway service source disconnect --service flash-urbano --environment staging`
+  dejo **los dos** entornos sin repo. El flag `--environment` esta documentado
+  como "Environment to use for **resolving** the service": elige el servicio, no
+  acota el cambio.
+- `railway service source connect ... --environment production` volvio a
+  conectar **los dos**.
+
+Consecuencias, y la segunda es la grave:
+
+1. **FR-019 es imposible sobre el servicio duplicado.** Staging no puede estar
+   desconectado mientras produccion esta conectado.
+2. **Un `railway up` contra staging le habria cambiado la fuente a produccion**,
+   dejandola apuntando a un tarball subido a mano en vez de a GitHub. No se
+   probo, y no se va a probar.
+
+**La forma que si sirve**: `railway add --service flash-urbano-staging` crea un
+servicio nuevo con id propio —y por lo tanto fuente propia— **solo en el
+entorno vinculado**, no en todos. Se despliega con
+`railway up ./backend --path-as-root --service flash-urbano-staging`, que sube
+el contenido de `backend/` como raiz del archivo, con lo cual Railway encuentra
+el `Dockerfile` sin necesidad de configurar Root Directory.
+
+**Lo que SI se separa por entorno**: las variables. Verificado leyendo los dos
+lados despues de escribir en staging — produccion conservo sus origenes, sus
+administradores y su remitente. La regla precisa es: **variables por entorno,
+fuente por servicio.**
+
+**Lo que costo**: produccion quedo unos minutos sin auto-despliegue en push a
+`master`. No se cayo, no se desplegio nada distinto y no se perdio nada; el
+commit activo siguio siendo `c6533373`. Se restauro con
+`service source connect` y se verifico repo, rama, root directory y builder.
+
+**La leccion, que vale mas que el hallazgo**: en este CLI un `--environment` en
+un comando de escritura **no garantiza** que el cambio sea de ese entorno. Antes
+de correr uno contra un recurso que produccion comparte, hay que comprobar el
+alcance — o hacerlo desde el panel, donde se ve que se va a tocar.

@@ -29,13 +29,13 @@ parte chica.
 
 ## Fase 1: Preparación
 
-- [ ] T001 Correr el `verify:` del plan **antes de tocar nada** y anotar el
+- [X] T001 Correr el `verify:` del plan **antes de tocar nada** y anotar el
   resultado. Con `TEST_DATABASE_URL` puesto y Docker Desktop levantado, y
   **contando los `SKIP`**: sin esa variable las pruebas Go contra Postgres se
   saltan solas y el verde no dice nada de la base. Este `verify:` **no lleva la
   pata de Android**, a diferencia del de `026`: esta feature no toca `android/`.
 
-- [ ] T002 **Spike de D4, y bloquea todo lo demás.** Averiguar si
+- [X] T002 **Spike de D4, y bloquea todo lo demás.** Averiguar si
   `web/next.config.ts` puede importar un módulo TypeScript local con la
   resolución que Next usa para cargar su configuración. Prueba mínima: un
   `web/lib/url-del-api.ts` que exporte una constante, importado desde
@@ -56,26 +56,26 @@ costaría un despliegue.
 
 ### La guarda del cruce de cables (FR-008, FR-008a, FR-009, FR-009a)
 
-- [ ] T003 [P] Escribir `web/lib/url-del-api.ts`: una función pura que reciba la
+- [X] T003 [P] Escribir `web/lib/url-del-api.ts`: una función pura que reciba la
   URL cruda y si se está publicando el sitio, y devuelva la URL normalizada o
   **falle con un mensaje que nombre la que recibió y la que esperaba**. La URL
   de producción vive acá (FR-009a). **NO debe importar `web/lib/api.ts`**: hay
   una prueba que guarda que `api.ts` no entre al grafo de importación del
   formulario, y romperla tumbaría la cotización con el servicio caído.
 
-- [ ] T004 [P] Escribir `web/lib/url-del-api.test.ts` con las **tres**
+- [X] T004 [P] Escribir `web/lib/url-del-api.test.ts` con las **tres**
   situaciones, que son las tres del Q1: publicación con la URL de producción
   pasa; publicación con otra URL **falla**; y **sin publicación, cualquier URL
   pasa** — apuntar la web local a staging es el uso normal de esta feature
   (FR-008a) y no puede romperse.
 
-- [ ] T005 Enganchar la guarda al build por el camino que haya quedado en T002:
+- [X] T005 Enganchar la guarda al build por el camino que haya quedado en T002:
   `web/next.config.ts` cuando `GITHUB_PAGES === "true"`, o el script `build` de
   `web/package.json`. La bandera ya se lee en `next.config.ts`
   (`const isPages = process.env.GITHUB_PAGES === "true"`), así que el punto de
   enganche existe.
 
-- [ ] T006 **Control positivo de FR-009, y no es opcional.** Correr desde `web/`
+- [X] T006 **Control positivo de FR-009, y no es opcional.** Correr desde `web/`
   el build con `GITHUB_PAGES=true` y una URL que no sea la de producción, y
   **ver el rojo**. Después el mismo build con la URL correcta, y verlo verde. Una
   guarda que nadie hizo fallar no distingue "está bien" de "no está mirando", y
@@ -84,7 +84,7 @@ costaría un despliegue.
 
 ### El campo `ambiente` en `/salud` (FR-021, FR-022, FR-023)
 
-- [ ] T007 [P] En `backend/internal/config/config.go`, leer
+- [X] T007 [P] En `backend/internal/config/config.go`, leer
   `RAILWAY_ENVIRONMENT_NAME` con **`os.Getenv` pelado y después del corte por
   faltantes**, con `desconocido` por defecto. **No con `obligatoria(...)`**: una
   variable obligatoria de más es la forma conocida de dejar producción sin
@@ -92,46 +92,58 @@ costaría un despliegue.
   `cfg.FCMCredencialBase64`, con el comentario que explica por qué; se copia, no
   se inventa.
 
-- [ ] T008 [P] En `backend/internal/config/config_test.go`, la prueba que
+- [X] T008 [P] En `backend/internal/config/config_test.go`, la prueba que
   protege FR-022: **sin `RAILWAY_ENVIRONMENT_NAME` la configuración carga bien**
   y el valor queda en `desconocido`. Es la prueba que se pondría en rojo si
   alguien moviera la variable al grupo de las obligatorias.
 
-- [ ] T009 Agregar el campo a la respuesta de `salud` en
+- [X] T009 Agregar el campo a la respuesta de `salud` en
   `backend/cmd/api/main.go` (hoy en la línea 272, devolviendo `{estado, base}`).
   **En las dos respuestas, la de `200` y la de `503`**: saber a cuál se le está
   pegando importa especialmente cuando algo anda mal. Ver
   [contracts/salud.md](contracts/salud.md).
 
-- [ ] T010 En `backend/cmd/api/main_test.go`, cubrir que **las dos** respuestas
+- [X] T010 En `backend/cmd/api/main_test.go`, cubrir que **las dos** respuestas
   traen `ambiente` — la sana y la degradada.
 
-- [ ] T011 **Control positivo de FR-022.** Mover a propósito la lectura de la
+- [X] T011 **Control positivo de FR-022.** Mover a propósito la lectura de la
   variable a `obligatoria(...)`, correr T008 y **verla en rojo**, y recién ahí
   revertir. Sin esto, T008 es una prueba que afirma algo sin haber demostrado
   que sabría detectar lo contrario.
 
-- [ ] T012 Correr el `verify:` completo y **verlo verde antes de tocar
+- [X] T012 Correr el `verify:` completo y **verlo verde antes de tocar
   Railway**. Todo lo que sigue cuesta despliegues; entrar con el código roto los
   multiplica.
 
 ### El entorno (FR-001 a FR-005, FR-019)
 
-- [ ] T013 Crear el entorno **`staging`** en el proyecto `sunny-healing`
+- [X] T013 Crear el entorno **`staging`** en el proyecto `sunny-healing`
   (`2cef0777-ae34-4d23-94c9-eadb278ad44a`). Hoy hay uno solo, `production`.
 
-- [ ] T014 Crear en `staging` el servicio de base con la **misma imagen fijada**,
+- [X] T014 Crear en `staging` el servicio de base con la **misma imagen fijada**,
   `postgis/postgis:17-3.5`, y su volumen. **No la plantilla PostGIS de
   Railway**: despliega `postgis/postgis:16-master`, un build de la rama de
   desarrollo, y cambiar la imagen después de que la base arranque cuesta
   bastante más que fijarla al crearla.
 
-- [ ] T015 Crear el servicio Go de `staging` **sin conectarlo al repositorio**
+- [X] T015 Crear el servicio Go de `staging` **sin conectarlo al repositorio**
   (FR-019). Un servicio conectado se despliega solo en cada push de la rama que
   siga, y entonces "manual" es mentira. Root directory `backend`, build por
   `backend/Dockerfile`, igual que producción.
 
-- [ ] T016 Cargar las **seis obligatorias** en el servicio de staging antes del
+  **Hecho el 2026-09-13, y NO como estaba escrito.** Duplicar el entorno reusa
+  **el mismo servicio**, y en Railway **la fuente cuelga del servicio, no de la
+  instancia por entorno**: desconectar staging desconecto tambien produccion, y
+  reconectar produccion reconecto staging — comprobado en las dos direcciones.
+  Con la fuente compartida FR-019 es **imposible** sobre el servicio duplicado,
+  y peor: un `railway up` contra staging le habria cambiado la fuente a
+  produccion. La forma que si sirve es un **servicio propio**,
+  `flash-urbano-staging` (`6f34f11b-...`), creado con `railway add`, sin fuente,
+  desplegado con `railway up ./backend --path-as-root`. El duplicado se borro
+  **desde el panel** y no con el CLI: `service delete` tiene la misma forma que
+  el comando que ya fallo, y de comportarse igual habria borrado produccion.
+
+- [X] T016 Cargar las **seis obligatorias** en el servicio de staging antes del
   primer despliegue — sin alguna, el servicio no arranca, aunque reporta todas
   las que faltan juntas. `DATABASE_URL` por referencia a la base **del propio
   entorno** (la red privada está aislada por entorno, así que no hay forma de
@@ -141,7 +153,7 @@ costaría un despliegue.
   **`FCM_CREDENCIAL_BASE64` NO se carga** (FR-006): sin ella el servicio arranca
   con un avisador mudo, que es exactamente lo que se quiere.
 
-- [ ] T017 Primer despliegue con `railway up` desde la copia de trabajo, y
+- [X] T017 Primer despliegue con `railway up` desde la copia de trabajo, y
   **leer el log**: las nueve migraciones aplicándose en orden desde
   `migracion aplicada: 0001_esquema_inicial.sql`. Es el Q2, y prueba FR-004 —
   la base estaba vacía y se llenó sola, sin ningún paso manual.
@@ -160,6 +172,14 @@ costaría un despliegue.
   el aislamiento estructural, porque T021 prueba que no pasó nada y esto prueba
   que **no puede** pasar —, y que `ADMIN_EMAILS` de staging tenga sólo la cuenta
   de Mateo (FR-007), que hasta acá se había configurado sin mirarse.
+
+  **Parcial al 2026-09-13.** Staging contesta
+  `{"estado":"ok","base":"ok","ambiente":"staging"}` y produccion contesta
+  `{"estado":"ok","base":"ok"}` **sin el campo**, porque corre `master` y el
+  campo vive en la rama. La mitad de produccion se cierra con el merge; no se
+  marca hecha antes. Verificado ademas que la cadena de conexion de staging
+  apunta a la base de su propio entorno (por referencia) y que `ADMIN_EMAILS`
+  tiene solo la cuenta de Mateo.
 
 ---
 

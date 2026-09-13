@@ -125,7 +125,17 @@ Consequent decisions, recorded here because they follow from the same reasoning:
 ## Consequences
 
 - **MUST NOT** copy production data into staging, by any route.
-- **MUST NOT** connect the staging service to the code repository.
+- **MUST NOT** connect the staging service to the code repository. **This
+  requires staging to be a *separate service*, not the same service duplicated
+  into a second environment.** Discovered by executing, at the cost of a small
+  production incident: Railway attaches the code source to the **service**, not
+  to the per-environment service instance, so a duplicated environment shares
+  it — disconnecting staging disconnected production too, and reconnecting
+  production reconnected staging. A `railway up` against the duplicated staging
+  instance would have repointed **production** at a hand-uploaded tarball.
+  Variables, by contrast, *are* per-environment; that was verified in both
+  directions. The rule to remember: **variables per environment, source per
+  service.**
 - **MUST** keep the production site's backend URL guarded by an automated
   check. This is the one genuinely new risk the decision creates: the site takes
   its API URL from a build-time variable (`web/lib/api.ts:30`), so a build
