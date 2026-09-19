@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El re-maquetado. Deja de dibujar contra A4 y pasa a dibujar la maqueta.
   - web/lib/etiqueta-pdf.ts
