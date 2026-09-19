@@ -157,8 +157,13 @@ Two surfaces, built in this order:
    Contacto (WhatsApp, email); Reseñas (last, deferred). And, **for
    administrators only**, the operator's **tablero**: how many orders are
    registered, how many orders and packages per day, week or month, and the same
-   narrowed to one customer account (6.1.0). It counts; it never shows an
-   amount, and it does not read the stored `precio` (Principle V). It lives on
+   narrowed to one customer account (6.1.0). **It counts, and since 6.2.0 it
+   also lists**: for one customer account and one period, it hands the operator
+   a downloadable file with one row per shipment — code, pickup date, delivery
+   date, composed delivery address, **zone name** and package count — so he can
+   work out what to charge **off this product, with his own price list**. It
+   never shows an amount, it does not read the stored `precio` (Principle V),
+   and **the file never mixes two customer accounts**. It lives on
    the web and not in the app because it is read sitting at a computer, not in
    the street.
 
@@ -212,9 +217,45 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 6.1.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-09-11
+**Version**: 6.2.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-09-19
 
 ### Amendment history
+
+- **6.2.0** (2026-09-19) — **The tablero stops merely counting: it also lists.**
+  Since 6.1.0 the *Scope boundaries* described it as something that counts —
+  orders and packages per day, week or month. Diego needs one thing more to
+  invoice: **where each shipment went**, because his price list is by zone. The
+  repo owner brought the request on 2026-09-19 — *"el reporte es para diego para
+  pasarselo a el cliente para a fin de mes saber cuanto cobrar"* — and proposed
+  the shape himself: **no amount, just the zone**.
+
+  **MINOR, not MAJOR.** No principle is reversed and **Principle V stands word
+  for word**: no amount on screen or in the file, and the stored `precio` stays
+  unread. Nothing already built becomes non-compliant — a capability is added.
+  **No ADR**, same reasoning as 6.1.0, 5.1.0 and 2.1.0: this is the owner
+  widening his own brief, not reversing a decision.
+
+  **What this obliges**: the file carries **one customer account only**, enforced
+  in the service and not on the screen — there is no request that produces a
+  mixed file, so no haste can show one customer another's addresses. The zone is
+  resolved from the **stored delivery point**, with the same resolver the order
+  form and the printed label use; never guessed from the written address. And
+  every order of the period appears **whether or not it was marked delivered**,
+  because the only delivery date that exists is written when the operator marks
+  it in the app, and cutting by it would silently drop shipments he forgot to
+  mark — and he would under-charge without noticing.
+
+  **The risk this creates, recorded here because it is the only place anyone
+  will read it in a year**: since 6.0.0 the amounts the site shows a signed-in
+  customer are a **promise**. Until now what the site quoted and what Diego
+  invoices were never laid side by side; **this report is the first tool that
+  puts them on the same table**, row by row and zone by zone. If his list and
+  the generated module drift apart, a customer can compare them. **The easy
+  reaction — putting the price in the report — is the MAJOR amendment 6.1.0
+  already named**, and it would have to be paid with the `precio` column fixed
+  first. It is not an adjustment.
+
+  See `specs/029-reporte-del-mes/`.
 
 - **6.1.0** (2026-09-11) — **The dashboard moves from the Android app's list to
   the web's, for administrators only.** Since 1.0.0 the *Scope boundaries*

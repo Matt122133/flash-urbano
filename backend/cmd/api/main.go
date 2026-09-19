@@ -42,6 +42,7 @@ import (
 	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
 	"github.com/Matt122133/flash-urbano/backend/internal/pedidos"
 	"github.com/Matt122133/flash-urbano/backend/internal/rastro"
+	"github.com/Matt122133/flash-urbano/backend/internal/reporte"
 	"github.com/Matt122133/flash-urbano/backend/internal/tablero"
 	"github.com/Matt122133/flash-urbano/backend/internal/usuarios"
 )
@@ -139,6 +140,7 @@ func correr() error {
 			usuarios: usuarios.NuevosHandlers(repoUsuarios, cfg.EsAdmin),
 			pedidos:  pedidos.NuevosHandlers(repoPedidos, cfg.EsAdmin, avisador),
 			tablero:  tablero.NuevosHandlers(tablero.NuevoRepositorio(pool), cfg.EsAdmin),
+			reporte:  reporte.NuevosHandlers(reporte.NuevoRepositorio(pool), cfg.EsAdmin),
 			resolver: sesiones.ResolverUsuario(repoUsuarios),
 			ambiente: cfg.Ambiente,
 		})),
@@ -187,6 +189,7 @@ type dependencias struct {
 	usuarios *usuarios.Handlers
 	pedidos  *pedidos.Handlers
 	tablero  *tablero.Handlers
+	reporte  *reporte.Handlers
 
 	// resolver convierte una credencial en un usuario. Lo consume el middleware.
 	resolver func(context.Context, string) (*usuarios.Usuario, error)
@@ -263,6 +266,16 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 	// no se llega. Quien es administrador lo decide el handler contra
 	// ADMIN_EMAILS, antes de tocar la base — el 403 no lleva un solo dato.
 	mux.Handle("GET /admin/tablero", conSesion(dep.tablero.Ver))
+
+	// El reporte del mes (`029`). **Una ruta aparte y no un parametro del
+	// tablero**, y es FR-017: el tablero cuenta con tres campos por pedido, y
+	// meterle la direccion de entrega a cada fila se la cobraria a cada visita
+	// para un archivo que se baja una vez por mes.
+	//
+	// **Exige `cliente`; sin el responde 400, nunca "todos"** (FR-006). El
+	// archivo se le pasa al cliente, asi que la garantia de que no mezcla dos
+	// cuentas vive aca abajo y no en un boton que se muestra o no.
+	mux.Handle("GET /admin/reporte", conSesion(dep.reporte.Ver))
 
 	return mux
 }

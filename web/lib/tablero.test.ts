@@ -4,7 +4,14 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { sinComentarios } from "./sin-comentarios";
 import * as tablero from "./tablero";
-import { fechaEnMontevideo, periodoDe, registrados, resumir, type Carga } from "./tablero";
+import {
+  fechaEnMontevideo,
+  motivoSinReporte,
+  periodoDe,
+  registrados,
+  resumir,
+  type Carga,
+} from "./tablero";
 
 // **El proceso de esta prueba cree estar en Tokio (UTC+9), a proposito.**
 //
@@ -159,13 +166,20 @@ describe("el día empieza en Montevideo (SC-006)", () => {
 
 describe("periodoDe", () => {
   it("día: la fecha, con su nombre", () => {
-    expect(periodoDe("2026-09-10", "dia")).toEqual({ clave: "2026-09-10", rotulo: "jue 10 sep 2026" });
+    expect(periodoDe("2026-09-10", "dia")).toEqual({
+      clave: "2026-09-10",
+      rotulo: "jue 10 sep 2026",
+      desde: "2026-09-10",
+      hasta: "2026-09-10",
+    });
   });
 
   it("semana: empieza el lunes y nombra los dos extremos", () => {
     expect(periodoDe("2026-09-10", "semana")).toEqual({
       clave: "2026-09-07",
       rotulo: "lun 7 sep – dom 13 sep 2026",
+      desde: "2026-09-07",
+      hasta: "2026-09-13",
     });
   });
 
@@ -178,11 +192,34 @@ describe("periodoDe", () => {
     expect(periodoDe("2026-01-01", "semana")).toEqual({
       clave: "2025-12-29",
       rotulo: "lun 29 dic 2025 – dom 4 ene 2026",
+      // El rango cruza de año: es el caso que una cuenta a mano se come.
+      desde: "2025-12-29",
+      hasta: "2026-01-04",
     });
   });
 
   it("mes: el nombre entero y el año", () => {
-    expect(periodoDe("2026-09-10", "mes")).toEqual({ clave: "2026-09", rotulo: "septiembre 2026" });
+    expect(periodoDe("2026-09-10", "mes")).toEqual({
+      clave: "2026-09",
+      rotulo: "septiembre 2026",
+      desde: "2026-09-01",
+      hasta: "2026-09-30",
+    });
+  });
+
+  // El rango del periodo es de `029`: el reporte se le pide al servicio por
+  // rango, asi que un ultimo dia mal calculado deja envios afuera del archivo
+  // **sin que nada falle**. Los meses raros, uno por uno.
+  it.each([
+    ["febrero bisiesto", "2028-02-15", "2028-02-01", "2028-02-29"],
+    ["febrero normal", "2026-02-15", "2026-02-01", "2026-02-28"],
+    ["un mes de 31", "2026-07-04", "2026-07-01", "2026-07-31"],
+    ["un mes de 30", "2026-04-04", "2026-04-01", "2026-04-30"],
+    ["diciembre, que cruza de año", "2026-12-20", "2026-12-01", "2026-12-31"],
+  ])("el rango del mes: %s", (_caso, fecha, desde, hasta) => {
+    const p = periodoDe(fecha, "mes");
+    expect(p.desde).toBe(desde);
+    expect(p.hasta).toBe(hasta);
   });
 });
 
@@ -314,5 +351,38 @@ describe("rotuloCliente", () => {
     expect(tablero.rotuloCliente({ id: "3", nombre: null, email: "a.medias@example.com" })).toBe(
       "a.medias@example.com",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Quien puede bajar el reporte (`029`)
+// ---------------------------------------------------------------------------
+
+describe("motivoSinReporte", () => {
+  it("con cuenta elegida y corte por mes o semana, se baja", () => {
+    expect(motivoSinReporte("mes", "u-1")).toBeNull();
+    expect(motivoSinReporte("semana", "u-1")).toBeNull();
+  });
+
+  it("sin cuenta elegida no se baja, sea cual sea el corte (FR-006a)", () => {
+    // El archivo se le pasa al cliente: **nunca puede mezclar dos cuentas**, y
+    // por eso con "Todos" a la vista no hay descarga.
+    expect(motivoSinReporte("mes", "")).toBe("cuenta");
+    expect(motivoSinReporte("semana", "")).toBe("cuenta");
+    expect(motivoSinReporte("dia", "")).toBe("cuenta");
+  });
+
+  it("por dia no se baja, aunque haya cuenta elegida", () => {
+    // Decision de Mateo el 2026-09-19, despues de probarlo: treinta archivos
+    // para armar la cuenta de un mes es mucha informacion para algo que capaz
+    // no se usa. **El corte por dia del cuadro sigue existiendo**: lo que se
+    // saco es la descarga sobre esas filas.
+    expect(motivoSinReporte("dia", "u-1")).toBe("corte");
+  });
+
+  it("la falta de cuenta pesa mas que el corte", () => {
+    // Si no hay cliente elegido, el corte da igual: el mensaje que corresponde
+    // es el de la cuenta, que es el que le dice a Diego que hacer.
+    expect(motivoSinReporte("dia", "")).toBe("cuenta");
   });
 });

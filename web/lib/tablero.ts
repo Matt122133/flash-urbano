@@ -119,6 +119,17 @@ export type Periodo = {
   clave: string;
   /** Lo que se lee (FR-006): sin ambiguedad de que periodo es. */
   rotulo: string;
+  /**
+   * El primer y el ultimo dia del periodo, `YYYY-MM-DD`, **los dos incluidos**
+   * (`029`).
+   *
+   * Existe porque el reporte del mes se pide al servicio por rango, y el rango
+   * tiene que salir **de donde ya vive la aritmetica de calendario** y no de un
+   * componente: un febrero bisiesto, una semana que cruza de mes y un mes de 31
+   * son exactamente el tipo de cuenta que se hace mal a mano.
+   */
+  desde: Fecha;
+  hasta: Fecha;
 };
 
 export type Fila = { periodo: Periodo; pedidos: number; paquetes: number };
@@ -209,7 +220,7 @@ function lunesDe(fecha: Fecha): Fecha {
 /** El periodo al que pertenece una fecha de Montevideo (research D4). */
 export function periodoDe(fecha: Fecha, corte: Corte): Periodo {
   if (corte === "dia") {
-    return { clave: fecha, rotulo: diaLegible(fecha, true) };
+    return { clave: fecha, rotulo: diaLegible(fecha, true), desde: fecha, hasta: fecha };
   }
 
   if (corte === "semana") {
@@ -222,11 +233,23 @@ export function periodoDe(fecha: Fecha, corte: Corte): Periodo {
     return {
       clave: lunes,
       rotulo: `${diaLegible(lunes, !mismoAnio)} – ${diaLegible(domingo, true)}`,
+      desde: lunes,
+      hasta: domingo,
     };
   }
 
   const [anio, mes] = fecha.split("-").map(Number);
-  return { clave: fecha.slice(0, 7), rotulo: `${MESES[mes - 1]} ${anio}` };
+  // El ultimo dia del mes sale de retroceder uno desde el primero del
+  // siguiente, que es la unica forma que no necesita saber cuantos dias tiene
+  // febrero **ni** si el año es bisiesto.
+  const primero = `${fecha.slice(0, 7)}-01`;
+  const ultimo = sumarDias(deUTC(new Date(Date.UTC(anio, mes, 1))), -1);
+  return {
+    clave: fecha.slice(0, 7),
+    rotulo: `${MESES[mes - 1]} ${anio}`,
+    desde: primero,
+    hasta: ultimo,
+  };
 }
 
 /** La fecha que sigue a la del periodo, dentro del siguiente periodo. */
@@ -303,6 +326,68 @@ export function resumir(
 
 /** FR-011: un cliente sin pedidos muestra ceros, y esto los explica. */
 export const TEXTO_CLIENTE_SIN_PEDIDOS = "Este cliente todavía no cargó ningún pedido.";
+
+// ---------------------------------------------------------------------------
+// El reporte del mes (`029`)
+//
+// Los textos viven aca y no en el componente **por el mismo motivo que los de
+// `025`**: en este repo nada renderiza React en una prueba, y una constante en
+// `lib/` si se puede afirmar.
+// ---------------------------------------------------------------------------
+
+/** El boton que baja el reporte de una fila del cuadro. */
+export const TEXTO_BAJAR_REPORTE = "Bajar reporte";
+
+/**
+ * Lo que dice la pantalla con todas las cuentas a la vista (FR-006a).
+ *
+ * **Sin cuenta elegida no hay descarga**, y no es una limitacion tecnica: el
+ * archivo se le pasa al cliente, y el producto no produce uno que mezcle dos
+ * cuentas por ningun camino. Un boton que bajara algo distinto de lo que la
+ * pantalla muestra seria peor que un boton ausente.
+ */
+export const TEXTO_ELEGI_CUENTA = "Elegí un cliente para poder bajar su reporte del período.";
+
+/**
+ * Lo que dice la pantalla con el corte en dia (`029`, 2026-09-19).
+ *
+ * **El reporte por dia no existe, y es una decision de producto, no un
+ * olvido.** Mateo, despues de probarlo: *"me parece mucha info para algo que
+ * capaz no se va a usar"*. El reporte se le pasa a un cliente a fin de mes; un
+ * archivo por dia son treinta archivos para armar una cuenta.
+ *
+ * **El corte por dia del cuadro NO se toco**: sigue siendo util para mirar como
+ * viene la semana, que es para lo que `025` lo puso. Lo que se saco es la
+ * descarga sobre esas filas.
+ */
+export const TEXTO_REPORTE_NO_POR_DIA = "El reporte se baja por semana o por mes.";
+
+/** Por que no se puede bajar el reporte, o `null` si se puede. */
+export type MotivoSinReporte = "cuenta" | "corte" | null;
+
+/**
+ * Si se puede bajar el reporte de una fila del cuadro, y si no, por que.
+ *
+ * **Vive aca y no en el componente** por el mismo motivo que los textos: en
+ * este repo nada renderiza React en una prueba, y una funcion en `lib/` si se
+ * puede afirmar. Las dos razones son de producto y ninguna es tecnica:
+ *
+ *   - **`cuenta`** — con todas las cuentas a la vista no hay descarga (FR-006a):
+ *     el archivo se le pasa al cliente y nunca puede mezclar dos.
+ *   - **`corte`** — por dia no se baja (2026-09-19).
+ */
+export function motivoSinReporte(corte: Corte, clienteId: string): MotivoSinReporte {
+  // La cuenta primero: si no hay cliente elegido, el corte da igual.
+  if (clienteId === "") return "cuenta";
+  if (corte === "dia") return "corte";
+  return null;
+}
+
+/** Cuando el reporte no se pudo traer (FR-019). Nunca bajar un archivo vacío. */
+export const TEXTO_ERROR_REPORTE = "No pudimos armar el reporte. Probá de nuevo en un rato.";
+
+/** Un período sin envíos no descarga un archivo con solo encabezados (FR-020). */
+export const TEXTO_PERIODO_SIN_ENVIOS = "Ese período no tiene envíos para bajar.";
 
 /**
  * Como se nombra una cuenta en el selector: **nombre y mail** (research D6). El
