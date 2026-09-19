@@ -3,6 +3,7 @@ import { dirname, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { componerDireccion, type Direccion } from "./direccion";
+import { sinComentarios } from "./sin-comentarios";
 import {
   etiquetaDelFormulario,
   etiquetaDelPedido,
@@ -355,9 +356,55 @@ describe("componer la etiqueta no depende del servicio (FR-013)", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// El agujero que `028` podia abrir, y no abre.
+// ---------------------------------------------------------------------------
+
+const PLATA = [/precio/i, /monto/i, /importe/i, /costo/i, /\$\s*\d/];
+
+function nombraPlata(fuente: string): boolean {
+  return PLATA.some((patron) => patron.test(sinComentarios(fuente)));
+}
+
+describe("los modulos del dibujo no nombran la plata (FR-014, Principio V)", () => {
+  // **Por que hace falta esto, que antes de `028` no existia.**
+  //
+  // `sin-precio-a-la-vista.test.ts` escanea `app/` y `components/` y **deja
+  // `lib/` afuera a proposito**: ahi el precio TIENE que seguir viviendo,
+  // porque `lib/zonas.ts` lo conserva. O sea que un modulo nuevo en `lib/` nace
+  // sin ninguna proteccion, y `028` agrega dos.
+  //
+  // **No sirve una guarda de grafo de imports**, que fue la primera idea: el
+  // grafo de la etiqueta llega a `lib/zonas.ts` de forma legitima y necesaria,
+  // via `zona-lookup.ts`, porque de ahi sale el NOMBRE de la zona que la hoja
+  // si muestra (FR-016). Prohibir el camino prohibiria el feature. Lo que hay
+  // que prohibir es **nombrar** un monto, que es el mismo instrumento que usa
+  // `lib/tablero.ts` desde `025`.
+  const MODULOS = ["etiqueta.ts", "etiqueta-maqueta.ts", "etiqueta-pdf.ts"];
+
+  it.each(MODULOS)("el fuente de lib/%s esta limpio", (modulo) => {
+    const fuente = readFileSync(join(RAIZ, "lib", modulo), "utf8");
+    expect(fuente.length).toBeGreaterThan(0);
+    expect(nombraPlata(fuente)).toBe(false);
+  });
+
+  it("EL CONTROL POSITIVO: el detector ve un monto cuando esta", () => {
+    expect(nombraPlata("const x = zona.precio;")).toBe(true);
+    expect(nombraPlata('doc.text("$ 250", 10, 10);')).toBe(true);
+    expect(nombraPlata("const importe = 1;")).toBe(true);
+  });
+
+  it("el detector no cuenta un comentario", () => {
+    // Explicar por que el precio no esta es informacion util, y prohibirlo
+    // empujaria a borrar la explicacion junto con el codigo.
+    expect(nombraPlata("// aca no va ningun precio\nconst x = 1;")).toBe(false);
+  });
+});
+
 describe("el producto entrega un archivo, no imprime (FR-017)", () => {
   const ARCHIVOS = [
     "lib/etiqueta.ts",
+    "lib/etiqueta-maqueta.ts",
     "lib/etiqueta-pdf.ts",
     "components/pedido-form.tsx",
     "components/pedido/tarjeta-pedido.tsx",
