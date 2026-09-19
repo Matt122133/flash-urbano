@@ -5,17 +5,32 @@ import { PanelIngreso } from "@/components/sesion/panel-ingreso";
 import { useLlamadaAutenticada, useSesion } from "@/components/sesion/proveedor-sesion";
 import { ErrorApi } from "@/lib/api";
 import {
+  filasDeEnvios,
+  generadoEnMontevideo,
+  nombreDeArchivo,
+  rutaDelReporte,
+  textoDelReporte,
+  type RespuestaReporte,
+} from "@/lib/reporte";
+import {
   BAJADA_TOTAL,
   fechaEnMontevideo,
   resumir,
   rotuloCliente,
+  TEXTO_BAJAR_REPORTE,
   TEXTO_CLIENTE_SIN_PEDIDOS,
   TEXTO_CORTE,
+  motivoSinReporte,
+  TEXTO_ELEGI_CUENTA,
   TEXTO_ERROR,
+  TEXTO_ERROR_REPORTE,
+  TEXTO_PERIODO_SIN_ENVIOS,
+  TEXTO_REPORTE_NO_POR_DIA,
   TEXTO_SIN_PEDIDOS,
   TEXTO_SOLO_ADMINISTRACION,
   TEXTO_TOTAL,
   type Corte,
+  type Periodo,
   type RespuestaTablero,
 } from "@/lib/tablero";
 
@@ -187,6 +202,13 @@ function Numeros({ datos }: { datos: RespuestaTablero }) {
 
   // "Hoy" en Montevideo, calculado aca y pasado a la funcion pura: `resumir` no
   // mira el reloj, y por eso su prueba no depende del dia en que corre.
+  // El nombre de la cuenta elegida, para el pie del archivo. Vacio con "Todos",
+  // que es justo cuando no hay descarga (FR-006a).
+  const rotuloDeLaCuenta =
+    datos.clientes.find((c) => c.id === clienteId)?.nombre?.trim() ||
+    datos.clientes.find((c) => c.id === clienteId)?.email ||
+    "";
+
   const hoy = fechaEnMontevideo(new Date().toISOString());
   const { registrados: total, filas } = resumir(datos.pedidos, {
     corte,
@@ -250,6 +272,12 @@ function Numeros({ datos }: { datos: RespuestaTablero }) {
           ))}
         </div>
         <p className="mt-2 text-xs text-slate-500">{TEXTO_CORTE}</p>
+        {motivoSinReporte(corte, clienteId) === "cuenta" && (
+          <p className="mt-2 text-xs text-slate-500">{TEXTO_ELEGI_CUENTA}</p>
+        )}
+        {motivoSinReporte(corte, clienteId) === "corte" && (
+          <p className="mt-2 text-xs text-slate-500">{TEXTO_REPORTE_NO_POR_DIA}</p>
+        )}
 
         {/* La tabla es lo unico que puede ser mas ancho que un telefono, y
             desplaza ella sola en vez de empujar la pagina. */}
@@ -259,7 +287,10 @@ function Numeros({ datos }: { datos: RespuestaTablero }) {
               <tr className="border-b border-slate-200 text-left text-slate-600">
                 <th scope="col" className="py-2 pr-4 font-medium">Período</th>
                 <th scope="col" className="py-2 pr-4 text-right font-medium">Pedidos</th>
-                <th scope="col" className="py-2 text-right font-medium">Paquetes</th>
+                <th scope="col" className="py-2 pr-4 text-right font-medium">Paquetes</th>
+                <th scope="col" className="py-2 text-right font-medium">
+                  <span className="sr-only">Reporte</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -269,13 +300,116 @@ function Numeros({ datos }: { datos: RespuestaTablero }) {
                     {fila.periodo.rotulo}
                   </th>
                   <td className="py-2 pr-4 text-right tabular-nums text-slate-900">{fila.pedidos}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-900">{fila.paquetes}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums text-slate-900">{fila.paquetes}</td>
+                  <td className="py-2 text-right">
+                    <BotonReporte
+                      periodo={fila.periodo}
+                      corte={corte}
+                      clienteId={clienteId}
+                      cuenta={rotuloDeLaCuenta}
+                      hayEnvios={fila.pedidos > 0}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * El boton que baja el reporte de UN periodo de UNA cuenta (`029`).
+ *
+ * **Uno por fila del cuadro, y no un selector de periodo aparte**: el cuadro ya
+ * lista los periodos, asi que el mes que ves es el que te bajas. Sirve igual
+ * para dia y semana sin una linea mas, y no le agrega un control a una pantalla
+ * que ademas se va a rediseñar.
+ *
+ * **Sin cuenta elegida no se dibuja** (FR-006a). El archivo se le pasa al
+ * cliente; el producto no produce uno mezclado por ningun camino, y un boton que
+ * bajara algo distinto de lo que la pantalla muestra seria peor que ninguno.
+ */
+function BotonReporte({
+  periodo,
+  corte,
+  clienteId,
+  cuenta,
+  hayEnvios,
+}: {
+  periodo: Periodo;
+  corte: Corte;
+  clienteId: string;
+  cuenta: string;
+  hayEnvios: boolean;
+}) {
+  const llamar = useLlamadaAutenticada();
+  const [estado, setEstado] = useState<"listo" | "bajando" | "error" | "vacio">("listo");
+
+  // **Quien puede bajar el reporte lo decide `lib/tablero.ts`, no este
+  // componente**: son dos reglas de producto —una cuenta por archivo, y nada
+  // por dia— y ahi tienen prueba. Aca solo se dibuja o no se dibuja.
+  if (motivoSinReporte(corte, clienteId) !== null) return null;
+
+  async function alTocar() {
+    setEstado("bajando");
+    try {
+      const { pedidos } = await llamar<RespuestaReporte>(
+        rutaDelReporte(clienteId, periodo.desde, periodo.hasta),
+      );
+
+      // FR-020: un periodo sin envios se dice, no se baja un archivo con solo
+      // encabezados. El cuadro ya dice 0, pero el boton tiene que explicar por
+      // que no paso nada al tocarlo.
+      if (pedidos.length === 0) {
+        setEstado("vacio");
+        return;
+      }
+
+      const texto = textoDelReporte({
+        filas: filasDeEnvios(pedidos),
+        cuenta,
+        periodo: periodo.rotulo,
+        generadoEl: generadoEnMontevideo(new Date()),
+      });
+
+      // `type` con charset y el BOM que ya trae el texto: las dos cosas juntas
+      // son lo que hace que la planilla lea bien las tildes y la ñ.
+      const url = URL.createObjectURL(new Blob([texto], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nombreDeArchivo({ filas: [], cuenta, periodo: periodo.rotulo, generadoEl: "" });
+      a.click();
+      URL.revokeObjectURL(url);
+      setEstado("listo");
+    } catch (e: unknown) {
+      // **Sin este catch el boton no haria nada visible** (FR-019), que es
+      // indistinguible de un boton roto: la persona vuelve a tocar. Es el mismo
+      // modo de falla que este repo ya pago en el boton de confirmar y en el de
+      // imprimir.
+      console.error("Fallo al armar el reporte:", e);
+      setEstado("error");
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={alTocar}
+        disabled={estado === "bajando" || !hayEnvios}
+        className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-40"
+      >
+        {estado === "bajando" ? "Armando…" : TEXTO_BAJAR_REPORTE}
+      </button>
+      {estado === "error" && (
+        <p role="alert" className="text-xs text-red-700">
+          {TEXTO_ERROR_REPORTE}
+        </p>
+      )}
+      {estado === "vacio" && <p className="text-xs text-slate-500">{TEXTO_PERIODO_SIN_ENVIOS}</p>}
     </div>
   );
 }
