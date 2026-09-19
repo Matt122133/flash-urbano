@@ -23,6 +23,10 @@ func entornoCompleto(t *testing.T) {
 	// **Vacia a proposito**: el entorno "completo" de este paquete es el que
 	// permite arrancar, y la credencial de avisos no hace falta para eso.
 	t.Setenv("FCM_CREDENCIAL_BASE64", "")
+	// Idem, y ademas por hermeticidad: si la maquina que corre las pruebas
+	// tuviera un RAILWAY_ENVIRONMENT_NAME de verdad, la prueba de abajo pasaria
+	// por el motivo equivocado.
+	t.Setenv("RAILWAY_ENVIRONMENT_NAME", "")
 }
 
 func TestCargarConEntornoCompleto(t *testing.T) {
@@ -274,5 +278,51 @@ func TestLaCredencialDeAvisosSeLimpiaPeroNoSeValida(t *testing.T) {
 	}
 	if cfg.FCMCredencialBase64 != "no-soy-una-credencial-de-verdad" {
 		t.Errorf("quedo %q, queria el valor recortado", cfg.FCMCredencialBase64)
+	}
+}
+
+// 027, FR-022. **La prueba que impide dejar produccion sin arrancar.**
+//
+// El campo `Ambiente` es un dato de diagnostico, no una dependencia, asi que su
+// ausencia no puede impedir el arranque por ningun camino. Si alguien mueve esa
+// lectura al grupo de las obligatorias, esta prueba se pone en rojo — y ese
+// control positivo se ejercio a proposito el 2026-09-13, no se supuso.
+//
+// Es el mismo trato que ya recibe FCM_CREDENCIAL_BASE64 (FR-010), y por el mismo
+// motivo: una variable obligatoria de mas ya nos tumbo produccion una vez.
+func TestSinNombreDeAmbienteElServicioIgualArranca(t *testing.T) {
+	entornoCompleto(t) // deja RAILWAY_ENVIRONMENT_NAME vacia
+
+	cfg, err := Cargar()
+	if err != nil {
+		t.Fatalf("la falta del nombre de ambiente NO puede impedir arrancar, dio: %v", err)
+	}
+	if cfg.Ambiente != AmbienteDesconocido {
+		t.Errorf("ambiente: quiero %q, dio %q", AmbienteDesconocido, cfg.Ambiente)
+	}
+}
+
+// El caso normal: la plataforma inyecta el nombre sola y el servicio lo toma tal
+// cual. Sin esta mitad, la de arriba pasaria igual con una lectura que no lee
+// nada.
+func TestElNombreDeAmbienteSaleDelEntorno(t *testing.T) {
+	for _, caso := range []struct{ puesto, quiero string }{
+		{"production", "production"},
+		{"staging", "staging"},
+		// Un espacio de mas en el panel no deberia cambiar lo que dice /salud.
+		{"  staging  ", "staging"},
+	} {
+		t.Run(caso.quiero, func(t *testing.T) {
+			entornoCompleto(t)
+			t.Setenv("RAILWAY_ENVIRONMENT_NAME", caso.puesto)
+
+			cfg, err := Cargar()
+			if err != nil {
+				t.Fatalf("no esperaba error, dio: %v", err)
+			}
+			if cfg.Ambiente != caso.quiero {
+				t.Errorf("ambiente: quiero %q, dio %q", caso.quiero, cfg.Ambiente)
+			}
+		})
 	}
 }

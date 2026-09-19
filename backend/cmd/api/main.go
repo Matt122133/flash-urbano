@@ -140,6 +140,7 @@ func correr() error {
 			pedidos:  pedidos.NuevosHandlers(repoPedidos, cfg.EsAdmin, avisador),
 			tablero:  tablero.NuevosHandlers(tablero.NuevoRepositorio(pool), cfg.EsAdmin),
 			resolver: sesiones.ResolverUsuario(repoUsuarios),
+			ambiente: cfg.Ambiente,
 		})),
 
 		// Sin estos plazos una conexion que nunca termina de mandar su pedido
@@ -189,6 +190,11 @@ type dependencias struct {
 
 	// resolver convierte una credencial en un usuario. Lo consume el middleware.
 	resolver func(context.Context, string) (*usuarios.Usuario, error)
+
+	// ambiente es el nombre del entorno, y sale en /salud (027, FR-021). Va
+	// por aca y no como parametro suelto de `rutas` para no cambiarle la firma
+	// a la funcion que documenta que endpoint pide credencial.
+	ambiente string
 }
 
 // rutas arma el enrutador.
@@ -211,7 +217,7 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 
 	// Abiertos: son las puertas. Pedirles credencial seria pedir estar adentro
 	// para poder entrar.
-	mux.HandleFunc("GET /salud", salud(pool))
+	mux.HandleFunc("GET /salud", salud(pool, dep.ambiente))
 	mux.HandleFunc("POST /auth/google", dep.auth.Google)
 	mux.HandleFunc("POST /auth/codigo", dep.codigo.Pedir)
 	mux.HandleFunc("POST /auth/codigo/verificar", dep.codigo.Verificar)
@@ -269,24 +275,46 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 //
 // Es lo primero que se construye y lo que se usa para probar el cruce de
 // origenes antes de que exista un login al que culpar.
-func salud(pool *db.Pool) http.HandlerFunc {
-	type respuesta struct {
-		Estado string `json:"estado"`
-		Base   string `json:"base"`
-	}
+type respuestaDeSalud struct {
+	Estado string `json:"estado"`
+	Base   string `json:"base"`
 
+	// Ambiente nombra el entorno que esta contestando (027, FR-021). Va en las
+	// DOS respuestas, la sana y la degradada: saber a cual se le esta pegando
+	// importa especialmente cuando algo anda mal.
+	Ambiente string `json:"ambiente"`
+}
+
+// armarSalud decide el codigo y el cuerpo de /salud.
+//
+// **Separada del handler a proposito, y no por prolijidad.** El handler necesita
+// una base viva para llegar al camino sano, asi que una prueba del caso `200`
+// que pasara por el se saltearia sola sin `TEST_DATABASE_URL` — y el campo que
+// `027` agrega habria quedado sin cubrir en silencio, que es justo la clase de
+// verde que no prueba nada. Aca la forma de la respuesta se prueba sin Postgres.
+func armarSalud(baseOK bool, ambiente string) (int, respuestaDeSalud) {
+	if !baseOK {
+		return http.StatusServiceUnavailable, respuestaDeSalud{
+			Estado: "degradado", Base: "sin conexion", Ambiente: ambiente,
+		}
+	}
+	return http.StatusOK, respuestaDeSalud{
+		Estado: "ok", Base: "ok", Ambiente: ambiente,
+	}
+}
+
+func salud(pool *db.Pool, ambiente string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancelar := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancelar()
 
-		if err := pool.Ping(ctx); err != nil {
+		err := pool.Ping(ctx)
+		if err != nil {
 			log.Printf("salud: la base no responde: %v", err)
-			httpx.JSON(w, http.StatusServiceUnavailable,
-				respuesta{Estado: "degradado", Base: "sin conexion"})
-			return
 		}
 
-		httpx.JSON(w, http.StatusOK, respuesta{Estado: "ok", Base: "ok"})
+		estado, cuerpo := armarSalud(err == nil, ambiente)
+		httpx.JSON(w, estado, cuerpo)
 	}
 }
 

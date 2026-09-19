@@ -27,6 +27,11 @@ const (
 
 	// RastroPorDefecto son los noventa dias de FR-022c.
 	RastroPorDefecto = 90 * 24 * time.Hour
+
+	// AmbienteDesconocido es lo que dice /salud cuando nadie nombro el
+	// ambiente: corriendo en la maquina de alguien, fuera de la plataforma.
+	// Mentir con "production" seria peor que no saber.
+	AmbienteDesconocido = "desconocido"
 )
 
 // Config es la configuracion completa del servicio, ya validada.
@@ -72,6 +77,27 @@ type Config struct {
 	// credencial vencida impediria arrancar, que es exactamente lo que FR-010
 	// prohibe.
 	FCMCredencialBase64 string
+
+	// Ambiente nombra el entorno en el que corre el servicio, y sale en
+	// /salud (027, FR-021).
+	//
+	// **Existe porque desde `027` hay dos servicios identicos corriendo**:
+	// produccion y staging. Sin esto, descubrir que la web local esta apuntada
+	// al lado equivocado cuesta media tarde; con esto, una consulta.
+	//
+	// **OPCIONAL, y por el mismo motivo que FCMCredencialBase64** (FR-022): se
+	// lee despues del corte por faltantes, asi que su ausencia NO puede impedir
+	// el arranque. Una variable obligatoria de mas es la forma conocida de
+	// dejar produccion sin levantar, y esto es un dato de diagnostico, no una
+	// dependencia. Sin valor, queda en AmbienteDesconocido.
+	//
+	// El valor lo inyecta la plataforma sola —en Railway,
+	// RAILWAY_ENVIRONMENT_NAME—, asi que no hay ninguna variable nueva que
+	// alguien tenga que acordarse de configurar al crear un entorno.
+	//
+	// **No dice que VERSION corre** (FR-023). Un staging sin desplegar hace tres
+	// semanas contesta "staging" igual; para eso esta la fecha del despliegue.
+	Ambiente string
 }
 
 // EsAdmin dice si una direccion es administradora.
@@ -137,6 +163,21 @@ func Cargar() (*Config, error) {
 	// pelado y no con `obligatoria`: no suma a `faltantes`, asi que su ausencia
 	// no puede impedir el arranque por ningun camino (FR-010).
 	cfg.FCMCredencialBase64 = strings.TrimSpace(os.Getenv("FCM_CREDENCIAL_BASE64"))
+
+	// Misma regla y mismo lugar que la de arriba (FR-022): `os.Getenv` pelado,
+	// despues del corte, para que no exista ningun camino por el que su
+	// ausencia impida arrancar.
+	//
+	// **Lo que protege es la POSICION, no la funcion**, y se comprobo rompiendo
+	// las dos formas el 2026-09-13. Llamar a `obligatoria` aca abajo NO tumba el
+	// arranque: `faltantes` ya se reviso y nadie vuelve a mirarlo, asi que la
+	// variable quedaria vacia en silencio. Lo que si tumba el arranque es
+	// leerla ARRIBA, entre las seis. O sea que mover estas lineas por encima
+	// del corte es el cambio peligroso, y es el que la prueba caza.
+	cfg.Ambiente = strings.TrimSpace(os.Getenv("RAILWAY_ENVIRONMENT_NAME"))
+	if cfg.Ambiente == "" {
+		cfg.Ambiente = AmbienteDesconocido
+	}
 
 	var err error
 	if cfg.SesionDuracion, err = duracionODefecto("SESION_DURACION", SesionPorDefecto); err != nil {

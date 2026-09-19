@@ -126,6 +126,18 @@ Gates:
   actually is in this clone; if `UNWIRED`, treat the rule as convention only
   until fixed (see `docs/HARNESS-TODO.md`).
 - Not done until the plan's `verify:` command is green.
+- **Nothing reaches production that has not run in `staging` first.** Since
+  `027` there are two Railway environments; deploy the working copy to staging
+  with `railway up` and exercise the change there before it merges to `master`,
+  which is what production deploys from. See
+  [`docs/processes/staging.md`](docs/processes/staging.md).
+
+  **The exceptions are real and named**: a hotfix for something broken in
+  production right now, and anything that can only be observed in production
+  (its data, its domain, its scale). Taking one is a decision, not an oversight
+  — say which exception applies and why, in the PR or the plan. What is not an
+  exception is "the change is small": every silent defect this repo has
+  collected looked small.
 
 ## On receiving a task
 
