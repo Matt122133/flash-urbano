@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # El paquete Go nuevo: la consulta, el handler y SU guarda de plata.
   - backend/internal/reporte/
@@ -10,7 +10,10 @@ covers:
   # El CSV resuelto como dato, y su prueba. Modulo puro.
   - web/lib/reporte.ts
   - web/lib/reporte.test.ts
-  # La funcion que pide el reporte al servicio.
+  # Estaba previsto meterle una funcion, y **al final no hizo falta**:
+  # `useLlamadaAutenticada()` ya da un `llamar<T>(ruta)` generico, asi que la
+  # ruta se arma en `lib/reporte.ts` —pura y probada— y este archivo no se
+  # toco. Mejor asi: lo vigila `cotizar-abierto.test.ts`.
   - web/lib/api.ts
   # El boton por fila del cuadro, y el estado de "elegi una cuenta".
   - web/components/tablero/tablero.tsx
@@ -139,7 +142,7 @@ backend/cmd/api/main.go          # +1 ruta. /admin/tablero NO se toca.
 
 web/lib/reporte.ts               # NUEVO: el CSV como dato, y despues como texto
 web/lib/reporte.test.ts          # NUEVO
-web/lib/api.ts                   # +1 funcion
+web/lib/api.ts                   # NO SE TOCO: `llamar<T>()` ya era generico
 web/lib/tablero.ts               # +textos de pantalla (el boton, "elegi cuenta")
 web/components/tablero/tablero.tsx  # +boton por fila
 

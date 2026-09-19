@@ -121,7 +121,7 @@ columna que sugiera que deberia haberlo.
 - [x] T036 Comprobar en el quickstart los dos casos que cuestan plata: el pedido **sin marcar como entregado** aparece, y el pedido **sin punto** sale con zona vacia y se distingue.
 - [x] T037 Comprobar que **la zona del CSV coincide** con la que muestran el formulario y la etiqueta impresa para el mismo pedido (SC-005). Si difieren, hay un segundo resolvedor de zona dando vueltas.
 - [x] T038 Comprobar que la constitucion quedo en **6.2.0** con su entrada de historial. **Es el requisito que mas facil se olvida** porque no lo rompe ninguna prueba.
-- [ ] T039 Desplegar a **staging** y ejercitarlo ahi antes de mergear. Aca no es formalidad: **hay una ruta nueva en el servicio**. Bajar el `npm run dev` al terminar.
+- [x] T039 Desplegar a **staging** y ejercitarlo ahi antes de mergear. Aca no es formalidad: **hay una ruta nueva en el servicio**. Bajar el `npm run dev` al terminar.
 
 ---
 
