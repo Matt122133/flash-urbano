@@ -1,0 +1,46 @@
+-- 0010 — el color de cada cliente, de 030-color-por-cliente.
+--
+-- El 2026-09-30 Diego dejo sin hacer pedidos de un cliente real porque los tomo
+-- por pedidos de otro. El nombre estaba en la tarjeta; lo que fallo fue la
+-- lectura. Cada cuenta gana un color, y la app lo dibuja como una franja en el
+-- borde de la tarjeta: dos clientes distintos dejan de verse iguales de reojo.
+--
+-- --------------------------------------------------------------------------
+-- Por que va en `usuarios` y no en `pedidos`
+-- --------------------------------------------------------------------------
+--
+-- Es un atributo de la cuenta. Copiarlo a cada pedido lo congelaria: colorear a
+-- mano una cuenta que ya existe (las tres reales, research D6) no alcanzaria a
+-- sus pedidos viejos, que son justo los que se confundieron. Los pedidos lo
+-- leen con un JOIN (research D1).
+--
+-- --------------------------------------------------------------------------
+-- Por que NULLABLE, sin default y sin relleno
+-- --------------------------------------------------------------------------
+--
+-- Porque FR-006 lo pide: las cuentas que ya existen quedan sin color. Y por la
+-- leccion de `0006`: una columna NOT NULL sobre una tabla con filas es como el
+-- servicio no arranco el 2026-08-12. Sin color, la tarjeta se ve como antes.
+--
+-- --------------------------------------------------------------------------
+-- Por que el CHECK exige minusculas
+-- --------------------------------------------------------------------------
+--
+-- `#C026D3` y `#c026d3` son el mismo color, y el indice unico de abajo los
+-- veria distintos: dos cuentas quedarian con el mismo color sin que la base se
+-- quejara. Es el mismo razonamiento que el `email = lower(email)` de `0001`: la
+-- normalizacion la exige la base, no la buena voluntad de quien escribe.
+--
+-- --------------------------------------------------------------------------
+-- Por que un indice UNICO
+-- --------------------------------------------------------------------------
+--
+-- FR-004b: dos cuentas no pueden tener nunca el mismo color. El servicio elige
+-- el color bajo un lock (research D4), pero el lock es codigo y el codigo se
+-- puede saltear —una asignacion a mano, un camino nuevo que alguien agregue—.
+-- El indice es lo que no se puede saltear. Parcial porque NULL no es un color y
+-- las cuentas sin color son muchas.
+ALTER TABLE usuarios
+    ADD COLUMN color text CHECK (color ~ '^#[0-9a-f]{6}$');
+
+CREATE UNIQUE INDEX usuarios_color_unico ON usuarios (color) WHERE color IS NOT NULL;

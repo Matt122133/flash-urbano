@@ -181,6 +181,20 @@ type respuestaListaAdmin struct {
 	Pedidos []*ParaAdmin `json:"pedidos"`
 }
 
+// Lo que devuelve un cambio de estado. Tambien es de Diego, y por eso tambien
+// es `ParaAdmin` (030, research D7).
+//
+// Hasta `030` devolvia `respuestaCrear`, o sea el `Pedido` del cliente, y
+// nadie lo noto porque la app reemplaza la tarjeta con esta respuesta y el
+// `Pedido` traia todo lo que la tarjeta dibujaba. Con el color ya no: la
+// franja **desaparecia al tocar "Lo tengo"** hasta el proximo refresco.
+//
+// Trae tambien la cedula de quien recibio. No abre nada: la ruta es solo para
+// administradores, igual que `GET /admin/pedidos`, que ya la trae.
+type respuestaEstado struct {
+	Pedido *ParaAdmin `json:"pedido"`
+}
+
 // peticionEstado es el cuerpo de PATCH /admin/pedidos/{id}/estado.
 //
 // Un solo campo, y es el estado DESTINO. No se manda una transicion: ver
@@ -591,7 +605,7 @@ func (h *Handlers) CambiarEstado(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, respuestaCrear{Pedido: pedido})
+	httpx.JSON(w, http.StatusOK, respuestaEstado{Pedido: pedido.ParaAdmin()})
 }
 
 // mensajeFueraDeVentana es lo que se le dice a quien intento editar o dar de

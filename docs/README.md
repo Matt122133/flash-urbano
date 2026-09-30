@@ -108,6 +108,9 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
 - [`processes/app-repartidor.md`](processes/app-repartidor.md) — cómo se genera
   e instala el APK de la app de Diego, qué comprobar antes de pasárselo, y cómo
   se le corta la sesión a un teléfono perdido.
+- [`processes/color-de-clientes.md`](processes/color-de-clientes.md) — cómo
+  darle color a mano a una cuenta que ya existía (las tres reales de `030`),
+  sin dejar ningún dato de clientes en el repo, y qué color le toca.
 - [`processes/railway-despliegue.md`](processes/railway-despliegue.md) — cómo
   está armado el backend en Railway, qué variables tiene y cuáles son relleno,
   y las cuatro trampas del despliegue.

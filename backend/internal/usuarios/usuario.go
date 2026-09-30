@@ -27,6 +27,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/Matt122133/flash-urbano/backend/internal/colores"
 	"github.com/Matt122133/flash-urbano/backend/internal/db"
 	"github.com/Matt122133/flash-urbano/backend/internal/httpx"
 )
@@ -316,7 +317,39 @@ func (r *Repositorio) GuardarPerfil(
 		WHERE id = $1
 		RETURNING ` + columnas
 
-	u, err := escanear(r.pool.QueryRow(ctx, sql, id, nombre, telefono, calle, esquina, numero, lat, lng, apto, cooperativa))
+	// **Una transaccion, por el color (030).** El perfil se guarda igual que
+	// antes; lo nuevo es que el primer guardado —el que completa el alta—
+	// tambien le asigna a la cuenta su color, y las dos cosas quedan o no
+	// quedan juntas.
+	var u *Usuario
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		// Como estaba el perfil ANTES de este guardado. `FOR UPDATE` para que
+		// dos guardados simultaneos de la misma cuenta no lean los dos `false`
+		// y le asignen dos colores.
+		var yaCompleto bool
+		if err := tx.QueryRow(ctx,
+			`SELECT perfil_completo FROM usuarios WHERE id = $1 FOR UPDATE`, id,
+		).Scan(&yaCompleto); err != nil {
+			return err
+		}
+
+		var err error
+		u, err = escanear(tx.QueryRow(ctx, sql, id, nombre, telefono, calle, esquina, numero, lat, lng, apto, cooperativa))
+		if err != nil {
+			return err
+		}
+
+		// **Solo en la transicion false -> true**, que es exactamente
+		// "registrarse" (FR-002, research D4). La regla "si no tiene color"
+		// parecia equivalente y estaba mal: la primera cuenta de prueba que
+		// editara su perfil habria recibido color, contra FR-006. Todas las
+		// cuentas que existian al desplegar `030` ya tenian el perfil completo,
+		// asi que ninguna pasa por aca.
+		if !yaCompleto {
+			return asignarColor(ctx, tx, id)
+		}
+		return nil
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNoExiste
 	}
@@ -324,6 +357,53 @@ func (r *Repositorio) GuardarPerfil(
 		return nil, fmt.Errorf("guardar perfil: %w", err)
 	}
 	return u, nil
+}
+
+// cerrojoDeColores serializa la eleccion de color entre registros simultaneos.
+//
+// Es un lock de transaccion (`pg_advisory_xact_lock`): se suelta solo con el
+// COMMIT o el ROLLBACK, asi que no hay camino que lo deje tomado. El numero no
+// significa nada; solo tiene que ser distinto de `claveDeMigracion`.
+const cerrojoDeColores int64 = 30_030_2026
+
+// asignarColor le da a la cuenta el color que le toca (030).
+//
+// **Dos capas, y hacen cosas distintas.** El cerrojo hace que dos registros
+// simultaneos elijan uno despues del otro, y por eso el segundo ve el color del
+// primero y elige otro. El indice unico de `0010` es lo que garantiza FR-004b
+// aunque el cerrojo falte: un camino nuevo que asigne sin tomarlo choca contra
+// la base en vez de guardar un repetido.
+//
+// Si ya no queda ningun color libre (`Elegir` devuelve false, cientos de
+// cuentas despues), la cuenta queda sin color: repetir uno violaria FR-004b, y
+// sin color la tarjeta se ve como antes.
+func asignarColor(ctx context.Context, tx pgx.Tx, id string) error {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, cerrojoDeColores); err != nil {
+		return fmt.Errorf("tomando el cerrojo de colores: %w", err)
+	}
+
+	filas, err := tx.Query(ctx, `SELECT color FROM usuarios WHERE color IS NOT NULL`)
+	if err != nil {
+		return fmt.Errorf("leyendo los colores asignados: %w", err)
+	}
+	asignados, err := pgx.CollectRows(filas, pgx.RowTo[string])
+	if err != nil {
+		return fmt.Errorf("leyendo los colores asignados: %w", err)
+	}
+
+	color, hay := colores.Elegir(asignados)
+	if !hay {
+		return nil
+	}
+
+	// `AND color IS NULL`: una cuenta coloreada a mano mientras tanto no se
+	// pisa. El color se escribe una vez y nada del codigo lo sobrescribe.
+	if _, err := tx.Exec(ctx,
+		`UPDATE usuarios SET color = $2 WHERE id = $1 AND color IS NULL`, id, color,
+	); err != nil {
+		return fmt.Errorf("guardando el color: %w", err)
+	}
+	return nil
 }
 
 // DeContexto devuelve el usuario que dejo el middleware de sesion.

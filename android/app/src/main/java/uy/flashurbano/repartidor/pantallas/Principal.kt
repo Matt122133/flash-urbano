@@ -39,6 +39,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import uy.flashurbano.repartidor.datos.Direccion
 import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
+import uy.flashurbano.repartidor.datos.colorDeCliente
 import uy.flashurbano.repartidor.datos.textoDePedidosNuevos
 import uy.flashurbano.repartidor.datos.esEstadoConocido
 import uy.flashurbano.repartidor.datos.fechaCorta
@@ -484,165 +488,199 @@ fun TarjetaPedido(
             BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         },
     ) {
-        Column(modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().franjaDeCliente(pedido.colorCliente)) {
+            Column(modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp)) {
 
-            // Codigo, cuantos bultos y para cuando. Los tres datos que ordenan
-            // la jornada, en una sola linea.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    pedido.codigo,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Pastilla(bultos(pedido.cantidad))
+                // Codigo, cuantos bultos y para cuando. Los tres datos que ordenan
+                // la jornada, en una sola linea.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
-                        fechaCorta(pedido.retiroFecha),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 8.dp),
+                        pedido.codigo,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Pastilla(bultos(pedido.cantidad))
+                        Text(
+                            fechaCorta(pedido.retiroFecha),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
+
+                Direccion(IconoSale, "RETIRA", comoTexto(pedido.retiro), naranja = true)
+                Direccion(IconoLlega, "ENTREGA", comoTexto(pedido.entrega), naranja = false)
+
+                // Los DOS telefonos, del mismo tamano y los dos tocables (FR-015 de
+                // `012`). Quien envia hace falta tanto como quien recibe: si el
+                // paquete no esta donde dijeron, a quien se llama es a quien lo
+                // mando.
+                Row(modifier = Modifier.padding(top = 10.dp)) {
+                    BotonTelefono(
+                        rotulo = "ENVÍA",
+                        nombre = pedido.remitenteNombre,
+                        numero = pedido.remitenteTelefono,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BotonTelefono(
+                        rotulo = "RECIBE",
+                        nombre = pedido.destinatarioNombre,
+                        numero = pedido.destinatarioTelefono,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            }
 
-            Direccion(IconoSale, "RETIRA", comoTexto(pedido.retiro), naranja = true)
-            Direccion(IconoLlega, "ENTREGA", comoTexto(pedido.entrega), naranja = false)
+                // **El comentario del cliente** (026, FR-006a).
+                //
+                // Va DENTRO de la tarjeta y no detras de un toque. El contrato 4.2
+                // de `012` dice que la tarjeta muestra todo sin desplegar y que no
+                // se toca, con el motivo escrito: Diego no puede tener que tocar
+                // para leer algo parado en una puerta. Y es justo lo que se pidio:
+                // que sepa que hay una forma especifica de entregar **al decidir
+                // que lleva en el dia**, no despues de abrir algo.
+                //
+                // **Se ve distinto de las direcciones y los telefonos a proposito.**
+                // Como otra linea de texto pasaria por un dato mas del pedido; con
+                // fondo propio y el globo se lee como "alguien te dejo dicho algo".
+                //
+                // Solo aparece si hay comentario: sin el, la tarjeta queda
+                // exactamente como antes de este feature (FR-009). `isNullOrBlank`
+                // cubre los dos casos de "no hay" —la clave ausente y un texto en
+                // blanco que se haya colado por otro camino— con la misma decision
+                // que toman las tres pantallas de la web.
+                if (!pedido.comentario.isNullOrBlank()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp)) {
+                            Icon(
+                                IconoComentario,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(18.dp).padding(top = 1.dp),
+                            )
+                            Column(modifier = Modifier.padding(start = 9.dp)) {
+                                Text(
+                                    "COMENTARIO",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                                // Sin `maxLines` NI `TextOverflow`: el texto se lee
+                                // entero. Cortarlo con puntos suspensivos en una
+                                // tarjeta que no se puede abrir seria esconder justo
+                                // lo que el cliente quiso avisar. El tope de 280 lo
+                                // acota a unos tres renglones.
+                                Text(
+                                    pedido.comentario!!.trim(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                            }
+                        }
+                    }
+                }
 
-            // Los DOS telefonos, del mismo tamano y los dos tocables (FR-015 de
-            // `012`). Quien envia hace falta tanto como quien recibe: si el
-            // paquete no esta donde dijeron, a quien se llama es a quien lo
-            // mando.
-            Row(modifier = Modifier.padding(top = 10.dp)) {
-                BotonTelefono(
-                    rotulo = "ENVÍA",
-                    nombre = pedido.remitenteNombre,
-                    numero = pedido.remitenteTelefono,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                BotonTelefono(
-                    rotulo = "RECIBE",
-                    nombre = pedido.destinatarioNombre,
-                    numero = pedido.destinatarioTelefono,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            // **El comentario del cliente** (026, FR-006a).
-            //
-            // Va DENTRO de la tarjeta y no detras de un toque. El contrato 4.2
-            // de `012` dice que la tarjeta muestra todo sin desplegar y que no
-            // se toca, con el motivo escrito: Diego no puede tener que tocar
-            // para leer algo parado en una puerta. Y es justo lo que se pidio:
-            // que sepa que hay una forma especifica de entregar **al decidir
-            // que lleva en el dia**, no despues de abrir algo.
-            //
-            // **Se ve distinto de las direcciones y los telefonos a proposito.**
-            // Como otra linea de texto pasaria por un dato mas del pedido; con
-            // fondo propio y el globo se lee como "alguien te dejo dicho algo".
-            //
-            // Solo aparece si hay comentario: sin el, la tarjeta queda
-            // exactamente como antes de este feature (FR-009). `isNullOrBlank`
-            // cubre los dos casos de "no hay" —la clave ausente y un texto en
-            // blanco que se haya colado por otro camino— con la misma decision
-            // que toman las tres pantallas de la web.
-            if (!pedido.comentario.isNullOrBlank()) {
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                ) {
-                    Row(modifier = Modifier.padding(10.dp)) {
+                // **El estado crudo, solo si la app no lo conoce** (FR-011).
+                //
+                // `012` lo mostraba SIEMPRE, y tenia razon para su pantalla: era la
+                // unica senal de que habia entrado un estado raro. Con pestanas, la
+                // pestana ya dice el estado en el caso normal, asi que repetirlo en
+                // cada tarjeta es decir dos veces lo mismo en el lugar donde menos
+                // sobra el espacio.
+                //
+                // Lo que NO se perdio es el motivo: si el servicio suma un cuarto
+                // estado antes que la app, ese pedido cae en Pendientes **y se ve
+                // que es raro**.
+                // **Quien recibio, cuando se registro** (FR-008). Diego ve las dos
+                // cosas: el nombre y la cedula. Es el unico lugar del producto donde
+                // la cedula se muestra — al cliente no le llega, y eso lo sostiene
+                // una prueba del lado del servicio.
+                //
+                // Solo aparece si hay dato: un pedido entregado antes de `016` no
+                // tiene receptor, y eso no es un hueco que haya que rellenar.
+                if (pedido.recibioNombre.isNotBlank()) {
+                    Row(modifier = Modifier.padding(top = 9.dp)) {
                         Icon(
-                            IconoComentario,
+                            IconoTilde,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.size(18.dp).padding(top = 1.dp),
                         )
                         Column(modifier = Modifier.padding(start = 9.dp)) {
                             Text(
-                                "COMENTARIO",
+                                "LO RECIBIÓ",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                            // Sin `maxLines` NI `TextOverflow`: el texto se lee
-                            // entero. Cortarlo con puntos suspensivos en una
-                            // tarjeta que no se puede abrir seria esconder justo
-                            // lo que el cliente quiso avisar. El tope de 280 lo
-                            // acota a unos tres renglones.
-                            Text(
-                                pedido.comentario!!.trim(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                        }
-                    }
-                }
-            }
-
-            // **El estado crudo, solo si la app no lo conoce** (FR-011).
-            //
-            // `012` lo mostraba SIEMPRE, y tenia razon para su pantalla: era la
-            // unica senal de que habia entrado un estado raro. Con pestanas, la
-            // pestana ya dice el estado en el caso normal, asi que repetirlo en
-            // cada tarjeta es decir dos veces lo mismo en el lugar donde menos
-            // sobra el espacio.
-            //
-            // Lo que NO se perdio es el motivo: si el servicio suma un cuarto
-            // estado antes que la app, ese pedido cae en Pendientes **y se ve
-            // que es raro**.
-            // **Quien recibio, cuando se registro** (FR-008). Diego ve las dos
-            // cosas: el nombre y la cedula. Es el unico lugar del producto donde
-            // la cedula se muestra — al cliente no le llega, y eso lo sostiene
-            // una prueba del lado del servicio.
-            //
-            // Solo aparece si hay dato: un pedido entregado antes de `016` no
-            // tiene receptor, y eso no es un hueco que haya que rellenar.
-            if (pedido.recibioNombre.isNotBlank()) {
-                Row(modifier = Modifier.padding(top = 9.dp)) {
-                    Icon(
-                        IconoTilde,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(18.dp).padding(top = 1.dp),
-                    )
-                    Column(modifier = Modifier.padding(start = 9.dp)) {
-                        Text(
-                            "LO RECIBIÓ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            pedido.recibioNombre,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        if (pedido.recibioDocumento.isNotBlank()) {
-                            Text(
-                                "C.I. " + pedido.recibioDocumento,
-                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Text(
+                                pedido.recibioNombre,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            if (pedido.recibioDocumento.isNotBlank()) {
+                                Text(
+                                    "C.I. " + pedido.recibioDocumento,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
+
+                if (!esEstadoConocido(pedido.estado)) {
+                    Text(
+                        "Estado desconocido: " + pedido.estado,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
             }
 
-            if (!esEstadoConocido(pedido.estado)) {
-                Text(
-                    "Estado desconocido: " + pedido.estado,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
+            debajo()
         }
+    }
+}
 
-        debajo()
+/** Ancho de la franja del cliente. */
+private val ANCHO_DE_FRANJA = 6.dp
+
+/**
+ * La franja del color del cliente, en el borde izquierdo de la tarjeta (030).
+ *
+ * **Se dibuja, no se maqueta** (research D5): va encima del contenido y no
+ * ocupa lugar, asi que la tarjeta mide exactamente lo mismo con y sin franja.
+ * Es lo que exige FR-010 — el alto lo fijo `015` al milimetro para que
+ * siempre haya una accion cerca del pulgar — y una `Box` de 6 dp en una `Row`
+ * obligaria a medir con alturas intrinsecas y a tocar ese layout. El texto
+ * empieza a 14 dp del borde, asi que la franja no pisa nada.
+ *
+ * Queda recortada por la forma redondeada de la `Card`, que recorta su
+ * contenido, y pasa tambien por el costado de la franja de accion: cortarla ahi
+ * haria que midiera distinto segun la tarjeta tenga accion o no.
+ *
+ * **No se confunde con el borde destacado** (FR-009): aquel es un contorno fino
+ * alrededor de toda la tarjeta, y esta es un bloque grueso de un solo lado.
+ *
+ * Sin color, o con uno que no se puede leer, no se dibuja nada y la tarjeta
+ * queda como antes (FR-008).
+ */
+private fun Modifier.franjaDeCliente(hex: String?): Modifier {
+    val argb = colorDeCliente(hex) ?: return this
+    val color = Color(argb)
+    return this.drawWithContent {
+        drawContent()
+        drawRect(color = color, size = Size(ANCHO_DE_FRANJA.toPx(), size.height))
     }
 }
 
