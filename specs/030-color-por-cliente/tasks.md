@@ -266,6 +266,10 @@ existente y ver su franja.
   **Falta**: que Diego instale la `v0.5.0` y confirme que ve las franjas, y
   SC-001 con esas tres cuentas. Mateo decidio cerrar el plan antes y
   confirmarlo despues con Diego.
+  **Confirmado 2026-09-30**: Diego instalo la `v0.5.0` y le dio el ok a Mateo.
+  **El feature queda entregado.** Sigue sin hacerse SC-001 tal como esta
+  escrito (que alguien que no conoce a los clientes agrupe las tarjetas sin
+  leer).
 
 ---
 
