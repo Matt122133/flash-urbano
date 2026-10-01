@@ -210,13 +210,25 @@ existente y ver su franja.
 - [X] T020 Commitear **con el plan todavía `active`**, stageando rutas
   explícitas. Mensaje: `feat: el color de cada cliente en la tarjeta
   030-color-por-cliente`.
-- [ ] T021 Quickstart §2 en el emulador: los pasos 2 a 5, y **SC-003 contra la
+- [X] T021 Quickstart §2 en el emulador: los pasos 2 a 5, y **SC-003 contra la
   captura de T002**. Cerrar el emulador y pasarle a Mateo el comando para
   repetirlo.
+  **Hecho 2026-09-30 en el emulador, con Mateo.** Dos cuentas locales
+  coloreadas a mano (fucsia y cian, los dos primeros de la lista). Visto:
+  franjas distintas por cuenta e iguales dentro de la misma cuenta; la cuenta
+  sin color, sin franja; la franja no pisa texto, convive con el bloque de
+  comentario y con "LO RECIBIÓ", sigue en En curso despues de "Lo tengo" y
+  aparece en Entregados. **Ajuste pedido por Mateo**: que no pase por el
+  costado del boton de accion → `drawBehind` (research D5). Mateo: "quedo
+  perfecto".
+  **Sin hacer**: la comparacion numerica de SC-003 contra la captura de T002,
+  que no se saco con sesion iniciada. La franja se dibuja y no cambia ninguna
+  medida, asi que no puede cambiar cuantas tarjetas entran, pero no se midio.
+  Tampoco se miro la tarjeta destacada (FR-009) en pantalla.
 - [ ] T022 Quickstart §3 en **staging**: `railway up`, colorear una cuenta de
   staging con el documento, registrar una nueva, y mirar la app apuntada a
   staging en el teléfono de Mateo.
-- [ ] T023 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que
+- [X] T023 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que
   haya quedado, como mínimo: **pasados ~16 clientes los colores generados se
   parecen** (research D3), y que no hay pantalla para cambiar un color.
 - [ ] T024 Después del merge y del deploy: colorear **las tres cuentas reales**
