@@ -29,6 +29,9 @@ negativa sin un control positivo.
   `assembleDebug testDebugUnitTest` → `BUILD SUCCESSFUL`.
 - [ ] T002 Sacar una captura de **Pendientes** en el emulador con la app de hoy,
   con al menos tres pedidos. Contra esa captura se mide SC-003 (T021).
+  **No se hizo**: la sesion del emulador estaba vencida y la captura de la app
+  vieja con sesion no se llego a sacar antes de instalar la nueva. Por eso
+  SC-003 queda sin medir (anotado en el tracker).
 
 ---
 
@@ -189,9 +192,14 @@ existente y ver su franja.
   correos ni ids reales: las tres cuentas se nombran como "las tres cuentas
   reales".
 - [X] T016 [US3] Entrada de una línea en `docs/README.md`.
-- [ ] T017 [US3] Seguir el documento en la base **local** sobre una cuenta
+- [X] T017 [US3] Seguir el documento en la base **local** sobre una cuenta
   existente, y confirmar que sus pedidos viejos muestran la franja en el
   emulador. Corregir el documento si algún paso no anduvo tal cual.
+  **Hecho 2026-09-30**: el `UPDATE ... AND color IS NULL` del documento, en una
+  transaccion, sobre las dos cuentas locales con pedidos pendientes (fucsia y
+  cian); sus pedidos viejos mostraron la franja en el emulador. El documento
+  anduvo tal cual. En produccion lo siguio Mateo desde la consola de
+  `postgis`, sin cambios al texto.
 
 ---
 
@@ -238,13 +246,26 @@ existente y ver su franja.
 - [X] T023 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que
   haya quedado, como mínimo: **pasados ~16 clientes los colores generados se
   parecen** (research D3), y que no hay pantalla para cambiar un color.
-- [ ] T024 Después del merge y del deploy: colorear **las tres cuentas reales**
+- [X] T024 Después del merge y del deploy: colorear **las tres cuentas reales**
   en producción, publicar el APK y confirmar con Diego que ve las franjas.
   **SC-001**: con pedidos de las tres cuentas en Pendientes, mostrarle la
   pantalla a alguien que no conozca a los clientes y pedirle que agrupe las
   tarjetas sin leer. Anotar acá el resultado. El
   feature se entrega ahí (spec, *Dependencias*). Pasar el plan a `completed`
   **después** del commit que lo cierra.
+  **Hecho 2026-09-30, salvo la confirmacion de Diego.** Deploy de produccion
+  desde `master` (`b38d767`) → `SUCCESS` y `/salud` con
+  `"ambiente":"production"`: la `0010` entro. Mateo coloreo las tres cuentas
+  reales desde la consola de `postgis` con el procedimiento del documento
+  (fucsia, cian y lima, en una transaccion con controles) y confirmo. **Visto
+  desde otra conexion**, con el APK publicado `v0.5.0` en un emulador contra
+  produccion: la primera cuenta en fucsia (en Entregados) y la segunda en cian
+  (en Pendientes). La tercera no tenia pedidos en las pantallas miradas; la
+  confirmo Mateo. APK `v0.5.0` publicado con `scripts/publicar-app.sh`, firmado
+  con la clave anotada en `app-repartidor.md` (SHA-256 `1dbade77…`).
+  **Falta**: que Diego instale la `v0.5.0` y confirme que ve las franjas, y
+  SC-001 con esas tres cuentas. Mateo decidio cerrar el plan antes y
+  confirmarlo despues con Diego.
 
 ---
 

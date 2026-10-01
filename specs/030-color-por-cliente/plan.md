@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La columna nueva, nulable, con CHECK de formato e indice unico parcial.
   - backend/migrations/
