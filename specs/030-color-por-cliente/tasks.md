@@ -228,6 +228,13 @@ existente y ver su franja.
 - [ ] T022 Quickstart §3 en **staging**: `railway up`, colorear una cuenta de
   staging con el documento, registrar una nueva, y mirar la app apuntada a
   staging en el teléfono de Mateo.
+  **Parcial 2026-09-30**: `railway up` al servicio de staging → deploy
+  `SUCCESS` y `/salud` con `"ambiente":"staging"`. Como el servicio aplica las
+  migraciones al arrancar y no arranca si una falla, **la `0010` entró**.
+  **Falta**: colorear una cuenta de staging con el documento, registrar una
+  nueva y mirar la app contra staging. Necesita a Mateo: la sesión de base de
+  staging (`railway connect postgis --environment staging` no encontró la
+  variable de conexión desde la sesión) y el código de ingreso por mail.
 - [X] T023 Anotar en `docs/tech-debt-tracker.md` (fila nueva arriba) lo que
   haya quedado, como mínimo: **pasados ~16 clientes los colores generados se
   parecen** (research D3), y que no hay pantalla para cambiar un color.
