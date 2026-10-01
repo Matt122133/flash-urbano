@@ -39,7 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -658,16 +658,23 @@ private val ANCHO_DE_FRANJA = 6.dp
 /**
  * La franja del color del cliente, en el borde izquierdo de la tarjeta (030).
  *
- * **Se dibuja, no se maqueta** (research D5): va encima del contenido y no
- * ocupa lugar, asi que la tarjeta mide exactamente lo mismo con y sin franja.
+ * **Se dibuja, no se maqueta** (research D5): no ocupa lugar, asi que la tarjeta mide exactamente lo mismo con y sin franja.
  * Es lo que exige FR-010 — el alto lo fijo `015` al milimetro para que
  * siempre haya una accion cerca del pulgar — y una `Box` de 6 dp en una `Row`
  * obligaria a medir con alturas intrinsecas y a tocar ese layout. El texto
  * empieza a 14 dp del borde, asi que la franja no pisa nada.
  *
+ * **Va DETRAS del contenido, y eso es lo que la corta en el lugar justo.** Las
+ * partes blancas de la tarjeta son transparentes —el blanco es el fondo de la
+ * `Card`—, asi que ahi la franja se ve, "Deshacer" incluido; la franja de
+ * accion ("Lo tengo", "Entregado") es opaca y la tapa. La primera version la
+ * dibujaba encima y pasaba tambien por el costado del boton azul o verde: Mateo
+ * lo vio en el emulador el 2026-09-30 y pidio que llegara solo hasta ahi.
+ * Cortarla asi no exige medir nada: sigue el borde del boton aunque cambie su
+ * alto, y en Entregados, que no tiene boton, llega hasta abajo.
+ *
  * Queda recortada por la forma redondeada de la `Card`, que recorta su
- * contenido, y pasa tambien por el costado de la franja de accion: cortarla ahi
- * haria que midiera distinto segun la tarjeta tenga accion o no.
+ * contenido.
  *
  * **No se confunde con el borde destacado** (FR-009): aquel es un contorno fino
  * alrededor de toda la tarjeta, y esta es un bloque grueso de un solo lado.
@@ -678,8 +685,7 @@ private val ANCHO_DE_FRANJA = 6.dp
 private fun Modifier.franjaDeCliente(hex: String?): Modifier {
     val argb = colorDeCliente(hex) ?: return this
     val color = Color(argb)
-    return this.drawWithContent {
-        drawContent()
+    return this.drawBehind {
         drawRect(color = color, size = Size(ANCHO_DE_FRANJA.toPx(), size.height))
     }
 }

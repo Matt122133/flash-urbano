@@ -144,6 +144,12 @@ elemento.** Sin color, o con un color inválido, no se dibuja nada.
   ("Lo tengo"). Se acepta: cortarla ahí haría que la franja midiera distinto en
   cada tarjeta, según tenga acción o no. Si en el teléfono se ve mal, se corta
   en el borde de la sección de datos, sin cambiar nada más.
+  **Revisado el 2026-09-30, en el emulador, con Mateo**: pidió que la franja
+  llegue sólo hasta el botón ("no le pisaría la parte verde, sólo la blanca").
+  Se cambió `drawWithContent` por `drawBehind`. La franja queda detrás del
+  contenido; las partes blancas son transparentes y la dejan ver ("Deshacer"
+  incluido), y la franja de acción es opaca y la tapa. Se corta sola en el
+  borde del botón, sin medir nada.
 
 **El hex se convierte en color con una función pura de Kotlin**,
 `colorDeCliente(hex: String?): Long?`. Acepta sólo `#rrggbb` y devuelve `null`
