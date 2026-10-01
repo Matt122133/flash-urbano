@@ -155,6 +155,14 @@ type Pedido struct {
 	// `respuesta_cliente_test.go` sostiene que la regla siga siendo esta.
 	recibioDocumento string
 
+	// El color de la cuenta que creo el pedido (030), como `#rrggbb`.
+	//
+	// **No exportado, por lo mismo que `recibioDocumento`**: es una ayuda de
+	// lectura para Diego y el cliente no tiene por que recibirlo (FR-014). Sale
+	// solo por `ParaAdmin()`. Nil es lo normal: toda cuenta anterior a `030`
+	// queda sin color.
+	colorCliente *string
+
 	CreadoEn      time.Time `json:"creadoEn"`
 	ActualizadoEn time.Time `json:"actualizadoEn"`
 }
@@ -193,6 +201,11 @@ type ParaAdmin struct {
 	// sistema: se la dio a Diego en la puerta, no a nosotros. Se guarda como
 	// respaldo de entrega y se muestra solo en la app de Diego.
 	RecibioDocumento string `json:"recibioDocumento,omitempty"`
+
+	// El color del cliente (030): la franja de la tarjeta. **Puntero con
+	// `omitempty`**: sin color, la clave no viaja, y la app dibuja la tarjeta
+	// como antes sin tener que distinguir `null` de `""`.
+	ColorCliente *string `json:"colorCliente,omitempty"`
 }
 
 // ParaAdmin expone el pedido con lo que solo Diego puede ver.
@@ -201,7 +214,7 @@ type ParaAdmin struct {
 // una llamada explicita y no una etiqueta en un campo: se lee en el sitio donde
 // se usa, no hay que ir a buscarla a la definicion del tipo.
 func (p *Pedido) ParaAdmin() *ParaAdmin {
-	return &ParaAdmin{Pedido: p, RecibioDocumento: p.recibioDocumento}
+	return &ParaAdmin{Pedido: p, RecibioDocumento: p.recibioDocumento, ColorCliente: p.colorCliente}
 }
 
 // ParaAdminTodos es lo mismo, para una lista.
@@ -277,7 +290,8 @@ const columnas = `
 	comentario,
 	precio, zona_id,
 	creado_en, actualizado_en,
-	e.receptor_nombre, e.receptor_documento`
+	e.receptor_nombre, e.receptor_documento,
+	c.color_cliente`
 
 // De donde salen los pedidos, con quien recibio pegado.
 //
@@ -315,7 +329,22 @@ const desdePedidos = `
 		  AND pedidos.estado = 'entrega'
 		ORDER BY ocurrido_en DESC
 		LIMIT 1
-	) e ON true`
+	) e ON true
+	-- El color de la cuenta (030).
+	--
+	-- **LATERAL con una sola columna, y no un JOIN a secas.** usuarios tiene
+	-- id, creado_en, actualizado_en y los cinco retiro_*, igual que
+	-- pedidos: con un JOIN plano, todas esas columnas de la lista de arriba
+	-- pasan a ser ambiguas y cada consulta que la usa se rompe. Asi, lo unico
+	-- que entra de usuarios es color_cliente.
+	--
+	-- LEFT y no INNER por costumbre de defensa, no por necesidad: usuario_id
+	-- es NOT NULL con FK desde 0003, asi que la fila siempre esta.
+	LEFT JOIN LATERAL (
+		SELECT color AS color_cliente
+		FROM usuarios
+		WHERE usuarios.id = pedidos.usuario_id
+	) c ON true`
 
 // escanear arma un Pedido desde una fila con el orden de columnas.
 func escanear(fila pgx.Row) (*Pedido, error) {
@@ -354,6 +383,7 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 		&p.Precio, &p.ZonaID,
 		&p.CreadoEn, &p.ActualizadoEn,
 		&recibioNombre, &recibioDocumento,
+		&p.colorCliente,
 	)
 	if err != nil {
 		return nil, err

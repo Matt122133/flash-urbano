@@ -219,4 +219,26 @@ class PedidoTest {
         assertEquals("FU-0001", p.codigo)
         assertNull(p.comentario)
     }
+
+    // --- El color del cliente (030) ---------------------------------------
+
+    @Test
+    fun `un pedido con color de cliente lo trae`() {
+        val conColor = completo.replaceFirst(
+            "\"codigo\": \"FU-0001\"",
+            "\"codigo\": \"FU-0001\", \"colorCliente\": \"#c026d3\"",
+        )
+        assertEquals("#c026d3", json.decodeFromString<Pedido>(conColor).colorCliente)
+    }
+
+    /**
+     * Sin la clave, que es como llega un pedido de una cuenta sin color —hoy,
+     * todas— y como responde un servicio anterior a `030`.
+     */
+    @Test
+    fun `un pedido sin color de cliente se lee igual`() {
+        val p = json.decodeFromString<Pedido>(completo)
+        assertNull(p.colorCliente)
+        assertEquals("FU-0001", p.codigo)
+    }
 }

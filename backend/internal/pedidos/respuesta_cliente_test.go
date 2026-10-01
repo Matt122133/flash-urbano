@@ -128,3 +128,66 @@ func TestElAdminVeTodoLoQueVeElCliente(t *testing.T) {
 		}
 	}
 }
+
+// --- El color del cliente (030) ---------------------------------------------
+//
+// FR-014: el color es una ayuda de lectura para Diego, y no le llega al
+// cliente. Misma forma que la guarda de la cedula: se busca el VALOR en el
+// texto entero, no un campo por nombre, y con su control positivo del lado del
+// admin.
+const colorDePrueba = "#c026d3"
+
+func pedidoConColor() *Pedido {
+	p := pedidoEntregado()
+	c := colorDePrueba
+	p.colorCliente = &c
+	return p
+}
+
+func TestLaRespuestaDelClienteNoLlevaElColor(t *testing.T) {
+	respuestas := map[string]any{
+		"GET /pedidos":        respuestaLista{Pedidos: []*Pedido{pedidoConColor()}},
+		"POST o PATCH pedido": respuestaCrear{Pedido: pedidoConColor()},
+	}
+	for ruta, r := range respuestas {
+		crudo, err := json.Marshal(r)
+		if err != nil {
+			t.Fatalf("%s: no se pudo serializar: %v", ruta, err)
+		}
+		if strings.Contains(string(crudo), colorDePrueba) || strings.Contains(string(crudo), "colorCliente") {
+			t.Fatalf("%s: el color del cliente salio en una respuesta del CLIENTE.\n"+
+				"Es una ayuda de lectura para Diego (FR-014); va en `ParaAdmin`.\n"+
+				"Respuesta: %s", ruta, crudo)
+		}
+	}
+}
+
+// EL CONTROL POSITIVO, y tambien la mitad que importa de research D7: la
+// respuesta de un cambio de estado tiene que traer el color, o la franja
+// desaparece de la tarjeta al tocar "Lo tengo".
+func TestLasRespuestasDelAdminSiLlevanElColor(t *testing.T) {
+	respuestas := map[string]any{
+		"GET /admin/pedidos":               respuestaListaAdmin{Pedidos: ParaAdminTodos([]*Pedido{pedidoConColor()})},
+		"PATCH /admin/pedidos/{id}/estado": respuestaEstado{Pedido: pedidoConColor().ParaAdmin()},
+	}
+	for ruta, r := range respuestas {
+		crudo, err := json.Marshal(r)
+		if err != nil {
+			t.Fatalf("%s: no se pudo serializar: %v", ruta, err)
+		}
+		if !strings.Contains(string(crudo), `"colorCliente":"`+colorDePrueba+`"`) {
+			t.Fatalf("%s: la respuesta del admin no trae el color: %s", ruta, crudo)
+		}
+	}
+}
+
+// Sin color la clave no viaja: ni `null` ni `""`.
+func TestUnaCuentaSinColorNoTraeLaClave(t *testing.T) {
+	crudo, err := json.Marshal(pedidoEntregado().ParaAdmin())
+	if err != nil {
+		t.Fatalf("no se pudo serializar: %v", err)
+	}
+	if strings.Contains(string(crudo), "colorCliente") {
+		t.Fatalf("un pedido de una cuenta sin color no puede traer la clave: %s", crudo)
+	}
+}

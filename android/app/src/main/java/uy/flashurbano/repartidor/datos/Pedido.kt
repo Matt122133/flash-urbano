@@ -104,7 +104,41 @@ data class Pedido(
      * del backend.
      */
     val recibioDocumento: String = "",
+
+    /**
+     * El color de la cuenta que creo el pedido (030), como `#rrggbb`: la
+     * franja del borde de la tarjeta.
+     *
+     * **Nulable con `null` por defecto, como `comentario`, y por la misma
+     * razon**: el servicio marca el campo `omitempty`, asi que un pedido de una
+     * cuenta sin color —toda cuenta anterior a `030`— no trae la clave. Y una
+     * app con esta version contra un servicio viejo tampoco la recibe: sin
+     * franja, igual que hoy.
+     *
+     * Se guarda como texto y no como color: convertirlo es trabajo de
+     * `colorDeCliente`, que decide que hacer con un valor que no sirve.
+     */
+    val colorCliente: String? = null,
 )
+
+/**
+ * El color de la franja, o `null` si no hay que dibujarla (030).
+ *
+ * Acepta **solo** `#` y seis digitos hex, en mayuscula o minuscula, y devuelve
+ * el `Long` opaco `0xFFrrggbb` que `Color(...)` recibe. Cualquier otra cosa
+ * —nulo, vacio, sin `#`, con alfa, un error de tipeo en una asignacion a
+ * mano— da `null`, y la tarjeta se ve como la de una cuenta sin color (FR-008).
+ * **Nunca tira**: un dato raro del servicio no puede voltear la lista.
+ *
+ * Devuelve `Long` y no `Color` por lo mismo que `Paleta`: se prueba en la JVM,
+ * sin Compose de por medio.
+ */
+fun colorDeCliente(hex: String?): Long? {
+    if (hex == null || !FORMATO_DE_COLOR.matches(hex)) return null
+    return 0xFF000000L or hex.substring(1).toLong(16)
+}
+
+private val FORMATO_DE_COLOR = Regex("^#[0-9a-fA-F]{6}$")
 
 /** Los estados que el servicio conoce hoy. Los mismos textos que el CHECK. */
 object Estados {
