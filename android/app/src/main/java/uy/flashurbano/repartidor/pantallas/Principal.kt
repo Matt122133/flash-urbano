@@ -295,7 +295,7 @@ fun PantallaPedidos(
                 }
 
                 // Y esto tiene que leerse DISTINTO de lo de arriba.
-                is EstadoPantalla.Vacia -> SeccionVacia(seccion)
+                is EstadoPantalla.Vacia -> SeccionVacia(seccion, rol)
 
                 is EstadoPantalla.HayQueIngresar -> Centrado {
                     Text("La sesión venció", style = MaterialTheme.typography.titleLarge)
@@ -351,7 +351,7 @@ fun PantallaPedidos(
                     }
 
                     if (pedidos.isEmpty()) {
-                        SeccionVacia(seccion)
+                        SeccionVacia(seccion, rol)
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -411,13 +411,20 @@ private fun tituloDe(seccion: Seccion): String = when (seccion) {
  * menos de lo que sabe.
  */
 @Composable
-private fun SeccionVacia(seccion: Seccion) {
+private fun SeccionVacia(seccion: Seccion, rol: String) {
     val titulo: String
     val detalle: String
     when (seccion) {
         Seccion.PENDIENTES -> {
             titulo = "No hay nada pendiente"
-            detalle = "Cuando alguien cargue un pedido en la web, te aparece acá."
+            // **Al repartidor no le llega lo que se carga en la web**: le llega
+            // lo que le asignan (`031`). Decirle lo otro le promete algo que
+            // no va a pasar (Mateo, 2026-10-18, en staging).
+            detalle = if (rol == Roles.REPARTIDOR) {
+                "Cuando te asignen un pedido, te aparece acá."
+            } else {
+                "Cuando alguien cargue un pedido en la web, te aparece acá."
+            }
         }
         Seccion.TOMADOS -> {
             titulo = "No llevás nada encima"
