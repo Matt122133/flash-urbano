@@ -76,8 +76,13 @@ fija el plan (FR-024).
   sigue pudiendo sacar. Motivo: un mes ya pagado no puede cambiar despues. No es
   "registrar quien entrego": es congelar la asignacion en el momento de la
   entrega.
-- Q: ¿Diego asigna de a un pedido o varios a la vez? → A: **De a uno, desde el
-  detalle del pedido.** La asignacion en lote queda fuera de este feature.
+- Q: ¿Diego asigna de a un pedido o varios a la vez? → A: **De a uno, desde la
+  tarjeta del pedido** (la app no tiene pantalla de detalle; la tarjeta hace de
+  detalle). La asignacion en lote queda fuera de este feature.
+- Q: ¿Al repartidor le llegan tambien los avisos de "pedido modificado" y
+  "pedido dado de baja" de sus pedidos? → A: **Si** (Mateo, en el analisis del
+  plan): el cliente puede cambiar la direccion de un pedido pendiente, y sin el
+  aviso el repartidor va a la vieja.
 - Q: ¿Se le avisa al repartidor cuando Diego le saca o le reasigna un pedido? →
   A: **No.** Lo ve al recargar la lista.
 
@@ -85,7 +90,7 @@ fija el plan (FR-024).
 
 ### User Story 1 - Diego le da un pedido al repartidor (Priority: P1)
 
-Diego abre la app, ve sus pedidos como hoy, entra a uno y elige "asignar" a un
+Diego abre la app, ve sus pedidos como hoy, toca "asignar" en uno y elige un
 repartidor de la lista. El pedido sale de su vista "mios" y aparece en la
 del repartidor. En "todos" Diego sigue viendolo, con el nombre de quien lo
 tiene, y puede sacarselo o pasarselo a otro.
@@ -232,6 +237,12 @@ descarga el archivo de ese mes y contiene exactamente esos pedidos.
 - **Una entrega se deshace** (la app permite deshacer): el pedido deja de estar
   entregado, vuelve a poder reasignarse, y la proxima marca de entrega fija a
   quien sea responsable en ese momento.
+- **Un administrador marca como entregado un pedido asignado al repartidor**
+  (por ejemplo, lo llevo el en su lugar): la entrega se fija al repartidor
+  asignado y cuenta en su reporte. Si no corresponde, el administrador lo
+  desasigna antes de marcarlo.
+- **El repartidor entra alguna vez a la web**: aparece en la lista de clientes
+  del tablero como una cuenta sin pedidos, como cualquier cuenta. Se acepta.
 - **La asignacion llega a un repartidor sin conexion**: la app la muestra al
   recargar, como cualquier otro cambio de lista.
 
@@ -261,7 +272,7 @@ descarga el archivo de ese mes y contiene exactamente esos pedidos.
   pedidos que existen al desplegar MUST quedar sin repartidor asignado, sin
   escribir sobre ninguna fila existente para lograrlo.
 - **FR-008**: Un administrador MUST poder asignar desde la app, **de a un pedido
-  y desde su detalle**, cualquier pedido no entregado a uno de los repartidores
+  y desde su tarjeta**, cualquier pedido no entregado a uno de los repartidores
   configurados. Asignar varios a la vez queda fuera de este feature.
 - **FR-009**: La lista de repartidores que se ofrece al asignar MUST mostrar a
   cada uno de forma reconocible (nombre si tiene perfil, mail si no).
@@ -302,6 +313,9 @@ descarga el archivo de ese mes y contiene exactamente esos pedidos.
   asignacion.
 - **FR-019**: El aviso de pedido nuevo MUST seguir yendo solo a los
   administradores.
+- **FR-019a**: Los avisos de pedido modificado y de pedido dado de baja MUST
+  llegarle, ademas de a los administradores, al repartidor que tiene asignado
+  ese pedido.
 
 **Tablero: la seccion Repartidores**
 
@@ -344,7 +358,7 @@ descarga el archivo de ese mes y contiene exactamente esos pedidos.
 ### Measurable Outcomes
 
 - **SC-001**: Diego asigna un pedido al repartidor en no mas de tres toques desde
-  el detalle del pedido.
+  la tarjeta del pedido.
 - **SC-002**: En el 100% de los casos, un pedido tiene exactamente un
   responsable: aparece en "mios" de los administradores o en la lista de un
   repartidor, nunca en las dos ni en ninguna.
