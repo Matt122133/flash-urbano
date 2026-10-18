@@ -190,6 +190,12 @@ detalle aparte, y crear una para esto viola el Principio III.
 usuario; la app es interna, no publica, y es como el repartidor lo va a
 entender. Se usa la constante en un solo lugar.
 
+**Enmienda del 2026-10-18, al probar en staging (Mateo):** el boton dice
+**"Devolver"** a secas; en la tarjeta se entiende a quien vuelve. "Diego" queda
+solo como la opcion de la lista de "Asignar". Y en "Todos", los pedidos que
+llevan los demas van **arriba**, los del administrador abajo, con una linea gris
+entre las dos tandas.
+
 ## D11 — La constitucion: 6.3.0, MINOR, con ADR
 
 **Decision**: enmienda **6.3.0 (MINOR)**: el Principio III pasa de "a

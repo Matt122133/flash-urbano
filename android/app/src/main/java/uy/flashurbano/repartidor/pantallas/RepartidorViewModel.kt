@@ -149,7 +149,7 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Le da el pedido a `a`, o con `null` se lo devuelve a los administradores
-     * (`031`). Es lo mismo que hace "Devolver a Diego" desde un repartidor.
+     * (`031`). Es lo mismo que hace "Devolver" desde un repartidor.
      *
      * **Como `mover`, nada se dibuja hasta que el servicio conteste** (FR-008 de
      * `012`), y el id queda en `moviendo` mientras tanto para que no se pueda

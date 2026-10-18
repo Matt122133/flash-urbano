@@ -149,4 +149,15 @@ class EstadoPantallaTest {
         // El filtro del administrador no le cambia nada al repartidor.
         assertEquals(listOf("B"), visibles(suyos, Roles.REPARTIDOR, Filtro.TODOS).map { it.codigo })
     }
+
+    /** "Todos": los de los demas arriba, los propios abajo, cada tanda en su orden. */
+    @Test
+    fun `en Todos los de los demas van arriba y los propios abajo`() {
+        val todos = listOf(de("A", null), de("B", "rita@example.com"), de("C", null), de("D", "raul@example.com"))
+
+        val (arriba, abajo) = partirParaTodos(todos)
+
+        assertEquals(listOf("B", "D"), arriba.map { it.codigo })
+        assertEquals(listOf("A", "C"), abajo.map { it.codigo })
+    }
 }

@@ -26,7 +26,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -306,6 +308,48 @@ fun PantallaPedidos(
                         Seccion.ENTREGADOS -> estado.entregados
                     }
 
+                    // Una tarjeta con sus acciones. Se define una vez porque la
+                    // lista de "Todos" la dibuja en dos tandas.
+                    val tarjeta: @Composable (Pedido) -> Unit = { pedido ->
+                        // En "Todos", el nombre de quien lo lleva: es lo que
+                        // distingue lo suyo de lo ajeno.
+                        val lleva = if (rol == Roles.ADMIN && filtro == Filtro.TODOS) {
+                            pedido.responsable?.let { mail ->
+                                repartidores.firstOrNull { it.email == mail }?.rotulo ?: mail
+                            }
+                        } else {
+                            null
+                        }
+                        // **FR-004**: Diego toco un aviso y viene a ver ESE
+                        // pedido. Abrir la lista y que tenga que buscar cual de
+                        // doce es el que le sono seria dejar el trabajo a mitad
+                        // de camino.
+                        TarjetaPedido(
+                            pedido,
+                            destacada = pedido.codigo == destacado,
+                            lleva = lleva,
+                        ) {
+                            AccionDeResponsable(
+                                rol = rol,
+                                seccion = seccion,
+                                hayRepartidores = repartidores.isNotEmpty(),
+                                sePuedeTocar = !sinRed && !moviendo.contains(pedido.id),
+                                alAsignar = { alAsignar(pedido) },
+                                alDevolver = { alDevolver(pedido) },
+                            )
+                            AccionesDe(
+                                seccion = seccion,
+                                pedido = pedido,
+                                yendo = moviendo.contains(pedido.id),
+                                // Sin red la accion se ve apagada ANTES de
+                                // tocarla, en vez de fallar al tocar.
+                                habilitada = !sinRed,
+                                alMover = alMover,
+                                alEntregar = alEntregar,
+                            )
+                        }
+                    }
+
                     if (pedidos.isEmpty()) {
                         SeccionVacia(seccion)
                     } else {
@@ -317,45 +361,25 @@ fun PantallaPedidos(
                                 bottom = 24.dp,
                             ),
                         ) {
-                            items(pedidos, key = { it.id }) { pedido ->
-                                // **FR-004**: Diego toco un aviso y viene a ver
-                                // ESE pedido. Abrir la lista y que tenga que
-                                // buscar cual de doce es el que le sono seria
-                                // dejar el trabajo a mitad de camino.
-                                // En "Todos", el nombre de quien lo lleva:
-                                // es lo que distingue lo suyo de lo ajeno.
-                                val lleva = if (rol == Roles.ADMIN && filtro == Filtro.TODOS) {
-                                    pedido.responsable?.let { mail ->
-                                        repartidores.firstOrNull { it.email == mail }?.rotulo ?: mail
-                                    }
-                                } else {
-                                    null
-                                }
-                                TarjetaPedido(
-                                    pedido,
-                                    destacada = pedido.codigo == destacado,
-                                    lleva = lleva,
-                                ) {
-                                    AccionDeResponsable(
-                                        rol = rol,
-                                        seccion = seccion,
-                                        hayRepartidores = repartidores.isNotEmpty(),
-                                        sePuedeTocar = !sinRed && !moviendo.contains(pedido.id),
-                                        alAsignar = { alAsignar(pedido) },
-                                        alDevolver = { alDevolver(pedido) },
-                                    )
-                                    AccionesDe(
-                                        seccion = seccion,
-                                        pedido = pedido,
-                                        yendo = moviendo.contains(pedido.id),
-                                        // Sin red la accion se ve apagada ANTES
-                                        // de tocarla, en vez de fallar al tocar.
-                                        habilitada = !sinRed,
-                                        alMover = alMover,
-                                        alEntregar = alEntregar,
+                            // En "Todos" del administrador, **los que llevan
+                            // los demas arriba y los suyos abajo, con una
+                            // linea entre los dos** (Mateo, 2026-10-18). En
+                            // cualquier otra vista es una sola tanda.
+                            val (arriba, abajo) = if (rol == Roles.ADMIN && filtro == Filtro.TODOS) {
+                                partirParaTodos(pedidos)
+                            } else {
+                                pedidos to emptyList()
+                            }
+                            items(arriba, key = { it.id }) { pedido -> tarjeta(pedido) }
+                            if (arriba.isNotEmpty() && abajo.isNotEmpty()) {
+                                item(key = "divisor") {
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                        modifier = Modifier.padding(horizontal = 48.dp, vertical = 12.dp),
                                     )
                                 }
                             }
+                            items(abajo, key = { it.id }) { pedido -> tarjeta(pedido) }
 
                             // **El lugar que cumple FR-003.** Diego llega
                             // desplazando, sin instrucciones y sin salir de la
@@ -480,8 +504,13 @@ private fun AccionesDe(
     }
 }
 
-/** Lo que se le ofrece al repartidor para soltar un pedido (`031`, D10). */
-const val TEXTO_DEVOLVER = "Devolver a Diego"
+/**
+ * Lo que se le ofrece al repartidor para soltar un pedido (`031`, D10).
+ *
+ * **"Devolver" a secas** (Mateo, 2026-10-18): en la tarjeta se entiende a quien
+ * vuelve, y el nombre no suma.
+ */
+const val TEXTO_DEVOLVER = "Devolver"
 
 /**
  * Como se nombra a los administradores en la lista de a quien asignar. **El
@@ -533,7 +562,7 @@ private fun FiltroDeResponsable(filtro: Filtro, alElegir: (Filtro) -> Unit) {
 }
 
 /**
- * "Asignar" o "Devolver a Diego", en la tarjeta de un pedido **no entregado**
+ * "Asignar" o "Devolver", en la tarjeta de un pedido **no entregado**
  * (`031`, D10). Un entregado no cambia de manos (FR-010b), asi que en
  * Entregados no se ofrece nada.
  *
@@ -555,11 +584,25 @@ private fun AccionDeResponsable(
         rol == Roles.ADMIN && hayRepartidores -> "Asignar" to alAsignar
         else -> return
     }
-    TextButton(
+    // **Con borde y a lo ancho, no un link suelto** (Mateo, 2026-10-18: "lo
+    // haria un poco mas llamativo"). Como texto azul quedaba perdido arriba de
+    // "Lo tengo". El borde lo hace leer como accion sin competir con el boton
+    // lleno, que sigue siendo la principal de la tarjeta.
+    OutlinedButton(
         onClick = accion,
         enabled = sePuedeTocar,
-        modifier = Modifier.padding(start = 6.dp).defaultMinSize(minHeight = Toques.ACTUALIZAR),
-    ) { Text(rotulo) }
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(
+            1.5.dp,
+            if (sePuedeTocar) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
+            .defaultMinSize(minHeight = Toques.ACTUALIZAR),
+    ) {
+        Text(rotulo, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    }
 }
 
 /**

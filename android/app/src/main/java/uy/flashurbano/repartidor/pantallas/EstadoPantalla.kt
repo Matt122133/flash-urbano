@@ -119,3 +119,11 @@ fun visibles(pedidos: List<Pedido>, rol: String, filtro: Filtro): List<Pedido> =
     filtro == Filtro.TODOS -> pedidos
     else -> pedidos.filter { it.responsable == null }
 }
+
+/**
+ * "Todos" del administrador, en dos tandas (`031`): **primero los que llevan
+ * los demas, despues los suyos** (Mateo, 2026-10-18). Cada tanda conserva el
+ * orden que mando el servicio. La pantalla dibuja una linea entre las dos.
+ */
+fun partirParaTodos(pedidos: List<Pedido>): Pair<List<Pedido>, List<Pedido>> =
+    pedidos.partition { it.responsable != null }
