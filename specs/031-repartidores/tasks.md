@@ -13,9 +13,9 @@ el `verify:` verde no dice nada de la base.
 
 ## Phase 1: Setup — la constitucion primero
 
-- [ ] T001 Enmendar `.specify/memory/constitution.md` a **6.3.0 (MINOR)**: el Principio III pasa a "a single courier business — one owner, possibly more than one person delivering — not a multi-tenant platform"; *Scope boundaries* describe la app como la de quien reparte (administradores y repartidores) y el tablero suma el corte por repartidor, contado por fecha de entrega y sin importes; entrada de historial con el pedido de Diego del 2026-10-18 (FR-024, research D11)
-- [ ] T002 [P] Escribir `docs/decisions/more-than-one-courier.md` (frontmatter `id: more-than-one-courier`, formato de `price-behind-the-login.md`): el rol en configuracion, la asignacion por mail sin FK, "fijo al entregar", y lo descartado (columna `type`)
-- [ ] T003 [P] Corregir "`android/` — Diego's app" en `AGENTS.md` y copiar el archivo byte a byte a `CLAUDE.md`; agregar el ADR a `docs/README.md`
+- [X] T001 Enmendar `.specify/memory/constitution.md` a **6.3.0 (MINOR)**: el Principio III pasa a "a single courier business — one owner, possibly more than one person delivering — not a multi-tenant platform"; *Scope boundaries* describe la app como la de quien reparte (administradores y repartidores) y el tablero suma el corte por repartidor, contado por fecha de entrega y sin importes; entrada de historial con el pedido de Diego del 2026-10-18 (FR-024, research D11)
+- [X] T002 [P] Escribir `docs/decisions/more-than-one-courier.md` (frontmatter `id: more-than-one-courier`, formato de `price-behind-the-login.md`): el rol en configuracion, la asignacion por mail sin FK, "fijo al entregar", y lo descartado (columna `type`)
+- [X] T003 [P] Corregir "`android/` — Diego's app" en `AGENTS.md` y copiar el archivo byte a byte a `CLAUDE.md`; agregar el ADR a `docs/README.md`
 
 ## Phase 2: Foundational — rol, columna y responsable
 

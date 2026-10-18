@@ -85,6 +85,11 @@ Spec-kit is the active artifact pipeline. Plan-driven work is authorized by
   silent. Records the measured cost that removed the money objection
   (~US$0.58/month against US$5 included), and the new risk it creates: the
   production site published against the staging backend.
+- [`decisions/more-than-one-courier.md`](decisions/more-than-one-courier.md)
+  — the courier role lives in configuration like the administrator's, never in
+  the database; an order's courier is a nullable mail fixed when it is
+  delivered, and the owner is computed on read so removing a courier never
+  writes. Rejects the role column on `usuarios`. Constitution 6.3.0.
 
 ## Processes
 
