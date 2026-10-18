@@ -399,9 +399,9 @@ func TestRepartidoresSumaAQuienYaNoEstaConfigurado(t *testing.T) {
 }
 
 // TestClientesNoTraeALosRepartidores: un repartidor tiene cuenta, pero no es
-// cliente (031). **Salvo que haya cargado pedidos propios**: sin el, ese pedido
-// contaria en el total y no se podria filtrar. El cliente comun es el control:
-// sigue estando, asi que la prueba no pasa por una lista vacia.
+// cliente (031, FR-026). **Aunque tenga un pedido propio de antes de FR-025**:
+// el filtro no tiene excepciones. El cliente comun es el control: sigue
+// estando, asi que la prueba no pasa por una lista vacia.
 func TestClientesNoTraeALosRepartidores(t *testing.T) {
 	e := entornoDePrueba(t)
 	ctx := context.Background()
@@ -418,7 +418,7 @@ func TestClientesNoTraeALosRepartidores(t *testing.T) {
 	for _, c := range clientes {
 		mails = append(mails, c.Email)
 	}
-	if strings.Join(mails, ",") != "ana@example.com,raul@example.com" {
-		t.Errorf("clientes %v: queria a Ana, y a Raul porque cargo un pedido, sin Rita", mails)
+	if strings.Join(mails, ",") != "ana@example.com" {
+		t.Errorf("clientes %v: queria solo a Ana, sin ningun repartidor", mails)
 	}
 }

@@ -336,6 +336,16 @@ descarga el archivo de ese mes y contiene exactamente esos pedidos.
   administradores MUST NOT aparecer. El archivo MUST NOT mezclar dos
   repartidores ni incluir un importe, y su generacion MUST NOT leer `precio`.
 
+**Cuentas de reparto** *(enmienda del 2026-10-18, al probar en staging)*
+
+- **FR-025**: Una cuenta de reparto MUST NOT poder cargar pedidos. El servicio
+  MUST rechazarlo con un texto que diga que use otro mail. Quien reparte y
+  quiere mandar un paquete propio lo hace desde otra cuenta. Lo pidio Mateo al
+  ver su cuenta de repartidor en la lista de clientes del tablero.
+- **FR-026**: La lista de clientes del tablero MUST NOT incluir a los
+  repartidores configurados, sin excepcion. FR-025 es lo que lo permite: no
+  queda pedido nuevo sin cliente que lo muestre.
+
 **Constitucion**
 
 - **FR-024**: La constitucion MUST amendarse para reflejar que el negocio tiene

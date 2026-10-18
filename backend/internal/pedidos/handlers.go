@@ -288,6 +288,16 @@ func (h *Handlers) Crear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// **Una cuenta de reparto no carga pedidos** (031, FR-025, Mateo al probar
+	// en staging). Es la cuenta de trabajo: si esa persona quiere mandar un
+	// paquete propio, entra con otro mail. Asi el tablero puede sacar a los
+	// repartidores de la lista de clientes sin que ningun pedido quede sin
+	// cliente que lo muestre. Antes de leer el cuerpo: no hay nada que validar.
+	if h.esRep(u.Email) {
+		httpx.Error(w, http.StatusForbidden, mensajeCuentaDeReparto)
+		return
+	}
+
 	clave := strings.TrimSpace(r.Header.Get(CabeceraIdempotencia))
 	if clave == "" {
 		// Obligatoria, no opcional-con-default. Un cliente que no la manda es un
@@ -717,6 +727,11 @@ func (h *Handlers) CambiarEstado(w http.ResponseWriter, r *http.Request) {
 type peticionAsignar struct {
 	Repartidor *string `json:"repartidor"`
 }
+
+// mensajeCuentaDeReparto es el rechazo de crear un pedido desde una cuenta de
+// reparto (FR-025). El formulario de la web muestra el texto del servicio tal
+// cual, asi que esta escrito para la persona.
+const mensajeCuentaDeReparto = "Esta cuenta es de reparto. Para mandar un paquete, ingresá con otro mail."
 
 // Textos de Asignar. Son los del contrato §3, y la app los muestra tal cual.
 const (

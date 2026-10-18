@@ -334,3 +334,25 @@ func TestLaEdicionYLaBajaLlevanAlRepartidor(t *testing.T) {
 		t.Errorf("la baja aviso %+v, queria con Rita", espia.dadosDeBaja)
 	}
 }
+
+// TestUnaCuentaDeRepartoNoCargaPedidos es FR-025. El control es la clienta, que
+// en el mismo servidor si puede: el 403 no es un servidor que rechaza todo.
+func TestUnaCuentaDeRepartoNoCargaPedidos(t *testing.T) {
+	srv, repo, _ := escenarioConRepartidores(t)
+
+	estado, cuerpo := pedir(t, srv, "POST", "/pedidos", "tok-rita", "r1", cuerpoValido())
+	if estado != http.StatusForbidden || error_(t, cuerpo) != mensajeCuentaDeReparto {
+		t.Fatalf("una cuenta de reparto creando un pedido: %d %s", estado, cuerpo)
+	}
+	var n int
+	if err := repo.pool.QueryRow(context.Background(), `SELECT count(*) FROM pedidos`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("el rechazo dejo %d pedidos en la base", n)
+	}
+
+	if estado, cuerpo := pedir(t, srv, "POST", "/pedidos", "tok-ana", "a1", cuerpoValido()); estado != http.StatusCreated {
+		t.Fatalf("la clienta no pudo crear: %d %s", estado, cuerpo)
+	}
+}

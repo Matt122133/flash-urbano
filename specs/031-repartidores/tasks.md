@@ -102,6 +102,14 @@ el `verify:` verde no dice nada de la base.
 - [ ] T044 Desplegar a staging (`railway up`) y correr Q1–Q14 de `specs/031-repartidores/quickstart.md`, con la app en el emulador (`adb -s`)
 - [ ] T045 `git diff master..HEAD | grep "^+" | grep -oE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+"` antes del PR: ningun mail que no sea de ejemplo o el publicado del negocio
 
+## Phase 8: Enmiendas de la prueba en staging (2026-10-18)
+
+- [X] T046 Boton "Asignar" con borde y a lo ancho; "Devolver" a secas; en "Todos", los de los demas arriba con un divisor (research D10, enmienda)
+- [X] T047 Texto de Pendientes vacio para el repartidor: "Cuando te asignen un pedido, te aparece aca"
+- [X] T048 Tablero en dos pestañas, Clientes y Repartidores, con `?ver=` en la URL como Mi cuenta
+- [X] T049 FR-025: una cuenta de reparto no carga pedidos (403 con texto); prueba con control en `repartidor_test.go`
+- [X] T050 FR-026: la lista de clientes del tablero sin repartidores; prueba en `tablero_test.go`
+
 ## Dependencies & Execution Order
 
 - **Phase 1 → Phase 2 → US1.** La enmienda va antes del codigo (FR-024).
