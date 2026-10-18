@@ -171,11 +171,27 @@ func (r *Repositorio) Cargas(ctx context.Context) ([]Carga, error) {
 //
 // **Solo id, nombre y mail.** Ni telefono ni direccion guardada: el filtro no
 // los necesita, asi que no salen del servicio.
-func (r *Repositorio) Clientes(ctx context.Context) ([]Cliente, error) {
+//
+// **Sin los repartidores** (031, Mateo al probar en staging): tienen cuenta
+// porque entran a la app, pero no son clientes. La base no lo sabe —el rol
+// vive en `REPARTIDOR_EMAILS`—, asi que la lista llega por parametro.
+//
+// **Salvo que tengan pedidos propios**: un pedido cargado desde esa cuenta
+// cuenta en el total, y si la cuenta no estuviera en el filtro, el cuadro
+// dejaria de cerrar sin que se pueda ver por que.
+func (r *Repositorio) Clientes(ctx context.Context, repartidores []string) ([]Cliente, error) {
+	if repartidores == nil {
+		// `= ANY(NULL)` no es falso sino nulo, y `NOT nulo` se lleva la fila.
+		repartidores = []string{}
+	}
 	filas, err := r.pool.Query(ctx, `
 		SELECT id, nombre, email
-		FROM usuarios
-		ORDER BY nombre IS NULL, lower(nombre), email`)
+		FROM usuarios u
+		WHERE NOT (
+			lower(u.email) = ANY($1)
+			AND NOT EXISTS (SELECT 1 FROM pedidos p WHERE p.usuario_id = u.id)
+		)
+		ORDER BY nombre IS NULL, lower(nombre), email`, repartidores)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudieron leer las cuentas: %w", err)
 	}

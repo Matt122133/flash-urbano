@@ -82,16 +82,16 @@ func (h *Handlers) Ver(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorInterno(w, "leyendo las cargas del tablero", err)
 		return
 	}
-	clientes, err := h.repo.Clientes(r.Context())
+	var configurados []string
+	if h.repartidores != nil {
+		configurados = h.repartidores()
+	}
+	clientes, err := h.repo.Clientes(r.Context(), configurados)
 	if err != nil {
 		httpx.ErrorInterno(w, "leyendo las cuentas del tablero", err)
 		return
 	}
 
-	var configurados []string
-	if h.repartidores != nil {
-		configurados = h.repartidores()
-	}
 	repartidores, err := h.repo.Repartidores(r.Context(), configurados, h.esAdmin)
 	if err != nil {
 		httpx.ErrorInterno(w, "leyendo los repartidores del tablero", err)

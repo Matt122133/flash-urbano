@@ -202,7 +202,7 @@ func TestClientesTraeTodasLasCuentas(t *testing.T) {
 	sinNombre := e.unaCuenta(t, "a.medias@example.com", "")
 	e.unPedido(t, beto, "b1", 1, "2026-09-05T12:00:00Z")
 
-	clientes, err := e.repo.Clientes(ctx)
+	clientes, err := e.repo.Clientes(ctx, nil)
 	if err != nil {
 		t.Fatalf("leyendo las cuentas: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestSinNadaLasListasSonVaciasYNoNil(t *testing.T) {
 		t.Errorf("sin pedidos, Cargas tenia que ser un slice vacio y no nil; fue %#v", cargas)
 	}
 
-	clientes, err := e.repo.Clientes(ctx)
+	clientes, err := e.repo.Clientes(ctx, nil)
 	if err != nil {
 		t.Fatalf("leyendo las cuentas: %v", err)
 	}
@@ -395,5 +395,30 @@ func TestRepartidoresSumaAQuienYaNoEstaConfigurado(t *testing.T) {
 	quiero := "raul@example.com/Raul,nunca-entro@example.com/,ex@example.com/"
 	if strings.Join(got, ",") != quiero {
 		t.Errorf("repartidores %v, queria %s", got, quiero)
+	}
+}
+
+// TestClientesNoTraeALosRepartidores: un repartidor tiene cuenta, pero no es
+// cliente (031). **Salvo que haya cargado pedidos propios**: sin el, ese pedido
+// contaria en el total y no se podria filtrar. El cliente comun es el control:
+// sigue estando, asi que la prueba no pasa por una lista vacia.
+func TestClientesNoTraeALosRepartidores(t *testing.T) {
+	e := entornoDePrueba(t)
+	ctx := context.Background()
+	e.unaCuenta(t, "ana@example.com", "Ana Perez")
+	e.unaCuenta(t, "rita@example.com", "Rita")
+	raul := e.unaCuenta(t, "raul@example.com", "Raul")
+	e.unPedido(t, raul, "r1", 1, "2026-09-01T12:00:00Z")
+
+	clientes, err := e.repo.Clientes(ctx, []string{"rita@example.com", "raul@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mails []string
+	for _, c := range clientes {
+		mails = append(mails, c.Email)
+	}
+	if strings.Join(mails, ",") != "ana@example.com,raul@example.com" {
+		t.Errorf("clientes %v: queria a Ana, y a Raul porque cargo un pedido, sin Rita", mails)
 	}
 }
