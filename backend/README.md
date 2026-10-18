@@ -45,6 +45,7 @@ de un cliente real.
 | `CORREO_API_KEY` | si | Clave del proveedor de mail. Secreto real |
 | `CORREO_REMITENTE` | si | Direccion desde la que sale el codigo |
 | `ADMIN_EMAILS` | si | Administradores, separados por coma (FR-022) |
+| `REPARTIDOR_EMAILS` | no | Repartidores, separados por coma (031). Vacia = ninguno; un mail que tambien es admin cuenta como admin |
 | `PORT` | no | Puerto de escucha. Railway lo inyecta. Por defecto `8080` |
 | `SESION_DURACION` | no | Por defecto `672h` — cuatro semanas (FR-017) |
 | `RASTRO_RETENCION` | no | Por defecto `2160h` — noventa dias (FR-022c) |

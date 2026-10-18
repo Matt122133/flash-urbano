@@ -183,3 +183,17 @@ func TestConLaBaseVaciaLasListasSonVacias(t *testing.T) {
 		}
 	}
 }
+
+// TestUnRepartidorNoVeElTablero es FR-016: el tablero es de Diego. Un
+// repartidor no es administrador, y el handler no sabe nada de repartidores
+// para decidir esto.
+func TestUnRepartidorNoVeElTablero(t *testing.T) {
+	srv := monta(t, NuevosHandlers(nil, soloDiego).ConRepartidores(func() []string {
+		return []string{"rita@example.com"}
+	}), map[string]*usuarios.Usuario{
+		"rita": {ID: "00000000-0000-4000-8000-000000000003", Email: "rita@example.com"},
+	})
+	if estado, cuerpo := pedirTablero(t, srv, "rita"); estado != http.StatusForbidden {
+		t.Fatalf("un repartidor recibio %d, queria 403: %s", estado, cuerpo)
+	}
+}

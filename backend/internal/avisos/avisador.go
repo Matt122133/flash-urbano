@@ -27,6 +27,8 @@ type mandador interface {
 // aparte, contra una base real.
 type libreta interface {
 	Tokens(ctx context.Context) ([]string, error)
+	// TokensDe es el telefono de un repartidor (031).
+	TokensDe(ctx context.Context, email string) ([]string, error)
 	Olvidar(ctx context.Context, token string) error
 }
 
@@ -57,21 +59,67 @@ func NuevoAvisador(dest libreta, fcm mandador) *Avisador {
 // administradora y la API manda un mensaje por token, asi que esto es un ciclo
 // y no una llamada. **Un destinatario que falla no corta el recorrido**: el
 // telefono de Mateo sin bateria no puede dejar a Diego sin enterarse.
+//
+// **Al repartidor no le llega** (031, FR-019): un pedido nuevo nace de los
+// administradores, y es Diego quien decide si se lo da.
 func (a *Avisador) Avisar(ctx context.Context, p PedidoNuevo) {
-	a.repartir(ctx, p.Codigo, Armar(p))
+	a.repartir(ctx, p.Codigo, Armar(p), a.dest.Tokens)
 }
 
 // AvisarEdicion avisa que un pedido pendiente cambio (`022`).
 //
 // Mismo contrato que Avisar: no devuelve error, recorre todos los telefonos, y
 // **lo que puede decir lo limita el tipo de entrada**, no este cuerpo.
+//
+// Si el pedido tiene repartidor, **le suena tambien a el** (031, FR-019a): si
+// no, va a una direccion que el cliente ya cambio.
 func (a *Avisador) AvisarEdicion(ctx context.Context, p PedidoEditado) {
-	a.repartir(ctx, p.Codigo, ArmarEdicion(p))
+	a.repartir(ctx, p.Codigo, ArmarEdicion(p), a.adminsY(p.Repartidor))
 }
 
-// AvisarBaja avisa que un pedido pendiente se dio de baja (`022`).
+// AvisarBaja avisa que un pedido pendiente se dio de baja (`022`), y al
+// repartidor que lo tenia, como AvisarEdicion.
 func (a *Avisador) AvisarBaja(ctx context.Context, p PedidoDadoDeBaja) {
-	a.repartir(ctx, p.Codigo, ArmarBaja(p))
+	a.repartir(ctx, p.Codigo, ArmarBaja(p), a.adminsY(p.Repartidor))
+}
+
+// AvisarAsignacion le avisa a un repartidor que un pedido es suyo (031,
+// FR-017). **Solo a el**: Diego es quien lo asigno, no hay nada que contarle.
+func (a *Avisador) AvisarAsignacion(ctx context.Context, p PedidoAsignado) {
+	a.repartir(ctx, p.Codigo, ArmarAsignacion(p), func(ctx context.Context) ([]string, error) {
+		return a.dest.TokensDe(ctx, p.Repartidor)
+	})
+}
+
+// adminsY junta los telefonos administradores con los de un repartidor, sin
+// repetir: un mismo token no tiene que sonar dos veces.
+//
+// Si los del repartidor no se pueden leer, **los administradores igual
+// reciben**: que falle la parte nueva no puede dejar a Diego sin el aviso que
+// tenia antes de 031.
+func (a *Avisador) adminsY(repartidor string) func(context.Context) ([]string, error) {
+	return func(ctx context.Context) ([]string, error) {
+		tokens, err := a.dest.Tokens(ctx)
+		if err != nil || repartidor == "" {
+			return tokens, err
+		}
+		suyos, err := a.dest.TokensDe(ctx, repartidor)
+		if err != nil {
+			log.Printf("avisos: no se pudo buscar el telefono del repartidor: %v", err)
+			return tokens, nil
+		}
+		vistos := make(map[string]bool, len(tokens))
+		for _, t := range tokens {
+			vistos[t] = true
+		}
+		for _, t := range suyos {
+			if !vistos[t] {
+				vistos[t] = true
+				tokens = append(tokens, t)
+			}
+		}
+		return tokens, nil
+	}
 }
 
 // repartir manda un mensaje ya armado a todos los telefonos con sesion
@@ -86,8 +134,14 @@ func (a *Avisador) AvisarBaja(ctx context.Context, p PedidoDadoDeBaja) {
 // Recibe el `codigo` aparte del mensaje **solo para el registro**: los renglones
 // tienen que traerlo o no sirven para comprobar un "no me llego", y sacarlo del
 // titulo seria parsear texto visible.
-func (a *Avisador) repartir(ctx context.Context, codigo string, mensaje Mensaje) {
-	tokens, err := a.dest.Tokens(ctx)
+//
+// `destinos` dice a que telefonos (031): los administradores, un repartidor, o
+// los dos. El recorrido y la limpieza son los mismos para cualquiera.
+func (a *Avisador) repartir(
+	ctx context.Context, codigo string, mensaje Mensaje,
+	destinos func(context.Context) ([]string, error),
+) {
+	tokens, err := destinos(ctx)
 	if err != nil {
 		log.Printf("avisos: no se pudo buscar a quien avisarle del pedido %s: %v", codigo, err)
 		return
@@ -141,6 +195,7 @@ func (a *Avisador) repartir(ctx context.Context, codigo string, mensaje Mensaje)
 // accesoria tumbando la principal por segunda vez, ahora peor.
 type Mudo struct{}
 
-func (Mudo) Avisar(_ context.Context, _ PedidoNuevo)          {}
-func (Mudo) AvisarEdicion(_ context.Context, _ PedidoEditado) {}
-func (Mudo) AvisarBaja(_ context.Context, _ PedidoDadoDeBaja) {}
+func (Mudo) Avisar(_ context.Context, _ PedidoNuevo)              {}
+func (Mudo) AvisarEdicion(_ context.Context, _ PedidoEditado)     {}
+func (Mudo) AvisarBaja(_ context.Context, _ PedidoDadoDeBaja)     {}
+func (Mudo) AvisarAsignacion(_ context.Context, _ PedidoAsignado) {}

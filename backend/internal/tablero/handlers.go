@@ -16,6 +16,10 @@ type Handlers struct {
 	// en `pedidos` y `usuarios`. Se recibe como funcion y no se consulta una
 	// columna: no hay columna de administrador, y no debe haberla.
 	esAdmin func(email string) bool
+
+	// repartidores son los configurados en `REPARTIDOR_EMAILS` (031). Nil es
+	// "no hay": la seccion solo muestra a quien tenga entregas fijas.
+	repartidores func() []string
 }
 
 func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool) *Handlers {
@@ -26,6 +30,12 @@ func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool) *Handlers {
 		esAdmin = func(string) bool { return false }
 	}
 	return &Handlers{repo: repo, esAdmin: esAdmin}
+}
+
+// ConRepartidores suma la lista de repartidores configurados (031).
+func (h *Handlers) ConRepartidores(repartidores func() []string) *Handlers {
+	h.repartidores = repartidores
+	return h
 }
 
 // respuesta es el cuerpo de GET /admin/tablero. Ver
@@ -40,6 +50,9 @@ func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool) *Handlers {
 type respuesta struct {
 	Pedidos  []Carga   `json:"pedidos"`
 	Clientes []Cliente `json:"clientes"`
+
+	// La tercera lista, de `031`: para el selector de la seccion Repartidores.
+	Repartidores []Repartidor `json:"repartidores"`
 }
 
 // Ver responde el tablero. Solo para una direccion administradora.
@@ -75,5 +88,15 @@ func (h *Handlers) Ver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, respuesta{Pedidos: cargas, Clientes: clientes})
+	var configurados []string
+	if h.repartidores != nil {
+		configurados = h.repartidores()
+	}
+	repartidores, err := h.repo.Repartidores(r.Context(), configurados, h.esAdmin)
+	if err != nil {
+		httpx.ErrorInterno(w, "leyendo los repartidores del tablero", err)
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, respuesta{Pedidos: cargas, Clientes: clientes, Repartidores: repartidores})
 }

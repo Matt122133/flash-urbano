@@ -27,6 +27,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/Matt122133/flash-urbano/backend/internal/db"
 )
 
@@ -53,6 +55,29 @@ type Carga struct {
 	// La CUENTA que creo el pedido, no el nombre de remitente escrito en el:
 	// ese es texto libre y agruparia mal en silencio (FR-009).
 	ClienteID string `json:"clienteId"`
+
+	// Los dos de `031`, para la seccion Repartidores. **Los dos solo en un
+	// pedido que sigue entregado**, y ausentes en cualquier otro: un pedido en
+	// curso no se le cuenta a nadie, y la carga queda con las tres claves de
+	// siempre.
+	//
+	// Repartidor es el mail al que quedo fija la entrega (FR-010b); ausente si
+	// la entrego un administrador.
+	Repartidor *string `json:"repartidor,omitempty"`
+
+	// EntregadoEn es la ultima marca de entrega, en UTC. **Es la fecha con que
+	// se corta la seccion Repartidores**, y no `CreadoEn`: al repartidor se le
+	// paga por paquete entregado (research D8). La conversion a Montevideo la
+	// hace la web, como la de `CreadoEn`.
+	EntregadoEn *time.Time `json:"entregadoEn,omitempty"`
+}
+
+// Repartidor es una persona para el selector de la seccion Repartidores (031).
+type Repartidor struct {
+	Email string `json:"email"`
+
+	// Ausente si nunca entro a la app: entonces se lo muestra por su mail.
+	Nombre string `json:"nombre,omitempty"`
 }
 
 // Cliente es una cuenta, para el filtro.
@@ -89,11 +114,26 @@ func NuevoRepositorio(pool *db.Pool) *Repositorio {
 //
 // El desempate por `id` es el mismo que el de la lista de la app (`021`): un
 // orden total, para que dos llamadas no devuelvan secuencias distintas.
+//
+// **El repartidor y la fecha de entrega salen solo de un pedido entregado**
+// (031): con un `CASE` y no con un WHERE, porque el resto del tablero sigue
+// contando todos. La fecha es la ULTIMA marca de entrega, la misma que usa el
+// reporte: un pedido entregado, deshecho y vuelto a entregar se cuenta el dia
+// de la segunda.
 func (r *Repositorio) Cargas(ctx context.Context) ([]Carga, error) {
 	filas, err := r.pool.Query(ctx, `
-		SELECT creado_en, cantidad, usuario_id
-		FROM pedidos
-		ORDER BY creado_en ASC, id ASC`)
+		SELECT p.creado_en, p.cantidad, p.usuario_id,
+		       CASE WHEN p.estado = 'entrega' THEN p.repartidor_email END,
+		       CASE WHEN p.estado = 'entrega' THEN entregado.ocurrido_en END
+		FROM pedidos p
+		LEFT JOIN LATERAL (
+			SELECT pe.ocurrido_en
+			FROM pedidos_estados pe
+			WHERE pe.pedido_id = p.id AND pe.estado = 'entrega'
+			ORDER BY pe.ocurrido_en DESC, pe.id DESC
+			LIMIT 1
+		) entregado ON true
+		ORDER BY p.creado_en ASC, p.id ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudieron leer las cargas: %w", err)
 	}
@@ -104,7 +144,7 @@ func (r *Repositorio) Cargas(ctx context.Context) ([]Carga, error) {
 	cargas := []Carga{}
 	for filas.Next() {
 		var c Carga
-		if err := filas.Scan(&c.CreadoEn, &c.Cantidad, &c.ClienteID); err != nil {
+		if err := filas.Scan(&c.CreadoEn, &c.Cantidad, &c.ClienteID, &c.Repartidor, &c.EntregadoEn); err != nil {
 			return nil, fmt.Errorf("no se pudo leer una carga: %w", err)
 		}
 		// **En UTC, explicito.** El driver devuelve el instante en la zona del
@@ -113,6 +153,10 @@ func (r *Repositorio) Cargas(ctx context.Context) ([]Carga, error) {
 		// leia bien igual, porque es el mismo instante, pero una respuesta que
 		// cambia segun donde corre el servicio es una trampa para quien la mire.
 		c.CreadoEn = c.CreadoEn.UTC()
+		if c.EntregadoEn != nil {
+			enUTC := c.EntregadoEn.UTC()
+			c.EntregadoEn = &enUTC
+		}
 		cargas = append(cargas, c)
 	}
 	return cargas, filas.Err()
@@ -146,4 +190,68 @@ func (r *Repositorio) Clientes(ctx context.Context) ([]Cliente, error) {
 		clientes = append(clientes, c)
 	}
 	return clientes, filas.Err()
+}
+
+// Repartidores devuelve a quienes se puede elegir en la seccion Repartidores
+// (031, FR-020): **los configurados, mas cualquier mail con entregas fijas**.
+//
+// Lo segundo es lo que importa: alguien que dejo de repartir a mitad de mes
+// sale de `REPARTIDOR_EMAILS`, pero sus entregas de ese mes siguen siendo suyas
+// y Diego tiene que poder bajarle el reporte. Los administradores no aparecen,
+// aunque alguna vez hayan estado en las dos listas.
+//
+// Orden: los configurados como estan en la configuracion, y despues los demas
+// por mail.
+func (r *Repositorio) Repartidores(
+	ctx context.Context, configurados []string, esAdmin func(string) bool,
+) ([]Repartidor, error) {
+	filas, err := r.pool.Query(ctx, `
+		SELECT DISTINCT repartidor_email
+		FROM pedidos
+		WHERE estado = 'entrega' AND repartidor_email IS NOT NULL
+		ORDER BY repartidor_email`)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudieron leer los repartidores con entregas: %w", err)
+	}
+	conEntregas, err := pgx.CollectRows(filas, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo leer un repartidor con entregas: %w", err)
+	}
+
+	vistos := map[string]bool{}
+	emails := []string{}
+	for _, e := range append(append([]string{}, configurados...), conEntregas...) {
+		if vistos[e] || (esAdmin != nil && esAdmin(e)) {
+			continue
+		}
+		vistos[e] = true
+		emails = append(emails, e)
+	}
+
+	nombres := map[string]string{}
+	if len(emails) > 0 {
+		filas, err := r.pool.Query(ctx,
+			`SELECT email, nombre FROM usuarios WHERE email = ANY($1) AND nombre IS NOT NULL`, emails)
+		if err != nil {
+			return nil, fmt.Errorf("no se pudieron leer los nombres de los repartidores: %w", err)
+		}
+		defer filas.Close()
+		for filas.Next() {
+			var email, nombre string
+			if err := filas.Scan(&email, &nombre); err != nil {
+				return nil, fmt.Errorf("no se pudo leer un nombre: %w", err)
+			}
+			nombres[email] = nombre
+		}
+		if err := filas.Err(); err != nil {
+			return nil, err
+		}
+	}
+
+	// Vacia y no nil, como las otras dos listas.
+	lista := []Repartidor{}
+	for _, e := range emails {
+		lista = append(lista, Repartidor{Email: e, Nombre: nombres[e]})
+	}
+	return lista, nil
 }

@@ -37,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import uy.flashurbano.repartidor.pantallas.Destino
 import uy.flashurbano.repartidor.pantallas.HojaEntrega
 import uy.flashurbano.repartidor.pantallas.PantallaIngreso
+import uy.flashurbano.repartidor.pantallas.ListaDeAsignar
 import uy.flashurbano.repartidor.pantallas.PantallaPedidos
 import uy.flashurbano.repartidor.pantallas.RepartidorViewModel
 import uy.flashurbano.repartidor.datos.CLAVE_PEDIDO
@@ -124,6 +125,10 @@ fun AppRepartidor(
     val pedidosNuevos by vm.pedidosNuevos.collectAsState()
     val avisos by vm.avisos.collectAsState()
     val destacado by vm.destacado.collectAsState()
+    val rol by vm.rol.collectAsState()
+    val filtro by vm.filtro.collectAsState()
+    val repartidores by vm.repartidores.collectAsState()
+    val asignando by vm.asignando.collectAsState()
 
     val contexto = LocalContext.current
 
@@ -205,7 +210,13 @@ fun AppRepartidor(
                 pedidosNuevos = pedidosNuevos,
                 avisos = avisos,
                 destacado = destacado,
+                rol = rol,
+                filtro = filtro,
+                repartidores = repartidores,
                 alElegirSeccion = vm::elegirSeccion,
+                alElegirFiltro = vm::elegirFiltro,
+                alAsignar = vm::pedirAsignar,
+                alDevolver = { pedido -> vm.asignar(pedido, null) },
                 alReintentar = vm::cargar,
                 alMover = { pedido, destino -> vm.mover(pedido, destino) },
                 alDescartarAviso = vm::descartarAviso,
@@ -219,6 +230,15 @@ fun AppRepartidor(
             // La hoja va **encima** de la pantalla, no en lugar de ella: al
             // cerrarla Diego vuelve a la lista donde estaba, con el pedido
             // todavia en En curso si no confirmo.
+            asignando?.let { pedido ->
+                ListaDeAsignar(
+                    pedido = pedido,
+                    repartidores = repartidores,
+                    alElegir = { a -> vm.asignar(pedido, a) },
+                    alCancelar = vm::cancelarAsignar,
+                )
+            }
+
             entregando?.let { pedido ->
                 HojaEntrega(
                     pedido = pedido,

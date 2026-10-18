@@ -23,6 +23,7 @@ la que se usa para entregarle una versión.
 | 2 | **Publicar una versión y hacérsela llegar** (`017`) |
 | 3 | Saber qué versión tiene puesta (`017`) |
 | 4 | Cortarle la sesión a un teléfono perdido (FR-016 de `012`) |
+| 5 | Sumar o sacar un repartidor (`031`) |
 
 ---
 
@@ -438,6 +439,54 @@ ejecute a mano. Mientras haya un solo repartidor, alcanza. **El día que haya un
 segundo, esto se vuelve obligatorio como función del producto** — está anotado
 en [`../tech-debt-tracker.md`](../tech-debt-tracker.md) con ese disparador.
 
+
+## 5. Sumar o sacar un repartidor (`031`)
+
+Desde `031` la app la usan los administradores **y los repartidores**: alguien
+que reparte con Diego, ve solo los pedidos que él le asigna, y no ve el tablero
+ni los reportes. Ver el
+[ADR more-than-one-courier](../decisions/more-than-one-courier.md).
+
+**Quién es repartidor lo dice una variable de entorno, no la base**, igual que
+quién es administrador: `REPARTIDOR_EMAILS`, separados por coma. Editar una fila
+no alcanza para dar permisos, y es a propósito.
+
+### Sumar uno
+
+1. Agregar su mail a `REPARTIDOR_EMAILS` en el entorno que corresponda
+   (`staging` primero; ver [`staging.md`](staging.md)). La variable es
+   **opcional**: si no existe, el servicio arranca igual y no hay repartidores.
+2. Esperar el redeploy que dispara el cambio de variable, y comprobar `/salud`.
+3. Pasarle el link de la última versión de la app (sección 2). Entra con el
+   código que le llega a ese mail, como Diego.
+
+Desde ese momento Diego lo ve en "Asignar". Si el repartidor todavía no entró
+nunca, aparece por su mail; después de completar el alta, por su nombre.
+
+**Un mail que está en las dos listas cuenta como administrador.** No es un
+error de configuración que haga falta evitar: es la regla, para que Diego no se
+quede con la lista recortada si alguien lo agrega a las dos.
+
+### Sacar uno
+
+1. Quitar su mail de `REPARTIDOR_EMAILS` y esperar el redeploy.
+2. Nada más. Lo que pasa solo:
+   - **Sus pedidos no entregados vuelven a Diego**: aparecen en "Míos" sin que
+     nadie escriba nada en la base. La columna queda como estaba; lo que cambia
+     es cómo se lee.
+   - **Sus entregados le siguen contando**: siguen en la sección Repartidores
+     del tablero y en su reporte, para poder pagarle el mes.
+   - La app de esa persona deja de mostrarle pedidos: el servicio le contesta
+     403, como a cualquier cuenta que no es de la administración.
+3. **Si el teléfono no se recupera, cortarle la sesión** (sección 4): sacar el
+   mail le quita el acceso a los pedidos, pero su sesión sigue viva en la base.
+
+### Lo que no se puede hacer
+
+- **Pasar de manos un pedido entregado.** Al entregarse, el repartidor queda
+  fijo: es a quien se le cuenta. Para corregirlo, deshacer la entrega primero
+  desde la app.
+- **Que un repartidor asigne.** Solo puede devolverle a Diego lo suyo.
 
 ## `adb install` y el Xiaomi: la traba es por telefono, no por HyperOS
 

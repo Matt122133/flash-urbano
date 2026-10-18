@@ -11,6 +11,7 @@ import {
   generadoEnMontevideo,
   nombreDeArchivo,
   rutaDelReporte,
+  rutaDelReporteDeRepartidor,
   textoDelReporte,
   type EnvioDelServicio,
   type Reporte,
@@ -272,5 +273,27 @@ describe("rutaDelReporte", () => {
 
   it("escapa lo que haga falta", () => {
     expect(rutaDelReporte("a b&c", "2026-09-01", "2026-09-30")).toContain("cliente=a+b%26c");
+  });
+});
+
+describe("el reporte de un repartidor (`031`)", () => {
+  const DE_RITA: Reporte = { ...REPORTE, cuenta: "Rita", deRepartidor: true };
+
+  it("el nombre del archivo dice que es de un repartidor", () => {
+    expect(nombreDeArchivo(DE_RITA)).toBe("flash-urbano-septiembre-2026-repartidor-rita.csv");
+    // Control: el de una cuenta llamada igual no se confunde con el.
+    expect(nombreDeArchivo({ ...REPORTE, cuenta: "Rita" })).toBe("flash-urbano-septiembre-2026-rita.csv");
+  });
+
+  it("el pie dice Repartidor y no Cuenta", () => {
+    const texto = textoDelReporte(DE_RITA);
+    expect(texto).toContain("Repartidor;Rita");
+    expect(texto).not.toContain("Cuenta;");
+  });
+
+  it("la ruta lleva repartidor y no cliente", () => {
+    expect(rutaDelReporteDeRepartidor("rita@example.com", "2026-09-01", "2026-09-30")).toBe(
+      "/admin/reporte?repartidor=rita%40example.com&desde=2026-09-01&hasta=2026-09-30",
+    );
   });
 });

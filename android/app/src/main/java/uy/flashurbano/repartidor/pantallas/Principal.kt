@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -49,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import uy.flashurbano.repartidor.datos.Direccion
 import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
+import uy.flashurbano.repartidor.datos.RepartidorOfrecido
+import uy.flashurbano.repartidor.datos.Roles
 import uy.flashurbano.repartidor.datos.colorDeCliente
 import uy.flashurbano.repartidor.datos.textoDePedidosNuevos
 import uy.flashurbano.repartidor.datos.esEstadoConocido
@@ -79,7 +82,13 @@ fun PantallaPedidos(
     pedidosNuevos: Int,
     avisos: LleganLosAvisos,
     destacado: String,
+    rol: String,
+    filtro: Filtro,
+    repartidores: List<RepartidorOfrecido>,
     alElegirSeccion: (Seccion) -> Unit,
+    alElegirFiltro: (Filtro) -> Unit,
+    alAsignar: (Pedido) -> Unit,
+    alDevolver: (Pedido) -> Unit,
     alEntregar: (Pedido) -> Unit,
     alReintentar: () -> Unit,
     alMover: (Pedido, String) -> Unit,
@@ -140,6 +149,21 @@ fun PantallaPedidos(
                     onClick = alReintentar,
                     modifier = Modifier.defaultMinSize(minHeight = Toques.ACTUALIZAR),
                 ) { Text("Actualizar") }
+            }
+
+            // **"Mios" y "Todos", solo para el administrador** (`031`, D10). Un
+            // repartidor ve solo lo suyo y no tiene nada que filtrar: los
+            // chips ahi serian una opcion que no hace nada.
+            if (rol == Roles.ADMIN) {
+                FiltroDeResponsable(filtro = filtro, alElegir = alElegirFiltro)
+                if (filtro == Filtro.TODOS && repartidores.isEmpty()) {
+                    Text(
+                        TEXTO_SIN_REPARTIDORES,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                    )
+                }
             }
 
             // **La franja de pedidos nuevos: es lo que hace visible el aviso
@@ -298,7 +322,28 @@ fun PantallaPedidos(
                                 // ESE pedido. Abrir la lista y que tenga que
                                 // buscar cual de doce es el que le sono seria
                                 // dejar el trabajo a mitad de camino.
-                                TarjetaPedido(pedido, destacada = pedido.codigo == destacado) {
+                                // En "Todos", el nombre de quien lo lleva:
+                                // es lo que distingue lo suyo de lo ajeno.
+                                val lleva = if (rol == Roles.ADMIN && filtro == Filtro.TODOS) {
+                                    pedido.responsable?.let { mail ->
+                                        repartidores.firstOrNull { it.email == mail }?.rotulo ?: mail
+                                    }
+                                } else {
+                                    null
+                                }
+                                TarjetaPedido(
+                                    pedido,
+                                    destacada = pedido.codigo == destacado,
+                                    lleva = lleva,
+                                ) {
+                                    AccionDeResponsable(
+                                        rol = rol,
+                                        seccion = seccion,
+                                        hayRepartidores = repartidores.isNotEmpty(),
+                                        sePuedeTocar = !sinRed && !moviendo.contains(pedido.id),
+                                        alAsignar = { alAsignar(pedido) },
+                                        alDevolver = { alDevolver(pedido) },
+                                    )
                                     AccionesDe(
                                         seccion = seccion,
                                         pedido = pedido,
@@ -435,6 +480,129 @@ private fun AccionesDe(
     }
 }
 
+/** Lo que se le ofrece al repartidor para soltar un pedido (`031`, D10). */
+const val TEXTO_DEVOLVER = "Devolver a Diego"
+
+/**
+ * Como se nombra a los administradores en la lista de a quien asignar. **El
+ * unico nombre propio de la app** (research D10): es interna, y es como lo
+ * entiende quien la usa.
+ */
+const val NOMBRE_DE_LA_ADMINISTRACION = "Diego"
+
+/** En "Todos" sin nadie a quien asignar (US1-3). */
+const val TEXTO_SIN_REPARTIDORES = "No hay repartidores configurados."
+
+/** Los dos chips del administrador. */
+@Composable
+private fun FiltroDeResponsable(filtro: Filtro, alElegir: (Filtro) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for ((cual, rotulo) in listOf(Filtro.MIOS to "Míos", Filtro.TODOS to "Todos")) {
+            val elegido = filtro == cual
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .defaultMinSize(minHeight = Toques.ACTUALIZAR)
+                    .clickable { alElegir(cual) },
+                shape = RoundedCornerShape(999.dp),
+                color = if (elegido) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                contentColor = if (elegido) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        rotulo,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (elegido) FontWeight.Bold else FontWeight.Normal,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * "Asignar" o "Devolver a Diego", en la tarjeta de un pedido **no entregado**
+ * (`031`, D10). Un entregado no cambia de manos (FR-010b), asi que en
+ * Entregados no se ofrece nada.
+ *
+ * El administrador sin repartidores configurados no ve "Asignar": seria abrir
+ * una lista con una sola opcion, la que ya tiene (US1-3).
+ */
+@Composable
+private fun AccionDeResponsable(
+    rol: String,
+    seccion: Seccion,
+    hayRepartidores: Boolean,
+    sePuedeTocar: Boolean,
+    alAsignar: () -> Unit,
+    alDevolver: () -> Unit,
+) {
+    if (seccion == Seccion.ENTREGADOS) return
+    val (rotulo, accion) = when {
+        rol == Roles.REPARTIDOR -> TEXTO_DEVOLVER to alDevolver
+        rol == Roles.ADMIN && hayRepartidores -> "Asignar" to alAsignar
+        else -> return
+    }
+    TextButton(
+        onClick = accion,
+        enabled = sePuedeTocar,
+        modifier = Modifier.padding(start = 6.dp).defaultMinSize(minHeight = Toques.ACTUALIZAR),
+    ) { Text(rotulo) }
+}
+
+/**
+ * A quien darle el pedido: los administradores y cada repartidor (`031`).
+ *
+ * Va **encima** de la lista, como la hoja de entrega: cerrarla deja todo como
+ * estaba. Quien ya lo tiene se marca, y elegirlo no hace nada distinto de
+ * cerrar —el servicio contesta 200 sin escribir—.
+ */
+@Composable
+fun ListaDeAsignar(
+    pedido: Pedido,
+    repartidores: List<RepartidorOfrecido>,
+    alElegir: (String?) -> Unit,
+    alCancelar: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = alCancelar,
+        title = { Text("¿Quién lleva " + pedido.codigo + "?") },
+        text = {
+            Column {
+                val opciones = listOf<Pair<String?, String>>(null to NOMBRE_DE_LA_ADMINISTRACION) +
+                    repartidores.map { it.email to it.rotulo }
+                for ((mail, rotulo) in opciones) {
+                    val actual = pedido.responsable == mail
+                    TextButton(
+                        onClick = { alElegir(mail) },
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = Toques.ACTUALIZAR),
+                    ) {
+                        Text(
+                            if (actual) "$rotulo (ahora)" else rotulo,
+                            fontWeight = if (actual) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = alCancelar) { Text("Cancelar") } },
+    )
+}
+
 @Composable
 private fun Centrado(contenido: @Composable ColumnScope.() -> Unit) {
     Column(
@@ -472,6 +640,8 @@ private fun Centrado(contenido: @Composable ColumnScope.() -> Unit) {
 fun TarjetaPedido(
     pedido: Pedido,
     destacada: Boolean = false,
+    /** Quien lo lleva, en "Todos" del administrador (`031`). Nulo: no se dice. */
+    lleva: String? = null,
     debajo: @Composable () -> Unit = {},
 ) {
     Card(
@@ -512,6 +682,18 @@ fun TarjetaPedido(
                             modifier = Modifier.padding(start = 8.dp),
                         )
                     }
+                }
+
+                if (lleva != null) {
+                    Text(
+                        "LO LLEVA " + lleva,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
 
                 Direccion(IconoSale, "RETIRA", comoTexto(pedido.retiro), naranja = true)

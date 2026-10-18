@@ -95,6 +95,7 @@ func TestElPreflightAutorizaTodosLosMetodosQueSirveElEnrutador(t *testing.T) {
 		"/pedidos/6f1b0f1e-0000-4000-8000-000000000000",
 		"/admin/pedidos",
 		"/admin/pedidos/6f1b0f1e-0000-4000-8000-000000000000/estado",
+		"/admin/pedidos/6f1b0f1e-0000-4000-8000-000000000000/repartidor",
 		"/admin/tablero",
 	}
 
@@ -232,5 +233,23 @@ func TestElCuerpoDeSaludSerializaLaLlaveAmbiente(t *testing.T) {
 		if !strings.Contains(texto, quiero) {
 			t.Errorf("falta %s en %s", quiero, texto)
 		}
+	}
+}
+
+// TestLaAsignacionNoRespondeSinCredencial es T015 (031): la ruta que mueve un
+// pedido de manos tiene que estar detras de `conSesion`. El control positivo es
+// que el camino existe —lo comprueba la prueba del preflight, que falla si no
+// hay ruta registrada—, asi que un 401 aca no puede ser un 404 disfrazado.
+func TestLaAsignacionNoRespondeSinCredencial(t *testing.T) {
+	mux := rutas(nil, dependencias{})
+
+	r := httptest.NewRequest("PUT",
+		"/admin/pedidos/6f1b0f1e-0000-4000-8000-000000000000/repartidor",
+		strings.NewReader(`{"repartidor":null}`))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+
+	if w.Code != 401 {
+		t.Fatalf("sin credencial dio %d, queria 401", w.Code)
 	}
 }

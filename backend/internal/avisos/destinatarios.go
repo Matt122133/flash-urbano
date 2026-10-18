@@ -78,6 +78,23 @@ func (d *Destinatarios) Tokens(ctx context.Context) ([]string, error) {
 		return nil, nil
 	}
 
+	return d.tokensDe(ctx, d.admins)
+}
+
+// TokensDe devuelve los destinatarios vivos de un solo mail: el repartidor de un
+// pedido (031, FR-017).
+//
+// **Los mismos tres filtros que Tokens, por la misma consulta**: un repartidor
+// con la sesion revocada no tiene que recibir nada, igual que Diego. Vacio no es
+// un error.
+func (d *Destinatarios) TokensDe(ctx context.Context, email string) ([]string, error) {
+	if email == "" {
+		return nil, nil
+	}
+	return d.tokensDe(ctx, []string{email})
+}
+
+func (d *Destinatarios) tokensDe(ctx context.Context, emails []string) ([]string, error) {
 	// `lower(u.email)` es redundante hoy —`usuarios.email` tiene
 	// `CHECK (email = lower(email))` desde `0001`— y se deja igual: la tabla
 	// tiene una fila por cliente identificado, asi que no cuesta nada, y si algun
@@ -92,7 +109,7 @@ func (d *Destinatarios) Tokens(ctx context.Context) ([]string, error) {
 		   AND s.expira_en > now()
 		   AND lower(u.email) = ANY($1)`
 
-	filas, err := d.pool.Query(ctx, sql, d.admins)
+	filas, err := d.pool.Query(ctx, sql, emails)
 	if err != nil {
 		return nil, fmt.Errorf("buscando destinatarios del aviso: %w", err)
 	}

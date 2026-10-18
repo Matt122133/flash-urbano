@@ -22,6 +22,10 @@ type libretaFalsa struct {
 	tokens    []string
 	olvidados []string
 	falla     error
+
+	// porMail son los telefonos de cada repartidor (031).
+	porMail    map[string][]string
+	fallaDeRep error
 }
 
 func (l *libretaFalsa) Tokens(context.Context) ([]string, error) {
@@ -29,6 +33,13 @@ func (l *libretaFalsa) Tokens(context.Context) ([]string, error) {
 		return nil, l.falla
 	}
 	return l.tokens, nil
+}
+
+func (l *libretaFalsa) TokensDe(_ context.Context, email string) ([]string, error) {
+	if l.fallaDeRep != nil {
+		return nil, l.fallaDeRep
+	}
+	return l.porMail[email], nil
 }
 
 func (l *libretaFalsa) Olvidar(_ context.Context, token string) error {
@@ -163,4 +174,101 @@ func TestUnFalloDeBaseNoIntentaMandarNada(t *testing.T) {
 func TestElAvisadorMudoNoHaceNada(t *testing.T) {
 	var mudo Mudo
 	mudo.Avisar(context.Background(), unPedido)
+}
+
+// --- `031`: el repartidor ----------------------------------------------------
+
+const unRepartidor = "repartidor@ejemplo.com"
+
+func libretaConRepartidor() *libretaFalsa {
+	return &libretaFalsa{
+		tokens:  []string{"token-de-diego"},
+		porMail: map[string][]string{unRepartidor: {"token-del-repartidor"}},
+	}
+}
+
+// TestLaAsignacionLeSuenaSoloAlRepartidor es FR-017: Diego asigno, no hay nada
+// que contarle a el.
+func TestLaAsignacionLeSuenaSoloAlRepartidor(t *testing.T) {
+	mandador := &mandadorFalso{}
+
+	NuevoAvisador(libretaConRepartidor(), mandador).AvisarAsignacion(context.Background(),
+		PedidoAsignado{Codigo: "FU-0142", EntregaCalle: "Rivera", Repartidor: unRepartidor})
+
+	if fmt.Sprint(mandador.mandados) != "[token-del-repartidor]" {
+		t.Errorf("se mando a %v, queria solo al repartidor", mandador.mandados)
+	}
+	if len(mandador.mensajes) == 1 && mandador.mensajes[0].Titulo != "Nuevo paquete asignado FU-0142" {
+		t.Errorf("titulo %q", mandador.mensajes[0].Titulo)
+	}
+}
+
+// TestElPedidoNuevoNoLeSuenaAlRepartidor es FR-019: un pedido nace de los
+// administradores. El control positivo es la prueba de abajo: con el mismo
+// doble, la edicion SI le llega, asi que esta no pasa por no saber mirar.
+func TestElPedidoNuevoNoLeSuenaAlRepartidor(t *testing.T) {
+	mandador := &mandadorFalso{}
+
+	NuevoAvisador(libretaConRepartidor(), mandador).Avisar(context.Background(), unPedido)
+
+	if fmt.Sprint(mandador.mandados) != "[token-de-diego]" {
+		t.Errorf("se mando a %v, queria solo a Diego", mandador.mandados)
+	}
+}
+
+// TestLaEdicionYLaBajaLeSuenanAlRepartidorDelPedido es FR-019a.
+func TestLaEdicionYLaBajaLeSuenanAlRepartidorDelPedido(t *testing.T) {
+	edicion := &mandadorFalso{}
+	NuevoAvisador(libretaConRepartidor(), edicion).AvisarEdicion(context.Background(),
+		PedidoEditado{Codigo: "FU-0142", EntregaCalle: "Rivera", Repartidor: unRepartidor})
+	if fmt.Sprint(edicion.mandados) != "[token-de-diego token-del-repartidor]" {
+		t.Errorf("edicion: se mando a %v", edicion.mandados)
+	}
+
+	baja := &mandadorFalso{}
+	NuevoAvisador(libretaConRepartidor(), baja).AvisarBaja(context.Background(),
+		PedidoDadoDeBaja{Codigo: "FU-0142", Repartidor: unRepartidor})
+	if fmt.Sprint(baja.mandados) != "[token-de-diego token-del-repartidor]" {
+		t.Errorf("baja: se mando a %v", baja.mandados)
+	}
+
+	// Sin repartidor, como antes de 031.
+	sinRep := &mandadorFalso{}
+	NuevoAvisador(libretaConRepartidor(), sinRep).AvisarEdicion(context.Background(),
+		PedidoEditado{Codigo: "FU-0142", EntregaCalle: "Rivera"})
+	if fmt.Sprint(sinRep.mandados) != "[token-de-diego]" {
+		t.Errorf("sin repartidor: se mando a %v", sinRep.mandados)
+	}
+}
+
+// TestSiFallaElRepartidorDiegoIgualRecibe: la parte nueva no puede dejar a
+// Diego sin el aviso que tenia antes.
+func TestSiFallaElRepartidorDiegoIgualRecibe(t *testing.T) {
+	libreta := libretaConRepartidor()
+	libreta.fallaDeRep = errors.New("la base no contesto")
+	mandador := &mandadorFalso{}
+
+	NuevoAvisador(libreta, mandador).AvisarEdicion(context.Background(),
+		PedidoEditado{Codigo: "FU-0142", EntregaCalle: "Rivera", Repartidor: unRepartidor})
+
+	if fmt.Sprint(mandador.mandados) != "[token-de-diego]" {
+		t.Errorf("se mando a %v, queria a Diego igual", mandador.mandados)
+	}
+}
+
+// TestUnTokenCompartidoNoSuenaDosVeces: la misma sesion no recibe el mismo
+// aviso dos veces aunque aparezca en las dos listas.
+func TestUnTokenCompartidoNoSuenaDosVeces(t *testing.T) {
+	libreta := &libretaFalsa{
+		tokens:  []string{"token-compartido"},
+		porMail: map[string][]string{unRepartidor: {"token-compartido"}},
+	}
+	mandador := &mandadorFalso{}
+
+	NuevoAvisador(libreta, mandador).AvisarBaja(context.Background(),
+		PedidoDadoDeBaja{Codigo: "FU-0142", Repartidor: unRepartidor})
+
+	if len(mandador.mandados) != 1 {
+		t.Errorf("se mando %d veces, queria una", len(mandador.mandados))
+	}
 }

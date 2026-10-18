@@ -44,8 +44,12 @@ type respuesta struct {
 // armado.
 var fecha = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
-// Ver responde los envios de UNA cuenta en un periodo. Solo para una direccion
-// administradora.
+// mensajeUnoDeLosDos es el 400 de pedir ninguno o los dos (contrato §5 de 031).
+const mensajeUnoDeLosDos = "el reporte es de un cliente o de un repartidor"
+
+// Ver responde los envios de UNA cuenta, o los que entrego UN repartidor (031),
+// en un periodo. Solo para una direccion administradora: un repartidor no ve
+// ni su propio reporte (FR-016).
 //
 // **`cliente` es obligatorio, y eso es el feature y no una validacion.** Si
 // faltara y el handler contestara "todos", existiria una forma de obtener un
@@ -72,11 +76,14 @@ func (h *Handlers) Ver(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cliente := r.URL.Query().Get("cliente")
+	repartidor := usuarios.NormalizarEmail(r.URL.Query().Get("repartidor"))
 	desde := r.URL.Query().Get("desde")
 	hasta := r.URL.Query().Get("hasta")
 
-	if cliente == "" {
-		httpx.Error(w, http.StatusBadRequest, "falta la cuenta: el reporte es siempre de un cliente")
+	// **Exactamente uno** (031, contrato §5). Ninguno seria "todos"; los dos, un
+	// reporte que no es de nadie en particular. Los dos casos son el mismo 400.
+	if (cliente == "") == (repartidor == "") {
+		httpx.Error(w, http.StatusBadRequest, mensajeUnoDeLosDos)
 		return
 	}
 	if !fecha.MatchString(desde) || !fecha.MatchString(hasta) {
@@ -92,7 +99,13 @@ func (h *Handlers) Ver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	envios, err := h.repo.Envios(r.Context(), cliente, desde, hasta)
+	var envios []Fila
+	var err error
+	if repartidor != "" {
+		envios, err = h.repo.EnviosDeRepartidor(r.Context(), repartidor, desde, hasta)
+	} else {
+		envios, err = h.repo.Envios(r.Context(), cliente, desde, hasta)
+	}
 	if err != nil {
 		httpx.ErrorInterno(w, "leyendo los envios del reporte", err)
 		return

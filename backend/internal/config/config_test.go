@@ -27,6 +27,8 @@ func entornoCompleto(t *testing.T) {
 	// tuviera un RAILWAY_ENVIRONMENT_NAME de verdad, la prueba de abajo pasaria
 	// por el motivo equivocado.
 	t.Setenv("RAILWAY_ENVIRONMENT_NAME", "")
+	// Vacia por lo mismo: el entorno que arranca no necesita repartidores.
+	t.Setenv("REPARTIDOR_EMAILS", "")
 }
 
 func TestCargarConEntornoCompleto(t *testing.T) {
@@ -324,5 +326,73 @@ func TestElNombreDeAmbienteSaleDelEntorno(t *testing.T) {
 				t.Errorf("ambiente: quiero %q, dio %q", caso.quiero, cfg.Ambiente)
 			}
 		})
+	}
+}
+
+// 031, research D1: sin repartidores configurados el servicio levanta igual.
+// Una variable obligatoria de mas es la forma conocida de tumbar produccion.
+func TestSinRepartidoresElServicioArranca(t *testing.T) {
+	entornoCompleto(t)
+
+	cfg, err := Cargar()
+	if err != nil {
+		t.Fatalf("sin REPARTIDOR_EMAILS no cargo: %v", err)
+	}
+	if len(cfg.RepartidorEmails) != 0 || len(cfg.Repartidores()) != 0 {
+		t.Errorf("aparecieron repartidores de la nada: %v", cfg.RepartidorEmails)
+	}
+	if cfg.EsRepartidor("diego@example.com") {
+		t.Error("sin lista nadie es repartidor")
+	}
+}
+
+// Faltando una obligatoria, REPARTIDOR_EMAILS no se reporta: la prueba que
+// caza el cambio peligroso, que es pasarla por `obligatoria`.
+func TestRepartidoresNoApareceEntreLasFaltantes(t *testing.T) {
+	entornoCompleto(t)
+	t.Setenv("DATABASE_URL", "")
+
+	_, err := Cargar()
+	if err == nil {
+		t.Fatal("faltando DATABASE_URL igual cargo")
+	}
+	if strings.Contains(err.Error(), "REPARTIDOR_EMAILS") {
+		t.Errorf("los repartidores se reportaron como faltantes: %v", err)
+	}
+}
+
+// FR-001 y FR-004: misma normalizacion que los administradores, y un mail en
+// las dos listas es administrador.
+func TestEsRepartidor(t *testing.T) {
+	entornoCompleto(t)
+	t.Setenv("ADMIN_EMAILS", "diego@example.com")
+	t.Setenv("REPARTIDOR_EMAILS", " Rep@Example.com , diego@example.com,")
+
+	cfg, err := Cargar()
+	if err != nil {
+		t.Fatalf("no esperaba error: %v", err)
+	}
+
+	casos := []struct {
+		email  string
+		quiero bool
+	}{
+		{"rep@example.com", true},
+		{"REP@example.com", true},
+		{"  rep@example.com ", true},
+		{"diego@example.com", false},
+		{"cliente@example.com", false},
+		{"", false},
+	}
+	for _, c := range casos {
+		if dio := cfg.EsRepartidor(c.email); dio != c.quiero {
+			t.Errorf("EsRepartidor(%q): quiero %v, dio %v", c.email, c.quiero, dio)
+		}
+	}
+	if !cfg.EsAdmin("diego@example.com") {
+		t.Error("estar tambien en repartidores no le puede sacar lo de administrador")
+	}
+	if got := cfg.Repartidores(); len(got) != 1 || got[0] != "rep@example.com" {
+		t.Errorf("Repartidores(): quiero [rep@example.com], dio %v", got)
 	}
 }

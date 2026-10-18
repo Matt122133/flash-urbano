@@ -299,3 +299,101 @@ func TestElTableroNoTraeElComentarioDelPedido(t *testing.T) {
 		t.Fatalf("el tablero no tendria que traer el comentario: %s", crudo)
 	}
 }
+
+// --- `031`: repartidores -----------------------------------------------------
+
+// entregar asigna el pedido (si `a` no es vacio) y lo marca entregado.
+func (e *entorno) entregar(t *testing.T, id, a string) {
+	t.Helper()
+	// **Deja la base sin marcas de entrega al terminar.** `internal/auth` corre
+	// primero en la corrida siguiente y su limpieza no borra `pedidos_estados`:
+	// una marca que quede aca le pone en rojo un paquete que no tiene nada que
+	// ver, con un error de clave foranea.
+	t.Cleanup(func() {
+		e.pool.Exec(context.Background(), `DELETE FROM pedidos_estados`)
+		e.pool.Exec(context.Background(), `DELETE FROM pedidos`)
+	})
+	ctx := context.Background()
+	if a != "" {
+		if _, _, err := e.pedidos.Asignar(ctx, id, &a, nil); err != nil {
+			t.Fatalf("asignando %s: %v", id, err)
+		}
+	}
+	configurado := func(m string) bool { return m == a }
+	if _, err := e.pedidos.CambiarEstadoCon(ctx, id, pedidos.EstadoEntrega,
+		&pedidos.Receptor{Nombre: "Juan Gomez"}, pedidos.Alcance{EsRepartidor: configurado}); err != nil {
+		t.Fatalf("entregando %s: %v", id, err)
+	}
+}
+
+// TestCargasTraeRepartidorYEntregaSoloDeLoEntregado es D8: un pedido asignado
+// pero en curso no se le cuenta a nadie; el entregado por Diego no tiene
+// repartidor pero si fecha; el entregado por Rita tiene las dos.
+func TestCargasTraeRepartidorYEntregaSoloDeLoEntregado(t *testing.T) {
+	e := entornoDePrueba(t)
+	ctx := context.Background()
+	ana := e.unaCuenta(t, "ana@example.com", "Ana Perez")
+	rita := "rita@example.com"
+
+	enCurso := e.unPedido(t, ana, "a1", 1, "2026-09-01T12:00:00Z")
+	if _, _, err := e.pedidos.Asignar(ctx, enCurso, &rita, nil); err != nil {
+		t.Fatal(err)
+	}
+	porDiego := e.unPedido(t, ana, "a2", 1, "2026-09-02T12:00:00Z")
+	e.entregar(t, porDiego, "")
+	porRita := e.unPedido(t, ana, "a3", 1, "2026-09-03T12:00:00Z")
+	e.entregar(t, porRita, rita)
+
+	cargas, err := e.repo.Cargas(ctx)
+	if err != nil || len(cargas) != 3 {
+		t.Fatalf("cargas: %v, %d", err, len(cargas))
+	}
+	if c := cargas[0]; c.Repartidor != nil || c.EntregadoEn != nil {
+		t.Errorf("en curso: repartidor %v, entregadoEn %v; queria ninguno", c.Repartidor, c.EntregadoEn)
+	}
+	if c := cargas[1]; c.Repartidor != nil || c.EntregadoEn == nil {
+		t.Errorf("entregado por Diego: repartidor %v, entregadoEn %v", c.Repartidor, c.EntregadoEn)
+	}
+	c := cargas[2]
+	if c.Repartidor == nil || *c.Repartidor != rita || c.EntregadoEn == nil {
+		t.Fatalf("entregado por Rita: repartidor %v, entregadoEn %v", c.Repartidor, c.EntregadoEn)
+	}
+	if c.EntregadoEn.Location() != time.UTC {
+		t.Errorf("entregadoEn vino en %s, tenia que ser UTC", c.EntregadoEn.Location())
+	}
+
+	// Deshacer la entrega lo saca del corte: ya no esta entregado.
+	if _, err := e.pedidos.CambiarEstado(ctx, porRita, pedidos.EstadoAceptacion, nil); err != nil {
+		t.Fatal(err)
+	}
+	cargas, _ = e.repo.Cargas(ctx)
+	if c := cargas[2]; c.Repartidor != nil || c.EntregadoEn != nil {
+		t.Errorf("deshecha la entrega: repartidor %v, entregadoEn %v; queria ninguno", c.Repartidor, c.EntregadoEn)
+	}
+}
+
+// TestRepartidoresSumaAQuienYaNoEstaConfigurado es FR-020: quien salio de la
+// configuracion con entregas sigue en la lista; un administrador no aparece.
+func TestRepartidoresSumaAQuienYaNoEstaConfigurado(t *testing.T) {
+	e := entornoDePrueba(t)
+	ctx := context.Background()
+	ana := e.unaCuenta(t, "ana@example.com", "Ana Perez")
+	e.unaCuenta(t, "raul@example.com", "Raul")
+
+	viejo := e.unPedido(t, ana, "a1", 1, "2026-09-01T12:00:00Z")
+	e.entregar(t, viejo, "ex@example.com")
+
+	lista, err := e.repo.Repartidores(ctx,
+		[]string{"raul@example.com", "nunca-entro@example.com", correoAdmin}, soloDiego)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, r := range lista {
+		got = append(got, r.Email+"/"+r.Nombre)
+	}
+	quiero := "raul@example.com/Raul,nunca-entro@example.com/,ex@example.com/"
+	if strings.Join(got, ",") != quiero {
+		t.Errorf("repartidores %v, queria %s", got, quiero)
+	}
+}

@@ -174,6 +174,29 @@ func TestArmarBajaNoInventaCuerpo(t *testing.T) {
 	}
 }
 
+// --- `031`: el aviso de asignacion -------------------------------------------
+
+func TestArmarAsignacionDiceCodigoYCalle(t *testing.T) {
+	m := avisos.ArmarAsignacion(avisos.PedidoAsignado{
+		Codigo: "FU-0142", EntregaCalle: "  Av.   Brasil ", Repartidor: "repartidor@ejemplo.com",
+	})
+
+	if m.Titulo != "Nuevo paquete asignado FU-0142" {
+		t.Errorf("titulo %q", m.Titulo)
+	}
+	if m.Cuerpo != "Entrega en Av. Brasil" {
+		t.Errorf("cuerpo %q", m.Cuerpo)
+	}
+	if m.Codigo != "FU-0142" {
+		t.Errorf("codigo %q", m.Codigo)
+	}
+	// El repartidor es el destinatario, no texto: que su mail aparezca en la
+	// pantalla bloqueada no le dice nada a quien la lee.
+	if strings.Contains(m.Titulo+m.Cuerpo, "ejemplo.com") {
+		t.Errorf("el mail del repartidor salio en el aviso: %q / %q", m.Titulo, m.Cuerpo)
+	}
+}
+
 func TestLosAvisosDeEdicionYBajaNoPuedenDecirLoProhibido(t *testing.T) {
 	// **Esta prueba no mira el texto: mira los CAMPOS DEL TIPO.** Es donde vive
 	// la garantia de FR-010 y del Principio V — un aviso no puede decir importes,
@@ -194,6 +217,7 @@ func TestLosAvisosDeEdicionYBajaNoPuedenDecirLoProhibido(t *testing.T) {
 	}{
 		{"PedidoEditado", reflect.TypeOf(avisos.PedidoEditado{})},
 		{"PedidoDadoDeBaja", reflect.TypeOf(avisos.PedidoDadoDeBaja{})},
+		{"PedidoAsignado", reflect.TypeOf(avisos.PedidoAsignado{})},
 	}
 
 	for _, c := range casos {

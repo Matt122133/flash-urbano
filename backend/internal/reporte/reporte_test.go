@@ -263,3 +263,87 @@ func TestUnPedidoSinPuntoDeEntregaVieneIgual(t *testing.T) {
 		t.Errorf("la cantidad fue %d, queria 2", envios[0].Cantidad)
 	}
 }
+
+// --- `031`: el reporte de un repartidor --------------------------------------
+
+const rita = "rita@example.com"
+
+// entregadoPor deja el pedido entregado a nombre de `a`, con una unica marca
+// de entrega en `instante`.
+func (e *entorno) entregadoPor(t *testing.T, pedidoID, a, instante string) {
+	t.Helper()
+	// **Deja la base sin marcas de entrega al terminar.** `internal/auth` corre
+	// primero en la corrida siguiente y su limpieza no borra `pedidos_estados`:
+	// una marca que quede aca le pone en rojo un paquete que no tiene nada que
+	// ver, con un error de clave foranea.
+	t.Cleanup(func() {
+		e.pool.Exec(context.Background(), `DELETE FROM pedidos_estados`)
+		e.pool.Exec(context.Background(), `DELETE FROM pedidos`)
+	})
+	if _, err := e.pool.Exec(context.Background(),
+		`UPDATE pedidos SET estado = 'entrega', repartidor_email = $2 WHERE id = $1`, pedidoID, a); err != nil {
+		t.Fatalf("entregando %s: %v", pedidoID, err)
+	}
+	e.seEntrego(t, pedidoID, instante)
+}
+
+// TestLaEntregaDeLas22DelTreintaEsDeSeptiembre es D9: el corte es en
+// calendario de Montevideo. 22:00 del 30/9 alla es 01:00 del 1/10 en UTC.
+//
+// El control positivo es el mismo pedido pedido en octubre: no esta. Sin eso,
+// un reporte que devolviera todo pasaria.
+func TestLaEntregaDeLas22DelTreintaEsDeSeptiembre(t *testing.T) {
+	e := entornoDePrueba(t)
+	cuenta := e.unaCuenta(t, "cliente@ejemplo.test")
+	id := e.unPedido(t, cuenta, "k1", "2026-09-30", 1, true)
+	e.entregadoPor(t, id, rita, "2026-10-01T01:00:00Z")
+
+	sept, err := e.repo.EnviosDeRepartidor(context.Background(), rita, "2026-09-01", "2026-09-30")
+	if err != nil || len(sept) != 1 {
+		t.Fatalf("septiembre: %v, %d envios, queria 1", err, len(sept))
+	}
+	oct, err := e.repo.EnviosDeRepartidor(context.Background(), rita, "2026-10-01", "2026-10-31")
+	if err != nil || len(oct) != 0 {
+		t.Fatalf("octubre: %v, %d envios, queria 0", err, len(oct))
+	}
+}
+
+// Lo no entregado no es de nadie todavia, y lo de otro repartidor no es suyo.
+// El control positivo es el entregado suyo, que si aparece.
+func TestElReporteDelRepartidorTraeSoloLoQueEntrego(t *testing.T) {
+	e := entornoDePrueba(t)
+	ctx := context.Background()
+	cuenta := e.unaCuenta(t, "cliente@ejemplo.test")
+
+	suyo := e.unPedido(t, cuenta, "k1", "2026-09-10", 1, true)
+	e.entregadoPor(t, suyo, rita, "2026-09-10T15:00:00Z")
+
+	enCurso := e.unPedido(t, cuenta, "k2", "2026-09-10", 1, true)
+	if _, err := e.pool.Exec(ctx, `UPDATE pedidos SET repartidor_email = $2 WHERE id = $1`, enCurso, rita); err != nil {
+		t.Fatal(err)
+	}
+
+	ajeno := e.unPedido(t, cuenta, "k3", "2026-09-10", 1, true)
+	e.entregadoPor(t, ajeno, "raul@example.com", "2026-09-10T16:00:00Z")
+
+	// Entregado y despues deshecho: tiene marca de entrega pero ya no esta
+	// entregado.
+	deshecho := e.unPedido(t, cuenta, "k4", "2026-09-10", 1, true)
+	e.entregadoPor(t, deshecho, rita, "2026-09-10T17:00:00Z")
+	if _, err := e.pool.Exec(ctx, `UPDATE pedidos SET estado = 'aceptacion' WHERE id = $1`, deshecho); err != nil {
+		t.Fatal(err)
+	}
+
+	envios, err := e.repo.EnviosDeRepartidor(ctx, rita, "2026-09-01", "2026-09-30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(envios) != 1 {
+		t.Fatalf("vinieron %d envios, queria solo el entregado de Rita: %+v", len(envios), envios)
+	}
+	var codigo string
+	e.pool.QueryRow(ctx, `SELECT codigo FROM pedidos WHERE id = $1`, suyo).Scan(&codigo)
+	if envios[0].Codigo != codigo || envios[0].EntregadoEn == nil {
+		t.Errorf("vino %+v, queria %s con su fecha de entrega", envios[0], codigo)
+	}
+}

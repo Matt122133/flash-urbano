@@ -22,8 +22,38 @@ import kotlinx.serialization.json.Json
  */
 val json: Json = Json { ignoreUnknownKeys = true }
 
+/**
+ * La lista y, desde `031`, quien la pide.
+ *
+ * **`rol` vale `admin` por defecto, y no es un descuido**: un servicio anterior
+ * a `031` no manda la clave, y en ese servicio solo un administrador podia
+ * llegar a esta lista. Con ese default, la app nueva contra el servicio viejo
+ * se comporta como la de antes: todos los pedidos en "Mios", sin "Asignar"
+ * porque la lista de repartidores llega vacia.
+ */
 @Serializable
-data class RespuestaPedidos(val pedidos: List<Pedido> = emptyList())
+data class RespuestaPedidos(
+    val rol: String = Roles.ADMIN,
+    val repartidores: List<RepartidorOfrecido> = emptyList(),
+    val pedidos: List<Pedido> = emptyList(),
+)
+
+/** Quien reparte, como se lo ofrece al asignar (`031`). */
+@Serializable
+data class RepartidorOfrecido(
+    val email: String,
+    /** Vacio si nunca entro a la app: entonces se lo muestra por su mail. */
+    val nombre: String = "",
+) {
+    /** Como se lo nombra en la pantalla. */
+    val rotulo: String get() = nombre.ifBlank { email }
+}
+
+/** Los roles que manda el servicio en la lista (`031`). */
+object Roles {
+    const val ADMIN = "admin"
+    const val REPARTIDOR = "repartidor"
+}
 
 @Serializable
 data class Punto(val lat: Double, val lng: Double)
@@ -119,6 +149,16 @@ data class Pedido(
      * `colorDeCliente`, que decide que hacer con un valor que no sirve.
      */
     val colorCliente: String? = null,
+
+    /**
+     * El mail del repartidor que tiene el pedido (`031`), o `null` si es de los
+     * administradores.
+     *
+     * **Nulable con `null` por defecto, como `colorCliente`**: el servicio lo
+     * omite para los pedidos de los administradores, y un servicio anterior a
+     * `031` no lo manda nunca.
+     */
+    val responsable: String? = null,
 )
 
 /**

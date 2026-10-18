@@ -31,6 +31,23 @@ export type Carga = {
   cantidad: number;
   /** La CUENTA que lo creo, no el nombre de remitente escrito en el pedido. */
   clienteId: string;
+  /**
+   * El repartidor al que quedo fija la entrega (`031`). **Solo en un pedido que
+   * sigue entregado**, y ausente si lo entrego un administrador.
+   */
+  repartidor?: string;
+  /**
+   * La ultima marca de entrega, RFC 3339 en UTC, solo si sigue entregado
+   * (`031`). Es la fecha con que se corta la seccion Repartidores.
+   */
+  entregadoEn?: string;
+};
+
+/** Alguien que reparte, para el selector de la seccion Repartidores (`031`). */
+export type Repartidor = {
+  email: string;
+  /** Ausente si nunca entro a la app: se muestra el mail. */
+  nombre?: string;
 };
 
 /** Una cuenta, para el filtro. */
@@ -45,6 +62,12 @@ export type RespuestaTablero = {
   /** Una por pedido. La clave dice `pedidos`; cada elemento es una carga. */
   pedidos: Carga[];
   clientes: Cliente[];
+  /**
+   * Los configurados mas quien tenga entregas fijas (`031`). Opcional porque un
+   * servicio anterior a `031` no la manda, y el tablero tiene que seguir
+   * funcionando contra el.
+   */
+  repartidores?: Repartidor[];
 };
 
 /** Las tres granularidades del corte (FR-005). */
@@ -287,11 +310,31 @@ export function resumir(
 ): Resumen {
   const fechaDe = new Map(todas.map((c) => [c, fechaEnMontevideo(c.creadoEn)]));
 
-  // El rango sale de TODAS las cargas, no de las del cliente elegido (D5). Va
-  // del primer periodo con pedidos —o de hoy, si no hay— hasta el mayor entre
-  // hoy y el ultimo pedido. Lo segundo es por un reloj corrido: un pedido "del
-  // futuro" no puede quedar fuera de la tabla y dejar de sumar.
-  const claves = [...fechaDe.values(), hoy].map((f) => periodoDe(f, corte).clave).sort();
+  // "Cliente" es la CUENTA que creo el pedido (FR-009): se filtra por id, nunca
+  // por el nombre de remitente escrito en el pedido, que es texto libre.
+  const cargas = clienteId === undefined ? todas : todas.filter((c) => c.clienteId === clienteId);
+
+  // El rango sale de TODAS las cargas, no de las del cliente elegido (D5).
+  return contar([...fechaDe.values()], cargas.map((c) => ({ fecha: fechaDe.get(c)!, cantidad: c.cantidad })), corte, hoy);
+}
+
+/**
+ * El cuadro, comun a las dos secciones: del primer periodo del rango al mayor
+ * entre hoy y el ultimo, **sin huecos** (research D5 de `025`), y cada contada
+ * sumada en el periodo de su fecha.
+ *
+ * El rango va aparte de lo contado a proposito: es lo que hace que las filas no
+ * aparezcan ni desaparezcan al cambiar el filtro. Lo segundo del rango es por un
+ * reloj corrido: una fecha "del futuro" no puede quedar fuera de la tabla y
+ * dejar de sumar.
+ */
+function contar(
+  rango: readonly Fecha[],
+  contadas: readonly { fecha: Fecha; cantidad: number }[],
+  corte: Corte,
+  hoy: Fecha,
+): Resumen {
+  const claves = [...rango, hoy].map((f) => periodoDe(f, corte).clave).sort();
   const desde = claves[0];
   const hasta = claves[claves.length - 1];
 
@@ -307,17 +350,13 @@ export function resumir(
     fecha = periodoSiguiente(periodo.clave, corte);
   }
 
-  // "Cliente" es la CUENTA que creo el pedido (FR-009): se filtra por id, nunca
-  // por el nombre de remitente escrito en el pedido, que es texto libre.
-  const cargas = clienteId === undefined ? todas : todas.filter((c) => c.clienteId === clienteId);
-
-  for (const c of cargas) {
-    const fila = porClave.get(periodoDe(fechaDe.get(c)!, corte).clave)!;
+  for (const c of contadas) {
+    const fila = porClave.get(periodoDe(c.fecha, corte).clave)!;
     fila.pedidos += 1;
     fila.paquetes += c.cantidad;
   }
 
-  return { registrados: registrados(cargas), filas: filas.reverse() };
+  return { registrados: contadas.length, filas: filas.reverse() };
 }
 
 // ---------------------------------------------------------------------------
@@ -397,4 +436,59 @@ export const TEXTO_PERIODO_SIN_ENVIOS = "Ese período no tiene envíos para baja
 export function rotuloCliente(cliente: Cliente): string {
   const nombre = cliente.nombre?.trim();
   return nombre ? `${nombre} — ${cliente.email}` : cliente.email;
+}
+
+// ---------------------------------------------------------------------------
+// Repartidores (`031`)
+//
+// Es el mismo cuadro, cortado por OTRA fecha: la de entrega y no la de carga.
+// Al repartidor se le paga por paquete entregado (research D8), asi que un
+// pedido cargado en septiembre y entregado en octubre es de octubre aca, y de
+// septiembre en el cuadro de clientes. Por eso cada seccion dice con que fecha
+// corta.
+// ---------------------------------------------------------------------------
+
+/** El titulo de la seccion. */
+export const TEXTO_REPARTIDORES = "Repartidores";
+
+/** La aclaracion de la seccion: con que fecha se corta, como `TEXTO_CORTE`. */
+export const TEXTO_CORTE_REPARTIDOR =
+  "Acá cada pedido cuenta en el día en que se entregó, y solo si está entregado.";
+
+/** Un repartidor elegido sin entregas: el cero se explica. */
+export const TEXTO_REPARTIDOR_SIN_ENTREGAS = "Este repartidor todavía no entregó ningún pedido.";
+
+/** Sin ningun repartidor, la seccion lo dice en vez de quedar vacia. */
+export const TEXTO_SIN_REPARTIDORES = "No hay repartidores configurados.";
+
+/** Nombre si lo tiene, mas el mail, como `rotuloCliente`. */
+export function rotuloRepartidor(r: Repartidor): string {
+  const nombre = r.nombre?.trim();
+  return nombre ? `${nombre} — ${r.email}` : r.email;
+}
+
+/**
+ * El cuadro de UN repartidor: sus entregas, por periodo de la fecha de
+ * entrega en Montevideo.
+ *
+ * - **Solo cuenta lo entregado**: el servicio manda `repartidor` y
+ *   `entregadoEn` solo en un pedido que sigue entregado, asi que uno en curso o
+ *   con la entrega deshecha no se le cuenta a nadie.
+ * - **El rango es el de todas las entregas de cualquier repartidor**, no las del
+ *   elegido: cambiar de repartidor cambia los numeros, no las filas. Mismo
+ *   criterio que el filtro por cliente.
+ */
+export function resumirPorRepartidor(
+  todas: readonly Carga[],
+  { corte, hoy, repartidor }: { corte: Corte; hoy: Fecha; repartidor: string },
+): Resumen {
+  const entregadas = todas.filter((c) => c.repartidor !== undefined && c.entregadoEn !== undefined);
+  const fechaDe = new Map(entregadas.map((c) => [c, fechaEnMontevideo(c.entregadoEn!)]));
+  const suyas = entregadas.filter((c) => c.repartidor === repartidor);
+  return contar(
+    [...fechaDe.values()],
+    suyas.map((c) => ({ fecha: fechaDe.get(c)!, cantidad: c.cantidad })),
+    corte,
+    hoy,
+  );
 }

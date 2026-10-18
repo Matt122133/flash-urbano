@@ -197,3 +197,101 @@ func TestEmailEsUnicoYEnMinusculas(t *testing.T) {
 		t.Error("una direccion sin normalizar tendria que ser rechazada")
 	}
 }
+
+// 0011 contra una base CON pedidos, que es como llega a produccion (SC-007).
+//
+// Desde vacio cualquier ALTER pasa; lo que tumbo produccion en `0004` fue una
+// columna nueva sobre una tabla con filas. Aca se rebobina 0011, se cargan
+// pedidos con el esquema de antes, y se vuelve a aplicar: los pedidos tienen que
+// quedar de los administradores (nulo) y **ninguna fila se puede reescribir**
+// (FR-007), cosa que se mide con `xmin` —cambia si Postgres toca la tupla—.
+func TestRepartidorDelPedidoSobrePedidosExistentes(t *testing.T) {
+	pool := baseDePrueba(t)
+	ctx := context.Background()
+
+	if err := Migrar(ctx, pool); err != nil {
+		t.Fatalf("migrar: %v", err)
+	}
+	const nombre = "0011_repartidor_del_pedido.sql"
+	for _, sql := range []string{
+		`DROP INDEX pedidos_repartidor`,
+		`ALTER TABLE pedidos DROP COLUMN repartidor_email`,
+		`DELETE FROM migraciones_aplicadas WHERE nombre = '` + nombre + `'`,
+	} {
+		if _, err := pool.Exec(ctx, sql); err != nil {
+			t.Fatalf("rebobinando 0011 (%s): %v", sql, err)
+		}
+	}
+
+	var usuarioID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO usuarios (email) VALUES ('cliente@example.com') RETURNING id`).Scan(&usuarioID); err != nil {
+		t.Fatalf("creando la cuenta: %v", err)
+	}
+	for _, clave := range []string{"a", "b", "c"} {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO pedidos (usuario_id, clave_idempotencia, remitente_nombre,
+				remitente_telefono, retiro_calle, retiro_esquina, entrega_calle,
+				entrega_esquina, paquete_tamano, cantidad, retiro_fecha, retiro_hora,
+				destinatario_nombre, destinatario_telefono, precio, zona_id)
+			VALUES ($1, $2, 'Ana', '099111222', 'Rivera', 'Comercio', 'Rivera',
+				'Comercio', 'chico', 1, '2026-10-01', '16:00', 'Juan', '098765432', 150, 1)`,
+			usuarioID, clave)
+		if err != nil {
+			t.Fatalf("creando el pedido %s con el esquema de antes: %v", clave, err)
+		}
+	}
+
+	xminAntes := xminDePedidos(t, ctx, pool)
+
+	if err := Migrar(ctx, pool); err != nil {
+		t.Fatalf("0011 sobre una tabla con pedidos fallo: %v", err)
+	}
+
+	var conRepartidor int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM pedidos WHERE repartidor_email IS NOT NULL`).Scan(&conRepartidor); err != nil {
+		t.Fatalf("leyendo la columna nueva: %v", err)
+	}
+	if conRepartidor != 0 {
+		t.Errorf("los pedidos existentes tienen que quedar de los administradores, %d no", conRepartidor)
+	}
+
+	xminDespues := xminDePedidos(t, ctx, pool)
+	if len(xminDespues) != len(xminAntes) {
+		t.Fatalf("antes habia %d pedidos y despues %d", len(xminAntes), len(xminDespues))
+	}
+	for id, antes := range xminAntes {
+		if xminDespues[id] != antes {
+			t.Errorf("el pedido %s se reescribio al migrar (xmin %s → %s)", id, antes, xminDespues[id])
+		}
+	}
+
+	// El CHECK: un mail con mayusculas dejaria el pedido invisible para todos.
+	if _, err := pool.Exec(ctx,
+		`UPDATE pedidos SET repartidor_email = 'Rep@Example.com' WHERE clave_idempotencia = 'a'`); err == nil {
+		t.Error("un repartidor sin normalizar tendria que ser rechazado")
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE pedidos SET repartidor_email = 'rep@example.com' WHERE clave_idempotencia = 'a'`); err != nil {
+		t.Errorf("un repartidor normalizado tendria que entrar: %v", err)
+	}
+}
+
+func xminDePedidos(t *testing.T, ctx context.Context, pool *Pool) map[string]string {
+	t.Helper()
+	filas, err := pool.Query(ctx, `SELECT id::text, xmin::text FROM pedidos`)
+	if err != nil {
+		t.Fatalf("leyendo xmin: %v", err)
+	}
+	defer filas.Close()
+	salida := map[string]string{}
+	for filas.Next() {
+		var id, xmin string
+		if err := filas.Scan(&id, &xmin); err != nil {
+			t.Fatalf("leyendo xmin: %v", err)
+		}
+		salida[id] = xmin
+	}
+	return salida
+}

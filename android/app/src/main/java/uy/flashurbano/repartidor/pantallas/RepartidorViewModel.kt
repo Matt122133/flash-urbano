@@ -16,6 +16,8 @@ import uy.flashurbano.repartidor.datos.seccionDe
 import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
 import uy.flashurbano.repartidor.datos.Receptor
+import uy.flashurbano.repartidor.datos.RepartidorOfrecido
+import uy.flashurbano.repartidor.datos.Roles
 import uy.flashurbano.repartidor.datos.Servicio
 import uy.flashurbano.repartidor.datos.pedirTokenDeAvisos
 
@@ -101,6 +103,91 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun elegirSeccion(cual: Seccion) {
         _seccion.value = cual
+    }
+
+    /**
+     * Quien esta usando la app, segun el servicio (`031`). `admin` hasta que
+     * conteste: es lo que un servicio anterior a `031` significa.
+     */
+    private val _rol = MutableStateFlow(Roles.ADMIN)
+    val rol: StateFlow<String> = _rol.asStateFlow()
+
+    /** A quienes puede asignar un administrador. Vacia para un repartidor. */
+    private val _repartidores = MutableStateFlow<List<RepartidorOfrecido>>(emptyList())
+    val repartidores: StateFlow<List<RepartidorOfrecido>> = _repartidores.asStateFlow()
+
+    /**
+     * "Mios" o "Todos", del administrador (`031`). **Arranca en MIOS** y vive
+     * aca y no en la pantalla, por lo mismo que `_seccion`: que sobreviva a un
+     * giro del telefono.
+     */
+    private val _filtro = MutableStateFlow(Filtro.MIOS)
+    val filtro: StateFlow<Filtro> = _filtro.asStateFlow()
+
+    fun elegirFiltro(cual: Filtro) {
+        _filtro.value = cual
+        _pantalla.value = agrupar(visiblesAhora())
+    }
+
+    /** Lo que se dibuja: la lista cruda, filtrada por quien mira. */
+    private fun visiblesAhora(): List<Pedido> = visibles(pedidos, _rol.value, _filtro.value)
+
+    /**
+     * El pedido que se esta asignando, mientras la lista de a quien esta
+     * abierta. Nulo si no. Mismo patron que `_entregando`.
+     */
+    private val _asignando = MutableStateFlow<Pedido?>(null)
+    val asignando: StateFlow<Pedido?> = _asignando.asStateFlow()
+
+    fun pedirAsignar(pedido: Pedido) {
+        _asignando.value = pedido
+    }
+
+    fun cancelarAsignar() {
+        _asignando.value = null
+    }
+
+    /**
+     * Le da el pedido a `a`, o con `null` se lo devuelve a los administradores
+     * (`031`). Es lo mismo que hace "Devolver a Diego" desde un repartidor.
+     *
+     * **Como `mover`, nada se dibuja hasta que el servicio conteste** (FR-008 de
+     * `012`), y el id queda en `moviendo` mientras tanto para que no se pueda
+     * tocar dos veces.
+     */
+    fun asignar(pedido: Pedido, a: String?) {
+        _asignando.value = null
+        if (_moviendo.value.contains(pedido.id)) return
+
+        viewModelScope.launch {
+            _moviendo.value = _moviendo.value + pedido.id
+            _aviso.value = ""
+
+            val guardada = credencial.leer()
+            if (guardada == null) {
+                _moviendo.value = _moviendo.value - pedido.id
+                volverAlIngreso("Hay que ingresar de nuevo.")
+                return@launch
+            }
+
+            when (val r = servicio.asignar(guardada, pedido.id, a)) {
+                is Resultado.Ok -> {
+                    pedidos = pedidos.map { if (it.id == r.valor.id) r.valor else it }
+                    _pantalla.value = agrupar(visiblesAhora())
+                }
+
+                is Resultado.Fallo -> {
+                    if (r.motivo == Motivo.SESION_VENCIDA) {
+                        credencial.olvidar()
+                        _moviendo.value = _moviendo.value - pedido.id
+                        volverAlIngreso("La sesión venció. Ingresá otra vez.")
+                        return@launch
+                    }
+                    _aviso.value = pedido.codigo + ": " + textoDe(r)
+                }
+            }
+            _moviendo.value = _moviendo.value - pedido.id
+        }
     }
 
     /**
@@ -259,8 +346,19 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
 
-            val respuesta = servicio.pedidos(guardada)
-            if (respuesta is Resultado.Ok) pedidos = respuesta.valor
+            val lista = servicio.lista(guardada)
+            if (lista is Resultado.Ok) {
+                pedidos = lista.valor.pedidos
+                _rol.value = lista.valor.rol
+                _repartidores.value = lista.valor.repartidores
+            }
+            // De aca para abajo se sigue hablando de la lista **ya filtrada**:
+            // es la que se dibuja, y `estadoDesde` decide "no hay nada" sobre
+            // ella.
+            val respuesta: Resultado<List<Pedido>> = when (lista) {
+                is Resultado.Ok -> Resultado.Ok(visiblesAhora())
+                is Resultado.Fallo -> lista
+            }
 
             // **Una recarga que falla por red NO borra lo que ya estaba**
             // (FR-016). Antes, tocar Actualizar en un sotano dejaba a Diego con
@@ -272,7 +370,7 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
             val esDeRed = respuesta is Resultado.Fallo && respuesta.motivo == Motivo.SIN_RED
             if (esDeRed && pedidos.isNotEmpty()) {
                 _sinRed.value = true
-                _pantalla.value = agrupar(pedidos)
+                _pantalla.value = agrupar(visiblesAhora())
                 return@launch
             }
             _sinRed.value = false
@@ -348,7 +446,7 @@ class RepartidorViewModel(app: Application) : AndroidViewModel(app) {
                     // lo que la app pidio. Si el servicio hubiera decidido otra
                     // cosa, la pantalla muestra la verdad y no el deseo.
                     pedidos = pedidos.map { if (it.id == r.valor.id) r.valor else it }
-                    _pantalla.value = agrupar(pedidos)
+                    _pantalla.value = agrupar(visiblesAhora())
 
                     // El aviso se arma **despues** de que el servicio confirmo.
                     // Ofrecer deshacer algo que todavia no paso es prometer una
