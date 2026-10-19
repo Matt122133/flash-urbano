@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La columna `pedidos.repartidor_email`, nulable, sin default (D2).
   - backend/migrations/
