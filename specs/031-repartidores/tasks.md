@@ -98,9 +98,9 @@ el `verify:` verde no dice nada de la base.
 
 - [X] T041 [P] `docs/processes/app-repartidor.md`: como sumar y sacar un repartidor (la variable, el redeploy, que pasa con sus pedidos), sin mails reales
 - [X] T042 [P] `docs/processes/staging.md` y `docs/processes/railway-despliegue.md`: `REPARTIDOR_EMAILS` en la tabla de variables, opcional
-- [ ] T043 Correr el `verify:` del plan y **contar los skips de Go** con `TEST_DATABASE_URL` puesta; pegar el resultado en el PR
-- [ ] T044 Desplegar a staging (`railway up`) y correr Q1–Q14 de `specs/031-repartidores/quickstart.md`, con la app en el emulador (`adb -s`)
-- [ ] T045 `git diff master..HEAD | grep "^+" | grep -oE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+"` antes del PR: ningun mail que no sea de ejemplo o el publicado del negocio
+- [X] T043 Correr el `verify:` del plan y **contar los skips de Go** con `TEST_DATABASE_URL` puesta; pegar el resultado en el PR
+- [X] T044 Desplegar a staging (`railway up`) y correr Q1–Q14 de `specs/031-repartidores/quickstart.md`, con la app en el emulador (`adb -s`)
+- [X] T045 `git diff master..HEAD | grep "^+" | grep -oE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+"` antes del PR: ningun mail que no sea de ejemplo o el publicado del negocio
 
 ## Phase 8: Enmiendas de la prueba en staging (2026-10-18)
 
