@@ -817,3 +817,36 @@ func TestEliminarDosVecesNoEsUnCasoEspecial(t *testing.T) {
 		t.Errorf("segunda baja devolvio %v, quiero ErrFueraDeVentana", err)
 	}
 }
+
+// TestResponsableEsElDeDataModel3 son los cuatro casos de data-model §3 (031),
+// mas el de "no hay repartidores configurados". Pura: corre sin base.
+func TestResponsableEsElDeDataModel3(t *testing.T) {
+	rep := "repartidor@ejemplo.com"
+	configurado := func(e string) bool { return e == rep }
+	ninguno := func(string) bool { return false }
+
+	casos := []struct {
+		nombre       string
+		guardado     *string
+		estado       string
+		esRepartidor func(string) bool
+		quiero       *string
+	}{
+		{"sin asignar es de los administradores", nil, EstadoCreacion, configurado, nil},
+		{"entregado conserva lo guardado aunque ya no este", &rep, EstadoEntrega, ninguno, &rep},
+		{"no entregado de alguien que salio vuelve a los administradores", &rep, EstadoAceptacion, ninguno, nil},
+		{"no entregado de un configurado es suyo", &rep, EstadoCreacion, configurado, &rep},
+		{"sin configuracion de repartidores, nadie lo tiene", &rep, EstadoCreacion, nil, nil},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			got := Responsable(c.guardado, c.estado, c.esRepartidor)
+			switch {
+			case c.quiero == nil && got != nil:
+				t.Errorf("dio %q, queria de los administradores", *got)
+			case c.quiero != nil && (got == nil || *got != *c.quiero):
+				t.Errorf("dio %v, queria %q", got, *c.quiero)
+			}
+		})
+	}
+}

@@ -42,6 +42,8 @@ type Avisador interface {
 	// tipo no tiene esos campos, asi que un descuido no compila.
 	AvisarEdicion(ctx context.Context, p avisos.PedidoEditado)
 	AvisarBaja(ctx context.Context, p avisos.PedidoDadoDeBaja)
+	// El de `031`: a un repartidor, que un pedido es suyo.
+	AvisarAsignacion(ctx context.Context, p avisos.PedidoAsignado)
 }
 
 // zonaHorariaUruguay es DONDE ocurre el retiro, y por eso donde se decide si su
@@ -80,6 +82,13 @@ type Handlers struct {
 	// que corre en el acto. Lo que NO cambia es el contexto: ese es propio en
 	// los dos casos.
 	enSegundoPlano func(func())
+
+	// esRepartidor y repartidores salen de `REPARTIDOR_EMAILS` (031), por el
+	// mismo motivo que esAdmin: no hay columna de rol. **Nil en los dos es el
+	// default, y es "no hay repartidores"**: el servicio se comporta igual que
+	// antes de 031. Los cablea ConRepartidores.
+	esRepartidor func(email string) bool
+	repartidores func() []string
 }
 
 func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool, avisador Avisador) *Handlers {
@@ -91,6 +100,29 @@ func NuevosHandlers(repo *Repositorio, esAdmin func(string) bool, avisador Avisa
 		enSegundoPlano: func(f func()) { go f() },
 	}
 }
+
+// ConRepartidores suma el rol de repartidor (031).
+//
+// `repartidores` es la lista que se ofrece al asignar: los configurados que no
+// son administradores.
+func (h *Handlers) ConRepartidores(esRepartidor func(string) bool, repartidores func() []string) *Handlers {
+	h.esRepartidor = esRepartidor
+	h.repartidores = repartidores
+	return h
+}
+
+// esRep es esRepartidor sin tener que comprobar el nil en cada uso.
+func (h *Handlers) esRep(email string) bool {
+	return h.esRepartidor != nil && h.esRepartidor(email)
+}
+
+// Roles de quien usa la app (031). Viajan en la lista para que la app sepa que
+// dibujar: el filtro y "Asignar" son del administrador, "Devolver a Diego" del
+// repartidor.
+const (
+	RolAdmin      = "admin"
+	RolRepartidor = "repartidor"
+)
 
 // peticionCrear es el cuerpo de POST /pedidos.
 //
@@ -176,9 +208,26 @@ type respuestaLista struct {
 	Pedidos []*Pedido `json:"pedidos"`
 }
 
-// La lista de Diego. Tipo aparte y no un campo mas: ver `ParaAdmin`.
+// La lista de la app. Tipo aparte y no un campo mas: ver `ParaAdmin`.
+//
+// `rol` y `repartidores` son de 031 y **solo suman claves**: la app instalada
+// antes ignora lo que no conoce, y por eso el servicio nuevo puede desplegarse
+// antes que la app (research D5).
 type respuestaListaAdmin struct {
+	Rol string `json:"rol"`
+
+	// Solo para el administrador: a quienes puede asignar. Al repartidor la
+	// clave no le viaja.
+	Repartidores []Repartidor `json:"repartidores,omitempty"`
+
 	Pedidos []*ParaAdmin `json:"pedidos"`
+}
+
+// Repartidor es como se lo ofrece al asignar: por nombre si tiene perfil, y si
+// no por su mail (FR-009).
+type Repartidor struct {
+	Email  string `json:"email"`
+	Nombre string `json:"nombre,omitempty"`
 }
 
 // Lo que devuelve un cambio de estado. Tambien es de Diego, y por eso tambien
@@ -236,6 +285,16 @@ func (h *Handlers) Crear(w http.ResponseWriter, r *http.Request) {
 		// error de cableado, no del cliente, y responder 401 lo esconderia.
 		httpx.ErrorInterno(w, "POST /pedidos sin middleware de sesion",
 			errors.New("no hay usuario en el contexto"))
+		return
+	}
+
+	// **Una cuenta de reparto no carga pedidos** (031, FR-025, Mateo al probar
+	// en staging). Es la cuenta de trabajo: si esa persona quiere mandar un
+	// paquete propio, entra con otro mail. Asi el tablero puede sacar a los
+	// repartidores de la lista de clientes sin que ningun pedido quede sin
+	// cliente que lo muestre. Antes de leer el cuerpo: no hay nada que validar.
+	if h.esRep(u.Email) {
+		httpx.Error(w, http.StatusForbidden, mensajeCuentaDeReparto)
 		return
 	}
 
@@ -494,12 +553,17 @@ func (h *Handlers) Mios(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, respuestaLista{Pedidos: lista})
 }
 
-// Todos devuelve todos los pedidos. Solo para una direccion administradora.
+// Todos devuelve la lista de la app: **todos** los pedidos a un administrador, y
+// **solo los suyos** a un repartidor (031, FR-012, FR-013).
 //
-// Responde **403 y no 404** a quien no lo es, y aca si se distingue: en el
-// ingreso no se revela si una direccion existe porque eso ayuda a quien prueba
-// credenciales, pero que exista una ruta de administracion no es secreto, y un
-// 404 mandaria a quien depura a buscar un error de tipeo en la URL.
+// Responde **403 y no 404** a quien no es ninguno de los dos, y aca si se
+// distingue: en el ingreso no se revela si una direccion existe porque eso
+// ayuda a quien prueba credenciales, pero que exista una ruta de administracion
+// no es secreto, y un 404 mandaria a quien depura a buscar un error de tipeo en
+// la URL.
+//
+// **El repartidor usa esta misma ruta, acotada** (research D5): una ruta aparte
+// duplicaria el handler y obligaria a la app a elegir cual llamar.
 func (h *Handlers) Todos(w http.ResponseWriter, r *http.Request) {
 	u, hay := usuarios.DeContexto(r.Context())
 	if !hay {
@@ -508,24 +572,66 @@ func (h *Handlers) Todos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.esAdmin(u.Email) {
-		httpx.Error(w, http.StatusForbidden, "no autorizado")
+	if h.esAdmin(u.Email) {
+		lista, err := h.repo.Todos(r.Context())
+		if err != nil {
+			httpx.ErrorInterno(w, "leyendo todos los pedidos", err)
+			return
+		}
+		repartidores, err := h.listaDeRepartidores(r.Context())
+		if err != nil {
+			httpx.ErrorInterno(w, "leyendo los repartidores", err)
+			return
+		}
+		// **`ParaAdminTodos` y no `respuestaLista`**: es la unica linea del
+		// servicio que expone la cedula de quien recibio, y tiene que leerse como
+		// una decision. Ver el tipo `ParaAdmin`.
+		httpx.JSON(w, http.StatusOK, respuestaListaAdmin{
+			Rol:          RolAdmin,
+			Repartidores: repartidores,
+			Pedidos:      ParaAdminTodos(lista, h.esRepartidor),
+		})
 		return
 	}
 
-	lista, err := h.repo.Todos(r.Context())
-	if err != nil {
-		httpx.ErrorInterno(w, "leyendo todos los pedidos", err)
+	if h.esRep(u.Email) {
+		lista, err := h.repo.PorRepartidor(r.Context(), usuarios.NormalizarEmail(u.Email))
+		if err != nil {
+			httpx.ErrorInterno(w, "leyendo los pedidos del repartidor", err)
+			return
+		}
+		httpx.JSON(w, http.StatusOK, respuestaListaAdmin{
+			Rol:     RolRepartidor,
+			Pedidos: ParaAdminTodos(lista, h.esRepartidor),
+		})
 		return
 	}
-	// **`ParaAdminTodos` y no `respuestaLista`**: es la unica linea del servicio
-	// que expone la cedula de quien recibio, y tiene que leerse como una
-	// decision. Ver el tipo `ParaAdmin`.
-	httpx.JSON(w, http.StatusOK, respuestaListaAdmin{Pedidos: ParaAdminTodos(lista)})
+
+	httpx.Error(w, http.StatusForbidden, "no autorizado")
 }
 
-// CambiarEstado mueve un pedido de estado. Solo para una direccion
-// administradora.
+// listaDeRepartidores arma a quienes se puede asignar, con nombre si lo hay.
+func (h *Handlers) listaDeRepartidores(ctx context.Context) ([]Repartidor, error) {
+	if h.repartidores == nil {
+		return nil, nil
+	}
+	emails := h.repartidores()
+	nombres, err := h.repo.NombresPorEmail(ctx, emails)
+	if err != nil {
+		return nil, err
+	}
+	lista := make([]Repartidor, 0, len(emails))
+	for _, e := range emails {
+		lista = append(lista, Repartidor{Email: e, Nombre: nombres[e]})
+	}
+	return lista, nil
+}
+
+// CambiarEstado mueve un pedido de estado. Para un administrador, cualquiera;
+// para un repartidor, **solo uno suyo** (031, FR-014, FR-015).
+//
+// Uno ajeno le responde 404 con el mismo texto que un id inventado: un 403
+// confirmaria que el pedido existe.
 //
 // Es el camino que `012` agrega, y lo que arregla es concreto: hasta hoy **todo
 // pedido decia "Pendiente" para siempre** porque el ciclo de vida existia en la
@@ -545,7 +651,13 @@ func (h *Handlers) CambiarEstado(w http.ResponseWriter, r *http.Request) {
 
 	// 403 y no 404, por lo mismo que Todos: que exista una ruta de
 	// administracion no es secreto.
-	if !h.esAdmin(u.Email) {
+	alcance := Alcance{EsRepartidor: h.esRepartidor}
+	switch {
+	case h.esAdmin(u.Email):
+	case h.esRep(u.Email):
+		yo := usuarios.NormalizarEmail(u.Email)
+		alcance.SoloDe = &yo
+	default:
 		httpx.Error(w, http.StatusForbidden, "no autorizado")
 		return
 	}
@@ -589,7 +701,7 @@ func (h *Handlers) CambiarEstado(w http.ResponseWriter, r *http.Request) {
 		receptor = &Receptor{Nombre: nombre, Documento: documento}
 	}
 
-	pedido, err := h.repo.CambiarEstado(r.Context(), r.PathValue("id"), estado, receptor)
+	pedido, err := h.repo.CambiarEstadoCon(r.Context(), r.PathValue("id"), estado, receptor, alcance)
 	switch {
 	case errors.Is(err, ErrNoExiste):
 		httpx.Error(w, http.StatusNotFound, "no hay tal pedido")
@@ -605,7 +717,97 @@ func (h *Handlers) CambiarEstado(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, respuestaEstado{Pedido: pedido.ParaAdmin()})
+	httpx.JSON(w, http.StatusOK, respuestaEstado{Pedido: pedido.ParaAdmin(h.esRepartidor)})
+}
+
+// peticionAsignar es el cuerpo de PUT /admin/pedidos/{id}/repartidor (031).
+//
+// Un mail le da el pedido a ese repartidor; `null` se lo devuelve a los
+// administradores.
+type peticionAsignar struct {
+	Repartidor *string `json:"repartidor"`
+}
+
+// mensajeCuentaDeReparto es el rechazo de crear un pedido desde una cuenta de
+// reparto (FR-025). El formulario de la web muestra el texto del servicio tal
+// cual, asi que esta escrito para la persona.
+const mensajeCuentaDeReparto = "Esta cuenta es de reparto. Para mandar un paquete, ingresá con otro mail."
+
+// Textos de Asignar. Son los del contrato §3, y la app los muestra tal cual.
+const (
+	mensajeNoEsRepartidor = "ese mail no es de un repartidor"
+	mensajeYaEntregado    = "un pedido entregado no cambia de repartidor"
+)
+
+// Asignar le da un pedido a un repartidor o se lo devuelve a los
+// administradores (031, contrato §3).
+//
+//   - Un **administrador** asigna cualquier pedido no entregado a un repartidor
+//     configurado, o lo desasigna (FR-008, FR-010a).
+//   - Un **repartidor** solo puede devolver uno suyo (FR-010). Asignar a otro le
+//     da 403: no es que el pedido no exista, es que esa accion no es suya.
+//   - Un pedido entregado no cambia (FR-010b): 409.
+//
+// Asignarlo a quien ya lo tiene responde 200 sin escribir ni avisar.
+func (h *Handlers) Asignar(w http.ResponseWriter, r *http.Request) {
+	u, hay := usuarios.DeContexto(r.Context())
+	if !hay {
+		httpx.ErrorInterno(w, "PUT /admin/pedidos/{id}/repartidor sin middleware de sesion",
+			errors.New("no hay usuario en el contexto"))
+		return
+	}
+
+	esAdmin := h.esAdmin(u.Email)
+	if !esAdmin && !h.esRep(u.Email) {
+		httpx.Error(w, http.StatusForbidden, "no autorizado")
+		return
+	}
+
+	var p peticionAsignar
+	if err := httpx.LeerJSON(w, r, &p); err != nil {
+		httpx.Error(w, http.StatusBadRequest, httpx.MsgDatosInvalidos)
+		return
+	}
+
+	var a, soloSiEsDe *string
+	switch {
+	case esAdmin && p.Repartidor != nil:
+		destino := usuarios.NormalizarEmail(*p.Repartidor)
+		if !h.esRep(destino) {
+			httpx.Error(w, http.StatusBadRequest, mensajeNoEsRepartidor)
+			return
+		}
+		a = &destino
+	case esAdmin:
+		// Devolver a los administradores: a queda nil.
+	case p.Repartidor != nil:
+		httpx.Error(w, http.StatusForbidden, "no autorizado")
+		return
+	default:
+		yo := usuarios.NormalizarEmail(u.Email)
+		soloSiEsDe = &yo
+	}
+
+	pedido, cambio, err := h.repo.Asignar(r.Context(), r.PathValue("id"), a, soloSiEsDe)
+	switch {
+	case errors.Is(err, ErrNoExiste):
+		httpx.Error(w, http.StatusNotFound, "no hay tal pedido")
+		return
+	case errors.Is(err, ErrEntregado):
+		httpx.Error(w, http.StatusConflict, mensajeYaEntregado)
+		return
+	case err != nil:
+		httpx.ErrorInterno(w, "asignando un pedido", err)
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, respuestaEstado{Pedido: pedido.ParaAdmin(h.esRepartidor)})
+
+	// **Solo si cambio de manos y fue A un repartidor** (FR-017, FR-017a):
+	// desasignar no avisa, y repetir una asignacion tampoco.
+	if cambio && a != nil {
+		h.avisarDeLaAsignacion(pedido, *a)
+	}
 }
 
 // mensajeFueraDeVentana es lo que se le dice a quien intento editar o dar de
@@ -695,9 +897,10 @@ func (h *Handlers) Eliminar(w http.ResponseWriter, r *http.Request) {
 	// DELETE no hay de donde sacar el codigo, y el aviso sin codigo no sirve
 	// para nada. Que la lectura no este acotada al usuario no abre nada: si el
 	// pedido no es suyo, el DELETE de abajo no borra y no se avisa.
-	var codigo string
+	var codigo, repartidor string
 	if antes, err := h.repo.porID(r.Context(), id); err == nil {
 		codigo = antes.Codigo
+		repartidor = h.repartidorDe(antes)
 	}
 
 	switch err := h.repo.Eliminar(r.Context(), id, u.ID); {
@@ -712,7 +915,7 @@ func (h *Handlers) Eliminar(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 
 	if codigo != "" {
-		h.avisarDeLaBaja(codigo)
+		h.avisarDeLaBaja(codigo, repartidor)
 	}
 }
 
@@ -721,7 +924,12 @@ func (h *Handlers) Eliminar(w http.ResponseWriter, r *http.Request) {
 // hace que el aviso no salga nunca, porque se cancela al devolver— y **lo que
 // cruza estas lineas son campos sueltos y no el pedido**, que trae nombres,
 // telefonos, el numero de puerta y el precio.
+//
+// **El repartidor viaja ya resuelto** (031, FR-019a): es el responsable
+// efectivo, el mismo que la app muestra. A alguien que salio de
+// `REPARTIDOR_EMAILS` no le suena un pedido que ya no es suyo.
 func (h *Handlers) avisarDeLaEdicion(p *Pedido) {
+	repartidor := h.repartidorDe(p)
 	h.enSegundoPlano(func() {
 		ctx, cancelar := context.WithTimeout(context.Background(), plazoDelAviso)
 		defer cancelar()
@@ -729,15 +937,41 @@ func (h *Handlers) avisarDeLaEdicion(p *Pedido) {
 		h.avisador.AvisarEdicion(ctx, avisos.PedidoEditado{
 			Codigo:       p.Codigo,
 			EntregaCalle: p.Entrega.Calle,
+			Repartidor:   repartidor,
 		})
 	})
 }
 
-func (h *Handlers) avisarDeLaBaja(codigo string) {
+func (h *Handlers) avisarDeLaBaja(codigo, repartidor string) {
 	h.enSegundoPlano(func() {
 		ctx, cancelar := context.WithTimeout(context.Background(), plazoDelAviso)
 		defer cancelar()
 
-		h.avisador.AvisarBaja(ctx, avisos.PedidoDadoDeBaja{Codigo: codigo})
+		h.avisador.AvisarBaja(ctx, avisos.PedidoDadoDeBaja{Codigo: codigo, Repartidor: repartidor})
 	})
+}
+
+// avisarDeLaAsignacion le avisa al repartidor que un pedido es suyo (031,
+// FR-017). Mismo patron que los de arriba: contexto propio, campos sueltos, y
+// una falla no deshace la asignacion (FR-018).
+func (h *Handlers) avisarDeLaAsignacion(p *Pedido, repartidor string) {
+	h.enSegundoPlano(func() {
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoDelAviso)
+		defer cancelar()
+
+		h.avisador.AvisarAsignacion(ctx, avisos.PedidoAsignado{
+			Codigo:       p.Codigo,
+			EntregaCalle: p.Entrega.Calle,
+			Repartidor:   repartidor,
+		})
+	})
+}
+
+// repartidorDe es el responsable efectivo como texto: vacio si es de los
+// administradores.
+func (h *Handlers) repartidorDe(p *Pedido) string {
+	if r := Responsable(p.repartidorEmail, p.Estado, h.esRepartidor); r != nil {
+		return *r
+	}
+	return ""
 }

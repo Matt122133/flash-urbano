@@ -138,8 +138,10 @@ func correr() error {
 			auth:     auth.NuevosHandlers(verificadorGoogle, repoUsuarios, sesiones, registro),
 			codigo:   auth.NuevosHandlersCodigo(codigos, limites, enviador, repoUsuarios, sesiones, registro),
 			usuarios: usuarios.NuevosHandlers(repoUsuarios, cfg.EsAdmin),
-			pedidos:  pedidos.NuevosHandlers(repoPedidos, cfg.EsAdmin, avisador),
-			tablero:  tablero.NuevosHandlers(tablero.NuevoRepositorio(pool), cfg.EsAdmin),
+			pedidos: pedidos.NuevosHandlers(repoPedidos, cfg.EsAdmin, avisador).
+				ConRepartidores(cfg.EsRepartidor, cfg.Repartidores),
+			tablero: tablero.NuevosHandlers(tablero.NuevoRepositorio(pool), cfg.EsAdmin).
+				ConRepartidores(cfg.Repartidores),
 			reporte:  reporte.NuevosHandlers(reporte.NuevoRepositorio(pool), cfg.EsAdmin),
 			resolver: sesiones.ResolverUsuario(repoUsuarios),
 			ambiente: cfg.Ambiente,
@@ -259,6 +261,11 @@ func rutas(pool *db.Pool, dep dependencias) http.Handler {
 	// el middleware publicaria esos datos de todos los destinatarios y dejaria
 	// que cualquiera moviera pedidos ajenos.
 	mux.Handle("PATCH /admin/pedidos/{id}/estado", conSesion(dep.pedidos.CambiarEstado))
+
+	// La asignacion de `031`. Con `conSesion` por lo mismo que la de arriba: la
+	// respuesta es el pedido entero. Quien puede asignar y quien solo devolver
+	// lo decide el handler, por rol.
+	mux.Handle("PUT /admin/pedidos/{id}/repartidor", conSesion(dep.pedidos.Asignar))
 
 	// El tablero de Diego (`025`). **Solo `GET`, y es FR-017**: el tablero mira,
 	// no escribe, y una prueba de main_test.go afirma que este camino no sirve

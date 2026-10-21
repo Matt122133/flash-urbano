@@ -10,6 +10,7 @@ import {
   periodoDe,
   registrados,
   resumir,
+  resumirPorRepartidor,
   type Carga,
 } from "./tablero";
 
@@ -384,5 +385,79 @@ describe("motivoSinReporte", () => {
     // Si no hay cliente elegido, el corte da igual: el mensaje que corresponde
     // es el de la cuenta, que es el que le dice a Diego que hacer.
     expect(motivoSinReporte("dia", "")).toBe("cuenta");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// `031`: la seccion Repartidores corta por fecha de ENTREGA
+// ---------------------------------------------------------------------------
+
+describe("resumirPorRepartidor", () => {
+  const rita = "rita@example.com";
+  const entregada = (creadoEn: string, entregadoEn: string, repartidor = rita, cantidad = 1): Carga => ({
+    ...carga(creadoEn, cantidad),
+    repartidor,
+    entregadoEn,
+  });
+
+  it("cuenta por el día de entrega, no por el de carga", () => {
+    // Cargado en septiembre, entregado en octubre: es de octubre.
+    const { filas, registrados: total } = resumirPorRepartidor(
+      [entregada("2026-09-28T15:00:00Z", "2026-10-02T15:00:00Z", rita, 3)],
+      { corte: "mes", hoy: "2026-10-18", repartidor: rita },
+    );
+    expect(total).toBe(1);
+    const porMes = Object.fromEntries(filas.map((f) => [f.periodo.clave, f.paquetes]));
+    expect(porMes).toEqual({ "2026-10": 3 });
+  });
+
+  it("las 22:00 del 30/9 en Montevideo son de septiembre, aunque en UTC ya sea octubre", () => {
+    const { filas } = resumirPorRepartidor([entregada("2026-09-30T12:00:00Z", "2026-10-01T01:00:00Z")], {
+      corte: "mes",
+      hoy: "2026-10-18",
+      repartidor: rita,
+    });
+    const porMes = Object.fromEntries(filas.map((f) => [f.periodo.clave, f.pedidos]));
+    expect(porMes).toEqual({ "2026-10": 0, "2026-09": 1 });
+  });
+
+  it("solo cuenta lo suyo y lo entregado; el rango es el de todas las entregas", () => {
+    const cargas: Carga[] = [
+      entregada("2026-08-01T12:00:00Z", "2026-08-02T12:00:00Z", "raul@example.com"),
+      entregada("2026-09-01T12:00:00Z", "2026-09-02T12:00:00Z"),
+      // En curso: sin `entregadoEn` ni `repartidor`, como lo manda el servicio.
+      carga("2026-09-03T12:00:00Z", 5),
+    ];
+    const { filas, registrados: total } = resumirPorRepartidor(cargas, {
+      corte: "mes",
+      hoy: "2026-09-18",
+      repartidor: rita,
+    });
+    expect(total).toBe(1);
+    // Agosto aparece en cero: es una entrega de Raul, y las filas no cambian al
+    // cambiar de repartidor.
+    expect(filas.map((f) => [f.periodo.clave, f.pedidos, f.paquetes])).toEqual([
+      ["2026-09", 1, 1],
+      ["2026-08", 0, 0],
+    ]);
+  });
+
+  it("sin entregas, una sola fila de hoy en cero", () => {
+    const { filas, registrados: total } = resumirPorRepartidor([carga("2026-09-03T12:00:00Z")], {
+      corte: "mes",
+      hoy: "2026-09-18",
+      repartidor: rita,
+    });
+    expect(total).toBe(0);
+    expect(filas.map((f) => f.periodo.clave)).toEqual(["2026-09"]);
+  });
+
+  it("el cuadro de clientes sigue cortando por la carga (control del de arriba)", () => {
+    const { filas } = resumir([entregada("2026-09-28T15:00:00Z", "2026-10-02T15:00:00Z")], {
+      corte: "mes",
+      hoy: "2026-10-18",
+    });
+    const porMes = Object.fromEntries(filas.map((f) => [f.periodo.clave, f.pedidos]));
+    expect(porMes).toEqual({ "2026-10": 0, "2026-09": 1 });
   });
 });

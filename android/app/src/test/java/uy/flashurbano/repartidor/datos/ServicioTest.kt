@@ -372,4 +372,76 @@ class ServicioTest {
             servidor.takeRequest().getHeader(CABECERA_PUSH_TOKEN),
         )
     }
+
+    // ------------------------------------------------------------------ 031
+
+    @Test
+    fun `asignar manda PUT con el mail`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(200).setBody(unPedido))
+
+        val r = servicio.asignar("cred", "abc-123", "rita@example.com")
+
+        assertTrue("dio " + r, r is Resultado.Ok)
+        val enviado = servidor.takeRequest()
+        assertEquals("PUT", enviado.method)
+        assertEquals("/admin/pedidos/abc-123/repartidor", enviado.path)
+        assertEquals("Bearer cred", enviado.getHeader("Authorization"))
+        assertEquals("""{"repartidor":"rita@example.com"}""", enviado.body.readUtf8())
+    }
+
+    /**
+     * **Devolver manda `null` explicito, no `{}`.** Con un valor por defecto en
+     * el cuerpo, kotlinx no escribiria la propiedad, y el servicio leeria un
+     * cuerpo sin repartidor: el mismo efecto hoy, por casualidad.
+     */
+    @Test
+    fun `devolver manda el repartidor en null`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(200).setBody(unPedido))
+
+        servicio.asignar("cred", "abc-123", null)
+
+        assertEquals("""{"repartidor":null}""", servidor.takeRequest().body.readUtf8())
+    }
+
+    @Test
+    fun `asignar un pedido que ya no esta se dice para una persona`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":"no hay tal pedido"}"""))
+
+        val r = servicio.asignar("cred", "abc-123", null) as Resultado.Fallo
+        assertEquals(Motivo.DEL_SERVICIO, r.motivo)
+        assertEquals(TEXTO_ASIGNAR_NO_ESTA, r.detalle)
+    }
+
+    @Test
+    fun `asignar un entregado se dice para una persona`() = runTest {
+        servidor.enqueue(
+            MockResponse().setResponseCode(409)
+                .setBody("""{"error":"un pedido entregado no cambia de repartidor"}"""),
+        )
+
+        val r = servicio.asignar("cred", "abc-123", "rita@example.com") as Resultado.Fallo
+        assertEquals(TEXTO_ASIGNAR_YA_ENTREGADO, r.detalle)
+    }
+
+    /** El control de los dos de arriba: otro error sigue trayendo el del servicio. */
+    @Test
+    fun `asignar a quien no reparte trae el mensaje del servicio`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":"ese mail no es de un repartidor"}"""))
+
+        val r = servicio.asignar("cred", "abc-123", "ana@example.com") as Resultado.Fallo
+        assertEquals("ese mail no es de un repartidor", r.detalle)
+    }
+
+    /**
+     * US2-4 (T028): una cuenta que no es ni administradora ni repartidora sigue
+     * recibiendo el mismo rechazo de siempre al pedir la lista nueva.
+     */
+    @Test
+    fun `la lista nueva rechaza a quien no es ni admin ni repartidor como antes`() = runTest {
+        servidor.enqueue(MockResponse().setResponseCode(403).setBody("""{"error":"no autorizado"}"""))
+
+        val r = servicio.lista("cred") as Resultado.Fallo
+        assertEquals(Motivo.DEL_SERVICIO, r.motivo)
+        assertEquals("esta direccion no tiene permiso para ver los pedidos", r.detalle)
+    }
 }

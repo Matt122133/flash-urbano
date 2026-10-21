@@ -22,7 +22,11 @@ import java.util.concurrent.TimeUnit
  */
 sealed interface Resultado<out T> {
     data class Ok<T>(val valor: T) : Resultado<T>
-    data class Fallo(val motivo: Motivo, val detalle: String = "") : Resultado<Nothing>
+    /**
+     * @param codigo el codigo HTTP cuando el servicio contesto, 0 si no. Lo usa
+     *   quien necesita decir algo distinto segun el caso (`031`, asignar).
+     */
+    data class Fallo(val motivo: Motivo, val detalle: String = "", val codigo: Int = 0) : Resultado<Nothing>
 }
 
 /**
@@ -64,6 +68,22 @@ data class Receptor(val nombre: String, val documento: String = "")
 
 @Serializable
 private data class RespuestaPedido(val pedido: Pedido)
+
+/**
+ * El cuerpo de `PUT /admin/pedidos/{id}/repartidor` (`031`).
+ *
+ * **Sin valor por defecto, a proposito**: kotlinx no escribe una propiedad que
+ * tiene su valor por defecto, y `null` es justamente "devolver a los
+ * administradores". Con un default, devolver mandaria `{}`.
+ */
+@Serializable
+private data class PeticionAsignar(val repartidor: String?)
+
+/** Lo que se le dice a quien asigno un pedido que ya no esta (`031`). */
+const val TEXTO_ASIGNAR_NO_ESTA = "Ese pedido ya no está disponible. Tocá Actualizar."
+
+/** Lo que se le dice a quien quiso pasar de manos un pedido entregado. */
+const val TEXTO_ASIGNAR_YA_ENTREGADO = "Ese pedido ya se entregó: no se puede pasar a otra persona."
 
 /**
  * La cabecera con la que la app dice que version es.
@@ -135,12 +155,44 @@ class Servicio(
 
     /** Trae todos los pedidos. Es la lista que Diego trabaja. */
     suspend fun pedidos(credencial: String): Resultado<List<Pedido>> =
+        when (val r = lista(credencial)) {
+            is Resultado.Ok -> Resultado.Ok(r.valor.pedidos)
+            is Resultado.Fallo -> r
+        }
+
+    /**
+     * La lista entera, con el rol y los repartidores (`031`): todos los pedidos
+     * a un administrador, y solo los suyos a un repartidor.
+     */
+    suspend fun lista(credencial: String): Resultado<RespuestaPedidos> =
         llamar(
             Request.Builder()
                 .url("$baseUrl/admin/pedidos")
                 .header("Authorization", "Bearer $credencial")
                 .get(),
-        ) { cuerpo -> json.decodeFromString<RespuestaPedidos>(cuerpo).pedidos }
+        ) { cuerpo -> json.decodeFromString<RespuestaPedidos>(cuerpo) }
+
+    /**
+     * Le da un pedido a un repartidor, o con `null` se lo devuelve a los
+     * administradores (`031`).
+     *
+     * **404 y 409 se dicen con texto propio** y no con el del servicio: "no hay
+     * tal pedido" es correcto y no le dice a nadie que hacer. Los dos casos
+     * reales son que alguien lo movio entretanto, o que ya se entrego.
+     */
+    suspend fun asignar(credencial: String, id: String, repartidor: String?): Resultado<Pedido> {
+        val r = llamar(
+            Request.Builder()
+                .url("$baseUrl/admin/pedidos/$id/repartidor")
+                .header("Authorization", "Bearer $credencial")
+                .put(json.encodeToString(PeticionAsignar(repartidor)).comoJson()),
+        ) { cuerpo -> json.decodeFromString<RespuestaPedido>(cuerpo).pedido }
+        return when {
+            r is Resultado.Fallo && r.codigo == 404 -> r.copy(detalle = TEXTO_ASIGNAR_NO_ESTA)
+            r is Resultado.Fallo && r.codigo == 409 -> r.copy(detalle = TEXTO_ASIGNAR_YA_ENTREGADO)
+            else -> r
+        }
+    }
 
     /**
      * Mueve un pedido a un estado.
@@ -214,13 +266,14 @@ class Servicio(
                     // direccion no es administradora". Los dos terminan en la
                     // pantalla de ingreso, pero el segundo NO se arregla
                     // reingresando: es que falta el mail en ADMIN_EMAILS.
-                    respuesta.code == 401 -> Resultado.Fallo(Motivo.SESION_VENCIDA)
+                    respuesta.code == 401 -> Resultado.Fallo(Motivo.SESION_VENCIDA, codigo = 401)
                     respuesta.code == 403 -> Resultado.Fallo(
                         Motivo.DEL_SERVICIO,
                         "esta direccion no tiene permiso para ver los pedidos",
+                        codigo = 403,
                     )
 
-                    else -> Resultado.Fallo(Motivo.DEL_SERVICIO, mensajeDe(cuerpo, respuesta.code))
+                    else -> Resultado.Fallo(Motivo.DEL_SERVICIO, mensajeDe(cuerpo, respuesta.code), respuesta.code)
                 }
             }
         } catch (e: IOException) {

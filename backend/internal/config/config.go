@@ -54,6 +54,15 @@ type Config struct {
 	// minusculas (FR-022). No hay columna de admin en la base a proposito.
 	AdminEmails []string
 
+	// RepartidorEmails son las direcciones de quienes reparten sin administrar
+	// (031), normalizadas igual que AdminEmails. Tampoco hay columna en la base,
+	// por el mismo motivo: que editar una fila no alcance para dar permisos.
+	//
+	// **OPCIONAL, como FCMCredencialBase64 y Ambiente**: vacia es "no hay
+	// repartidores", y el servicio levanta exactamente como antes de 031. Si
+	// fuera obligatoria, desplegar a un entorno que no la tiene lo tumbaria.
+	RepartidorEmails []string
+
 	SesionDuracion  time.Duration
 	RastroRetencion time.Duration
 
@@ -118,6 +127,35 @@ func (c *Config) EsAdmin(email string) bool {
 	return false
 }
 
+// EsRepartidor dice si una direccion es de un repartidor.
+//
+// **Un mail que esta en las dos listas es administrador, y no repartidor**
+// (FR-004): si no, Diego quedaria con la lista recortada a lo asignado a el.
+func (c *Config) EsRepartidor(email string) bool {
+	email = normalizarEmail(email)
+	if email == "" || c.EsAdmin(email) {
+		return false
+	}
+	for _, rep := range c.RepartidorEmails {
+		if rep == email {
+			return true
+		}
+	}
+	return false
+}
+
+// Repartidores devuelve los repartidores configurados, sin los que tambien son
+// administradores: los que se ofrecen al asignar.
+func (c *Config) Repartidores() []string {
+	var salida []string
+	for _, rep := range c.RepartidorEmails {
+		if !c.EsAdmin(rep) {
+			salida = append(salida, rep)
+		}
+	}
+	return salida
+}
+
 // Cargar arma la configuracion desde el entorno.
 //
 // Reporta TODAS las variables que faltan de una vez, no la primera. Arrancar el
@@ -175,6 +213,10 @@ func Cargar() (*Config, error) {
 	// leerla ARRIBA, entre las seis. O sea que mover estas lineas por encima
 	// del corte es el cambio peligroso, y es el que la prueba caza.
 	cfg.Ambiente = strings.TrimSpace(os.Getenv("RAILWAY_ENVIRONMENT_NAME"))
+
+	// Misma regla que las dos de arriba (031, research D1): despues del corte,
+	// para que ningun entorno sin repartidores deje de levantar.
+	cfg.RepartidorEmails = separarPorComas(os.Getenv("REPARTIDOR_EMAILS"), true)
 	if cfg.Ambiente == "" {
 		cfg.Ambiente = AmbienteDesconocido
 	}

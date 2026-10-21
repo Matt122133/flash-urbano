@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { PanelIngreso } from "@/components/sesion/panel-ingreso";
 import { useLlamadaAutenticada, useSesion } from "@/components/sesion/proveedor-sesion";
 import { ErrorApi } from "@/lib/api";
@@ -9,6 +10,7 @@ import {
   generadoEnMontevideo,
   nombreDeArchivo,
   rutaDelReporte,
+  rutaDelReporteDeRepartidor,
   textoDelReporte,
   type RespuestaReporte,
 } from "@/lib/reporte";
@@ -16,10 +18,16 @@ import {
   BAJADA_TOTAL,
   fechaEnMontevideo,
   resumir,
+  resumirPorRepartidor,
   rotuloCliente,
+  rotuloRepartidor,
   TEXTO_BAJAR_REPORTE,
   TEXTO_CLIENTE_SIN_PEDIDOS,
   TEXTO_CORTE,
+  TEXTO_CORTE_REPARTIDOR,
+  TEXTO_REPARTIDOR_SIN_ENTREGAS,
+  TEXTO_REPARTIDORES,
+  TEXTO_SIN_REPARTIDORES,
   motivoSinReporte,
   TEXTO_ELEGI_CUENTA,
   TEXTO_ERROR,
@@ -30,6 +38,7 @@ import {
   TEXTO_SOLO_ADMINISTRACION,
   TEXTO_TOTAL,
   type Corte,
+  type Fila,
   type Periodo,
   type RespuestaTablero,
 } from "@/lib/tablero";
@@ -72,7 +81,29 @@ type Resultado =
  * tablero sale de ahi. Es la pantalla con mas riesgo de traer plata, porque
  * "dashboard" es donde un total facturado parece natural.
  */
+/**
+ * El limite de Suspense, y **no es decorativo**: `useSearchParams` —con el que
+ * se recuerda la seccion elegida— hace fallar el build estatico sin uno. Es el
+ * mismo motivo que en `app/perfil/page.tsx`. Va aca y no en la pagina para que
+ * la pagina siga siendo de servidor, por su `metadata`.
+ */
 export function Tablero() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+          <div className={sectionClass}>
+            <Esperando />
+          </div>
+        </div>
+      }
+    >
+      <TableroConSesion />
+    </Suspense>
+  );
+}
+
+function TableroConSesion() {
   const { usuario, cargando } = useSesion();
   const llamar = useLlamadaAutenticada();
   const [resultado, setResultado] = useState<Resultado | null>(null);
@@ -183,7 +214,34 @@ function ErrorDeCarga({ onReintentar }: { onReintentar: () => void }) {
   );
 }
 
+/** Las dos secciones del tablero (`031`). Excluyentes, como las de Mi cuenta. */
+type Vista = "clientes" | "repartidores";
+
+const VISTAS: readonly { id: Vista; etiqueta: string }[] = [
+  { id: "clientes", etiqueta: "Clientes" },
+  { id: "repartidores", etiqueta: TEXTO_REPARTIDORES },
+];
+
 function Numeros({ datos }: { datos: RespuestaTablero }) {
+  const router = useRouter();
+  const parametros = useSearchParams();
+
+  /**
+   * La seccion, en la URL (`/tablero?ver=repartidores`), **igual que Mi
+   * cuenta** (Mateo, 2026-10-18): recargar vuelve a donde estaba. Cualquier
+   * otro valor cae en clientes, que es la de partida y no deja rastro.
+   */
+  const vista: Vista = parametros.get("ver") === "repartidores" ? "repartidores" : "clientes";
+
+  /** Mismo patron que `irA` de `app/perfil/page.tsx`: `replace`, sin pisar otros parametros. */
+  const irA = (id: Vista) => {
+    const siguientes = new URLSearchParams(parametros.toString());
+    if (id === "repartidores") siguientes.set("ver", "repartidores");
+    else siguientes.delete("ver");
+    const qs = siguientes.toString();
+    router.replace(qs ? `/tablero?${qs}` : "/tablero", { scroll: false });
+  };
+
   /**
    * El corte elegido es estado del componente y no va a la URL (research D11):
    * FR-010 solo pide que sacar el filtro no lo pierda. **Mes por defecto**: la
@@ -220,40 +278,212 @@ function Numeros({ datos }: { datos: RespuestaTablero }) {
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-slate-900">Tablero</h1>
 
+      {/* `aria-pressed`, como el resto de los conmutadores del sitio: ver el
+          comentario de /perfil. */}
+      <div className="flex gap-3">
+        {VISTAS.map(({ id, etiqueta }) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={vista === id}
+            onClick={() => irA(id)}
+            className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+              vista === id
+                ? "border-brand bg-brand/10 text-brand"
+                : "border-slate-300 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
+      </div>
+
+      {/* **Las dos secciones quedan montadas** y solo se oculta la que no se
+          ve: asi el corte y el cliente o repartidor elegidos no se pierden al
+          ir y volver. Con clase y no con el atributo `hidden`, que la clase
+          `flex` taparia. */}
+      <div className={vista === "clientes" ? "flex flex-col gap-6" : "hidden"}>
+        <div>
+          <label htmlFor="tablero-cliente" className="block text-sm font-medium text-slate-700">
+            Cliente
+          </label>
+          <select
+            id="tablero-cliente"
+            value={clienteId}
+            onChange={(e) => setClienteId(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+          >
+            <option value="">Todos los clientes</option>
+            {datos.clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {rotuloCliente(c)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-slate-600">{TEXTO_TOTAL}</p>
+          <p className="mt-1 text-4xl font-bold tracking-tight text-slate-900">{total}</p>
+          <p className="mt-1 text-sm text-slate-500">{BAJADA_TOTAL}</p>
+          {total === 0 && (
+            <p className="mt-3 text-sm text-slate-600">
+              {clienteId ? TEXTO_CLIENTE_SIN_PEDIDOS : TEXTO_SIN_PEDIDOS}
+            </p>
+          )}
+        </div>
+
+        <div className="border-t border-slate-100 pt-6">
+          {/* `aria-pressed` y no el patron de pestañas de ARIA, igual que en
+              /perfil: ese promete navegacion con flechas, y prometerla sin
+              implementarla es peor que no usarlo. */}
+          <div className="flex gap-2">
+            {CORTES.map(({ id, etiqueta }) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={corte === id}
+                onClick={() => setCorte(id)}
+                className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                  corte === id
+                    ? "border-brand bg-brand/10 text-brand"
+                    : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">{TEXTO_CORTE}</p>
+          {motivoSinReporte(corte, clienteId) === "cuenta" && (
+            <p className="mt-2 text-xs text-slate-500">{TEXTO_ELEGI_CUENTA}</p>
+          )}
+          {motivoSinReporte(corte, clienteId) === "corte" && (
+            <p className="mt-2 text-xs text-slate-500">{TEXTO_REPORTE_NO_POR_DIA}</p>
+          )}
+
+          <Cuadro
+            filas={filas}
+            boton={(fila) => (
+              <BotonReporte
+                periodo={fila.periodo}
+                corte={corte}
+                clienteId={clienteId}
+                cuenta={rotuloDeLaCuenta}
+                hayEnvios={fila.pedidos > 0}
+              />
+            )}
+          />
+        </div>
+      </div>
+
+      <div className={vista === "repartidores" ? "block" : "hidden"}>
+        <SeccionRepartidores datos={datos} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * El cuadro por periodo, comun a las dos secciones: lo que cambia es de donde
+ * salen las filas y que reporte baja cada boton.
+ */
+function Cuadro({ filas, boton }: { filas: Fila[]; boton: (fila: Fila) => React.ReactNode }) {
+  return (
+    // La tabla es lo unico que puede ser mas ancho que un telefono, y desplaza
+    // ella sola en vez de empujar la pagina.
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-slate-600">
+            <th scope="col" className="py-2 pr-4 font-medium">Período</th>
+            <th scope="col" className="py-2 pr-4 text-right font-medium">Pedidos</th>
+            <th scope="col" className="py-2 pr-4 text-right font-medium">Paquetes</th>
+            <th scope="col" className="py-2 text-right font-medium">
+              <span className="sr-only">Reporte</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((fila) => (
+            <tr key={fila.periodo.clave} className="border-b border-slate-100 last:border-0">
+              <th scope="row" className="py-2 pr-4 text-left font-normal text-slate-800">
+                {fila.periodo.rotulo}
+              </th>
+              <td className="py-2 pr-4 text-right tabular-nums text-slate-900">{fila.pedidos}</td>
+              <td className="py-2 pr-4 text-right tabular-nums text-slate-900">{fila.paquetes}</td>
+              <td className="py-2 text-right">{boton(fila)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * La seccion Repartidores (`031`): cuantos pedidos y paquetes **entrego** cada
+ * repartidor por periodo, y su reporte por semana o mes.
+ *
+ * **Corta por la fecha de entrega, no por la de carga**, y lo dice en pantalla
+ * (research D8): al repartidor se le paga por paquete entregado. Tiene su
+ * propio corte y su propio selector: mirar a un repartidor no cambia lo que se
+ * esta mirando en el cuadro de clientes.
+ *
+ * Siempre hay un repartidor elegido —el primero, al entrar—, asi que aca no
+ * existe el "todos": el reporte de un repartidor se le pasa a esa persona.
+ */
+function SeccionRepartidores({ datos }: { datos: RespuestaTablero }) {
+  const repartidores = datos.repartidores ?? [];
+  const [corte, setCorte] = useState<Corte>("mes");
+  const [elegido, setElegido] = useState("");
+
+  // El elegido tiene que seguir en la lista; si no, el primero.
+  const actual = repartidores.find((r) => r.email === elegido) ?? repartidores[0];
+
+  if (actual === undefined) {
+    return (
+      <section>
+        <p className="text-sm text-slate-600">{TEXTO_SIN_REPARTIDORES}</p>
+      </section>
+    );
+  }
+
+  const hoy = fechaEnMontevideo(new Date().toISOString());
+  const { registrados: total, filas } = resumirPorRepartidor(datos.pedidos, {
+    corte,
+    hoy,
+    repartidor: actual.email,
+  });
+
+  return (
+    <section className="flex flex-col gap-4">
+
       <div>
-        <label htmlFor="tablero-cliente" className="block text-sm font-medium text-slate-700">
-          Cliente
+        <label htmlFor="tablero-repartidor" className="block text-sm font-medium text-slate-700">
+          Repartidor
         </label>
         <select
-          id="tablero-cliente"
-          value={clienteId}
-          onChange={(e) => setClienteId(e.target.value)}
+          id="tablero-repartidor"
+          value={actual.email}
+          onChange={(e) => setElegido(e.target.value)}
           className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
         >
-          <option value="">Todos los clientes</option>
-          {datos.clientes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {rotuloCliente(c)}
+          {repartidores.map((r) => (
+            <option key={r.email} value={r.email}>
+              {rotuloRepartidor(r)}
             </option>
           ))}
         </select>
       </div>
 
       <div>
-        <p className="text-sm font-medium text-slate-600">{TEXTO_TOTAL}</p>
+        <p className="text-sm font-medium text-slate-600">Pedidos entregados</p>
         <p className="mt-1 text-4xl font-bold tracking-tight text-slate-900">{total}</p>
-        <p className="mt-1 text-sm text-slate-500">{BAJADA_TOTAL}</p>
-        {total === 0 && (
-          <p className="mt-3 text-sm text-slate-600">
-            {clienteId ? TEXTO_CLIENTE_SIN_PEDIDOS : TEXTO_SIN_PEDIDOS}
-          </p>
-        )}
+        {total === 0 && <p className="mt-3 text-sm text-slate-600">{TEXTO_REPARTIDOR_SIN_ENTREGAS}</p>}
       </div>
 
-      <div className="border-t border-slate-100 pt-6">
-        {/* `aria-pressed` y no el patron de pestañas de ARIA, igual que en
-            /perfil: ese promete navegacion con flechas, y prometerla sin
-            implementarla es peor que no usarlo. */}
+      <div>
         <div className="flex gap-2">
           {CORTES.map(({ id, etiqueta }) => (
             <button
@@ -271,52 +501,26 @@ function Numeros({ datos }: { datos: RespuestaTablero }) {
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-slate-500">{TEXTO_CORTE}</p>
-        {motivoSinReporte(corte, clienteId) === "cuenta" && (
-          <p className="mt-2 text-xs text-slate-500">{TEXTO_ELEGI_CUENTA}</p>
-        )}
-        {motivoSinReporte(corte, clienteId) === "corte" && (
+        <p className="mt-2 text-xs text-slate-500">{TEXTO_CORTE_REPARTIDOR}</p>
+        {motivoSinReporte(corte, actual.email) === "corte" && (
           <p className="mt-2 text-xs text-slate-500">{TEXTO_REPORTE_NO_POR_DIA}</p>
         )}
 
-        {/* La tabla es lo unico que puede ser mas ancho que un telefono, y
-            desplaza ella sola en vez de empujar la pagina. */}
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-600">
-                <th scope="col" className="py-2 pr-4 font-medium">Período</th>
-                <th scope="col" className="py-2 pr-4 text-right font-medium">Pedidos</th>
-                <th scope="col" className="py-2 pr-4 text-right font-medium">Paquetes</th>
-                <th scope="col" className="py-2 text-right font-medium">
-                  <span className="sr-only">Reporte</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filas.map((fila) => (
-                <tr key={fila.periodo.clave} className="border-b border-slate-100 last:border-0">
-                  <th scope="row" className="py-2 pr-4 text-left font-normal text-slate-800">
-                    {fila.periodo.rotulo}
-                  </th>
-                  <td className="py-2 pr-4 text-right tabular-nums text-slate-900">{fila.pedidos}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums text-slate-900">{fila.paquetes}</td>
-                  <td className="py-2 text-right">
-                    <BotonReporte
-                      periodo={fila.periodo}
-                      corte={corte}
-                      clienteId={clienteId}
-                      cuenta={rotuloDeLaCuenta}
-                      hayEnvios={fila.pedidos > 0}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Cuadro
+          filas={filas}
+          boton={(fila) => (
+            <BotonReporte
+              periodo={fila.periodo}
+              corte={corte}
+              clienteId=""
+              repartidor={actual.email}
+              cuenta={actual.nombre?.trim() || actual.email}
+              hayEnvios={fila.pedidos > 0}
+            />
+          )}
+        />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -336,12 +540,15 @@ function BotonReporte({
   periodo,
   corte,
   clienteId,
+  repartidor,
   cuenta,
   hayEnvios,
 }: {
   periodo: Periodo;
   corte: Corte;
   clienteId: string;
+  /** `031`: con un repartidor, baja lo que entrego en vez de lo de un cliente. */
+  repartidor?: string;
   cuenta: string;
   hayEnvios: boolean;
 }) {
@@ -351,13 +558,15 @@ function BotonReporte({
   // **Quien puede bajar el reporte lo decide `lib/tablero.ts`, no este
   // componente**: son dos reglas de producto —una cuenta por archivo, y nada
   // por dia— y ahi tienen prueba. Aca solo se dibuja o no se dibuja.
-  if (motivoSinReporte(corte, clienteId) !== null) return null;
+  if (motivoSinReporte(corte, repartidor ?? clienteId) !== null) return null;
 
   async function alTocar() {
     setEstado("bajando");
     try {
       const { pedidos } = await llamar<RespuestaReporte>(
-        rutaDelReporte(clienteId, periodo.desde, periodo.hasta),
+        repartidor !== undefined
+          ? rutaDelReporteDeRepartidor(repartidor, periodo.desde, periodo.hasta)
+          : rutaDelReporte(clienteId, periodo.desde, periodo.hasta),
       );
 
       // FR-020: un periodo sin envios se dice, no se baja un archivo con solo
@@ -371,6 +580,7 @@ function BotonReporte({
       const texto = textoDelReporte({
         filas: filasDeEnvios(pedidos),
         cuenta,
+        deRepartidor: repartidor !== undefined,
         periodo: periodo.rotulo,
         generadoEl: generadoEnMontevideo(new Date()),
       });
@@ -380,7 +590,13 @@ function BotonReporte({
       const url = URL.createObjectURL(new Blob([texto], { type: "text/csv;charset=utf-8" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = nombreDeArchivo({ filas: [], cuenta, periodo: periodo.rotulo, generadoEl: "" });
+      a.download = nombreDeArchivo({
+        filas: [],
+        cuenta,
+        deRepartidor: repartidor !== undefined,
+        periodo: periodo.rotulo,
+        generadoEl: "",
+      });
       a.click();
       URL.revokeObjectURL(url);
       setEstado("listo");

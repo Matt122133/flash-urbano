@@ -1,5 +1,6 @@
 package uy.flashurbano.repartidor.pantallas
 
+import uy.flashurbano.repartidor.datos.Roles
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -106,5 +107,57 @@ class EstadoPantallaTest {
         ) as EstadoPantalla.Hay
 
         assertEquals(listOf("FU-0300", "FU-0100", "FU-0200"), e.pendientes.map { it.codigo })
+    }
+
+    // ------------------------------------------------------------------ 031
+
+    private fun de(codigo: String, responsable: String?) =
+        pedido(codigo, Estados.CREACION).copy(responsable = responsable)
+
+    /**
+     * **SC-002**: para el administrador, cada pedido esta en exactamente una de
+     * dos vistas, "Mios" o la de su repartidor. Ninguno se pierde y ninguno
+     * aparece dos veces.
+     */
+    @Test
+    fun `cada pedido cae en Mios o en la vista de su repartidor, y en una sola`() {
+        val todos = listOf(de("A", null), de("B", "rita@example.com"), de("C", "raul@example.com"), de("D", null))
+
+        val mios = visibles(todos, Roles.ADMIN, Filtro.MIOS).map { it.codigo }.toSet()
+        val porRepartidor = todos.mapNotNull { it.responsable }.toSet().associateWith { rep ->
+            visibles(todos, Roles.ADMIN, Filtro.TODOS).filter { it.responsable == rep }.map { it.codigo }.toSet()
+        }
+
+        assertEquals(setOf("A", "D"), mios)
+        val vistas = listOf(mios) + porRepartidor.values
+        for (p in todos) {
+            assertEquals("${p.codigo} esta en mas o menos de una vista", 1, vistas.count { p.codigo in it })
+        }
+    }
+
+    @Test
+    fun `Todos del administrador muestra todo`() {
+        val todos = listOf(de("A", null), de("B", "rita@example.com"))
+        assertEquals(todos, visibles(todos, Roles.ADMIN, Filtro.TODOS))
+    }
+
+    /** Lo que un repartidor acaba de devolver se va de su pantalla en el acto. */
+    @Test
+    fun `al repartidor no le queda lo que devolvio`() {
+        val suyos = listOf(de("B", "rita@example.com"), de("E", null))
+        assertEquals(listOf("B"), visibles(suyos, Roles.REPARTIDOR, Filtro.MIOS).map { it.codigo })
+        // El filtro del administrador no le cambia nada al repartidor.
+        assertEquals(listOf("B"), visibles(suyos, Roles.REPARTIDOR, Filtro.TODOS).map { it.codigo })
+    }
+
+    /** "Todos": los de los demas arriba, los propios abajo, cada tanda en su orden. */
+    @Test
+    fun `en Todos los de los demas van arriba y los propios abajo`() {
+        val todos = listOf(de("A", null), de("B", "rita@example.com"), de("C", null), de("D", "raul@example.com"))
+
+        val (arriba, abajo) = partirParaTodos(todos)
+
+        assertEquals(listOf("B", "D"), arriba.map { it.codigo })
+        assertEquals(listOf("A", "C"), abajo.map { it.codigo })
     }
 }

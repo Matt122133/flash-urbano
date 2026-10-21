@@ -39,7 +39,8 @@ the seams between them:
 
 - **`web/`** — Next.js, exported static, served at `https://flashurbano.uy`.
 - **`backend/`** — Go service on Railway, with Postgres + PostGIS.
-- **`android/`** — Diego's app, Kotlin + Compose. **No store**: the APK is built
+- **`android/`** — the couriers' app (administrators and the couriers in
+  `REPARTIDOR_EMAILS`, since `031`), Kotlin + Compose. **No store**: the APK is built
   here and installed by hand. See `docs/processes/app-repartidor.md`.
 
 Consequences an agent has to hold in working context:

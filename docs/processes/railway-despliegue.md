@@ -122,7 +122,8 @@ alguna. Los nombres y qué significan están en
 | `GOOGLE_CLIENT_ID` | el cliente OAuth real | ✅ real |
 | `CORREO_API_KEY` | la clave de Resend | ✅ real |
 | `CORREO_REMITENTE` | una dirección del dominio verificado | ✅ real |
-| `FCM_CREDENCIAL_BASE64` | la credencial de avisos | ✅ real, y **la única opcional** |
+| `FCM_CREDENCIAL_BASE64` | la credencial de avisos | ✅ real, opcional |
+| `REPARTIDOR_EMAILS` | los mails de quienes reparten (`031`) | opcional: sin ella, no hay repartidores |
 
 **Los tres rellenos `PENDIENTE-fase-N` que este documento describió hasta el
 2026-09-13 ya no existen**: se reemplazaron al cerrar las Fases 3 y 4, y el

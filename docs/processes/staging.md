@@ -63,6 +63,7 @@ Diferencias de configuración de staging respecto de producción:
 |---|---|
 | `CORS_ORIGENES` | `http://localhost:3000` y nada más |
 | `ADMIN_EMAILS` | solo la cuenta de Mateo |
+| `REPARTIDOR_EMAILS` | opcional (`031`): una cuenta de prueba, para ver la app como repartidor. Sin ella no hay repartidores |
 | `CORREO_REMITENTE` | distinto, para reconocer el mail de un vistazo |
 | `FCM_CREDENCIAL_BASE64` | **no existe** — staging no puede hacer sonar el teléfono de Diego |
 

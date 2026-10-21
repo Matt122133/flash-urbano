@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/Matt122133/flash-urbano/backend/internal/usuarios"
@@ -60,8 +61,9 @@ func TestLaFormaDeLaRespuestaDelTableroNoCambio(t *testing.T) {
 	if err := json.Unmarshal(cuerpo, &raiz); err != nil {
 		t.Fatalf("el cuerpo no es JSON: %v", err)
 	}
-	if got := claves(t, cuerpo); len(got) != 2 || got[0] != "clientes" || got[1] != "pedidos" {
-		t.Errorf("la respuesta tiene las claves %v, queria [clientes pedidos]", got)
+	// `repartidores` es de `031`, y entro a proposito (research D8).
+	if got := claves(t, cuerpo); len(got) != 3 || got[0] != "clientes" || got[1] != "pedidos" || got[2] != "repartidores" {
+		t.Errorf("la respuesta tiene las claves %v, queria [clientes pedidos repartidores]", got)
 	}
 
 	var cargas []json.RawMessage
@@ -74,7 +76,8 @@ func TestLaFormaDeLaRespuestaDelTableroNoCambio(t *testing.T) {
 	}
 
 	// **Las tres de siempre, y ni una mas.** Si aparece `entrega`, `direccion` o
-	// cualquier cosa del reporte, el tablero se encarecio.
+	// cualquier cosa del reporte, el tablero se encarecio. Un pedido que no esta
+	// entregado no lleva las dos de `031`; el entregado, abajo.
 	got := claves(t, cargas[0])
 	quiero := []string{"cantidad", "clienteId", "creadoEn"}
 	if len(got) != len(quiero) {
@@ -93,5 +96,33 @@ func TestElDetectorDeCamposDeMasFunciona(t *testing.T) {
 	got := claves(t, json.RawMessage(`{"creadoEn":"x","cantidad":1,"clienteId":"c","entrega":{}}`))
 	if len(got) != 4 {
 		t.Errorf("el detector vio %v; tenia que ver los cuatro campos", got)
+	}
+}
+
+// TestUnaCargaEntregadaSumaSoloLasDosDe031: `repartidor` y `entregadoEn`, y
+// nada mas. Es la conversacion que pide el comentario de arriba, hecha prueba.
+func TestUnaCargaEntregadaSumaSoloLasDosDe031(t *testing.T) {
+	e := entornoDePrueba(t)
+	cuenta := e.unaCuenta(t, "cliente@ejemplo.test", "Cliente")
+	id := e.unPedido(t, cuenta, "k1", 2, "2026-09-10T12:00:00Z")
+	e.entregar(t, id, "rita@example.com")
+
+	srv := monta(t, NuevosHandlers(e.repo, soloDiego), map[string]*usuarios.Usuario{
+		"tok": {ID: "u-admin", Email: correoAdmin},
+	})
+	estado, cuerpo := pedirTablero(t, srv, "tok")
+	if estado != http.StatusOK {
+		t.Fatalf("respondio %d: %s", estado, cuerpo)
+	}
+	var raiz struct {
+		Pedidos []json.RawMessage `json:"pedidos"`
+	}
+	if err := json.Unmarshal(cuerpo, &raiz); err != nil || len(raiz.Pedidos) != 1 {
+		t.Fatalf("no vino la carga: %v %s", err, cuerpo)
+	}
+	got := claves(t, raiz.Pedidos[0])
+	quiero := []string{"cantidad", "clienteId", "creadoEn", "entregadoEn", "repartidor"}
+	if strings.Join(got, ",") != strings.Join(quiero, ",") {
+		t.Fatalf("una carga entregada tiene los campos %v, queria %v", got, quiero)
 	}
 }

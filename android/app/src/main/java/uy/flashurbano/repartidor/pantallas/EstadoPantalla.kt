@@ -3,6 +3,7 @@ package uy.flashurbano.repartidor.pantallas
 import uy.flashurbano.repartidor.datos.Motivo
 import uy.flashurbano.repartidor.datos.Pedido
 import uy.flashurbano.repartidor.datos.Resultado
+import uy.flashurbano.repartidor.datos.Roles
 import uy.flashurbano.repartidor.datos.Seccion
 import uy.flashurbano.repartidor.datos.seccionDe
 
@@ -92,3 +93,37 @@ fun mensajeDe(motivo: Motivo, detalle: String): String = when (motivo) {
     Motivo.SESION_VENCIDA -> "La sesión venció. Ingresá de nuevo."
     Motivo.DEL_SERVICIO -> detalle.ifBlank { "El servicio no pudo responder." }
 }
+
+/**
+ * Que mira un administrador (`031`): lo suyo o todo.
+ *
+ * **Arranca en MIOS**: es lo que Diego hace hoy con la app, y lo que tiene que
+ * seguir viendo al abrirla el dia que haya un segundo repartidor.
+ */
+enum class Filtro { MIOS, TODOS }
+
+/**
+ * Los pedidos que se dibujan, segun quien mira (`031`).
+ *
+ * - Un **administrador en MIOS** ve los de los administradores: los que no
+ *   tienen responsable.
+ * - Un **administrador en TODOS** ve todo.
+ * - Un **repartidor** ve los suyos. El servicio ya le manda solo esos; lo que
+ *   este filtro agrega es que uno que acaba de devolver **se va de la pantalla
+ *   en el acto**, sin esperar a la proxima carga.
+ *
+ * Pura, como `agrupar`, para poder probarla en la JVM.
+ */
+fun visibles(pedidos: List<Pedido>, rol: String, filtro: Filtro): List<Pedido> = when {
+    rol == Roles.REPARTIDOR -> pedidos.filter { it.responsable != null }
+    filtro == Filtro.TODOS -> pedidos
+    else -> pedidos.filter { it.responsable == null }
+}
+
+/**
+ * "Todos" del administrador, en dos tandas (`031`): **primero los que llevan
+ * los demas, despues los suyos** (Mateo, 2026-10-18). Cada tanda conserva el
+ * orden que mando el servicio. La pantalla dibuja una linea entre las dos.
+ */
+fun partirParaTodos(pedidos: List<Pedido>): Pair<List<Pedido>, List<Pedido>> =
+    pedidos.partition { it.responsable != null }

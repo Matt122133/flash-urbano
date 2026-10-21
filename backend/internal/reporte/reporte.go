@@ -110,7 +110,38 @@ func NuevoRepositorio(pool *db.Pool) *Repositorio {
 // Railway— y reintroduce por la puerta de atras el error de un dia que el
 // esquema evito.
 func (r *Repositorio) Envios(ctx context.Context, cuenta, desde, hasta string) ([]Fila, error) {
-	filas, err := r.pool.Query(ctx, `
+	return r.consultar(ctx, desdeEnvios+`
+		WHERE p.usuario_id = $1
+		  AND p.retiro_fecha >= $2::date
+		  AND p.retiro_fecha <= $3::date
+		ORDER BY p.retiro_fecha ASC, p.id ASC`, cuenta, desde, hasta)
+}
+
+// EnviosDeRepartidor devuelve los pedidos que UN repartidor entrego en el
+// periodo (031, research D9), del primero al ultimo entregado.
+//
+// **Aca si se corta por la fecha de entrega, y es al reves que Envios a
+// proposito.** Al cliente se le cobra lo que se retiro; al repartidor se le paga
+// lo que entrego. Un pedido sin entregar no es de nadie todavia, y por eso no
+// aparece: no hay olvido que se pierda, porque no hay nada que pagar.
+//
+// El corte es en calendario de Montevideo con la zona escrita —no `-03:00`—, por
+// lo mismo que FR-006b de `029`: una entrega a las 22:00 del 30/9 es de
+// septiembre, aunque en UTC ya sea octubre.
+//
+// Como Envios, **no sabe contestar "todos"**: el mail es obligatorio.
+func (r *Repositorio) EnviosDeRepartidor(ctx context.Context, email, desde, hasta string) ([]Fila, error) {
+	return r.consultar(ctx, desdeEnvios+`
+		WHERE p.estado = 'entrega'
+		  AND p.repartidor_email = $1
+		  AND (entregado.ocurrido_en AT TIME ZONE 'America/Montevideo')::date >= $2::date
+		  AND (entregado.ocurrido_en AT TIME ZONE 'America/Montevideo')::date <= $3::date
+		ORDER BY entregado.ocurrido_en ASC, p.id ASC`, email, desde, hasta)
+}
+
+// desdeEnvios es lo comun a los dos reportes: las columnas de una Fila y la
+// ultima marca de entrega de cada pedido. Lo que cambia es el WHERE.
+const desdeEnvios = `
 		SELECT
 			p.codigo,
 			to_char(p.retiro_fecha, 'YYYY-MM-DD'),
@@ -126,11 +157,10 @@ func (r *Repositorio) Envios(ctx context.Context, cuenta, desde, hasta string) (
 			WHERE pe.pedido_id = p.id AND pe.estado = 'entrega'
 			ORDER BY pe.ocurrido_en DESC, pe.id DESC
 			LIMIT 1
-		) entregado ON true
-		WHERE p.usuario_id = $1
-		  AND p.retiro_fecha >= $2::date
-		  AND p.retiro_fecha <= $3::date
-		ORDER BY p.retiro_fecha ASC, p.id ASC`, cuenta, desde, hasta)
+		) entregado ON true`
+
+func (r *Repositorio) consultar(ctx context.Context, sql string, args ...any) ([]Fila, error) {
+	filas, err := r.pool.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudieron leer los envios: %w", err)
 	}

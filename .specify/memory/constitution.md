@@ -21,7 +21,8 @@ product's reason to exist. The package creation form is the single
 highest-priority surface in the web app.
 
 ### III. Simplicity over infrastructure (YAGNI)
-This is a single-operator courier business, not a multi-tenant platform.
+This is a single courier business — one owner, possibly more than one person
+delivering — not a multi-tenant platform.
 No premature scaling, multi-region infra, microservices, or speculative
 abstractions. Start with the simplest stack that satisfies the client brief
 (identified order creation, an admin view, basic route support)
@@ -163,7 +164,11 @@ Two surfaces, built in this order:
    date, composed delivery address, **zone name** and package count — so he can
    work out what to charge **off this product, with his own price list**. It
    never shows an amount, it does not read the stored `precio` (Principle V),
-   and **the file never mixes two customer accounts**. It lives on
+   and **the file never mixes two customer accounts**. **Since 6.3.0 it also
+   counts and lists per courier**: for one courier and one period, the orders
+   whose delivery was fixed to that courier, **cut by delivery date and
+   delivered orders only**, so the owner can pay them off this product; that
+   file never mixes two couriers and never carries an amount either. It lives on
    the web and not in the app because it is read sitting at a computer, not in
    the street.
 
@@ -190,12 +195,17 @@ Two surfaces, built in this order:
    The recipient's **name** left this list on 2026-08-06 and came back the same
    day, once the client clarified. Without it the courier arrives at a door with
    a phone number and no idea who to ask for. The ID did not come back.
-2. **Admin Android app** — view packages created via the web, filter/select
+2. **The couriers' Android app** — used by the administrators and by the
+   couriers named in the service's configuration (6.3.0). An administrator sees
+   every order and hands one to a courier; a courier sees and works only the
+   orders handed to them, and can hand one back. Nobody becomes a courier or an
+   administrator from the site or the app. The app lets them view packages
+   created via the web, filter/select
    which to carry each day, generate an economical route from the admin's
    position, and give feedback at each lifecycle stage (Creación →
    Aceptación/Recepción → Confirmación → Entrega). **The dashboard is not part
    of this surface** — it is the web tablero above (6.1.0). What the operator
-   sees in the app are his working lists.
+   sees in the app are their working lists.
 
 No physical storefront exists; the business is pickup-and-delivery only —
 nothing in the product should assume a walk-in location.
@@ -217,9 +227,37 @@ Amendments require updating this file plus a matching entry in
 the spec-kit plan template's Constitution Check defer to this document as the
 highest authority in the repo.
 
-**Version**: 6.2.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-09-19
+**Version**: 6.3.0 | **Ratified**: 2026-08-01 | **Last Amended**: 2026-10-18
 
 ### Amendment history
+
+- **6.3.0** (2026-10-18) — **More than one person delivers.** Principle III said
+  *"single-operator courier business"* and the *Scope boundaries* described the
+  Android app as the operator's own. The client is adding a second courier: the
+  repo owner brought it on 2026-10-18 — *"se va a poner un nuevo integrante a
+  hacer delivery de paquetes"* — with the owner handing orders out from the app
+  and needing, at month's end, what each courier delivered.
+
+  **MINOR, not MAJOR.** It is still **one business**: no tenants, no company
+  accounts, no infrastructure for scale. No running code becomes
+  non-compliant — a role and a cut of the tablero are added. **Principle V
+  stands word for word**: the per-courier file has no amount and the stored
+  `precio` stays unread; what the courier is paid is worked out off this
+  product.
+
+  **What this obliges**: the courier role lives in **configuration**, exactly
+  like the administrator role — never in the database, so a row edit cannot
+  grant permissions. An order belongs to the administrators until handed to a
+  courier, and **its courier is fixed the moment it is marked delivered**, so a
+  month already paid cannot change afterwards. The per-courier cut is by
+  **delivery date**, deliberately unlike the per-customer report of 6.2.0:
+  couriers are paid per package delivered, customers are charged per package
+  picked up.
+
+  **ADR**: [more-than-one-courier](../../docs/decisions/more-than-one-courier.md),
+  because the alternative the owner proposed first — a role column on
+  `usuarios` — was rejected and the reason should outlive this session. See
+  `specs/031-repartidores/`.
 
 - **6.2.0** (2026-09-19) — **The tablero stops merely counting: it also lists.**
   Since 6.1.0 the *Scope boundaries* described it as something that counts —

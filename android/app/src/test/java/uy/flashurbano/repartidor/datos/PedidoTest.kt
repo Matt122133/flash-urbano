@@ -241,4 +241,41 @@ class PedidoTest {
         assertNull(p.colorCliente)
         assertEquals("FU-0001", p.codigo)
     }
+
+    // ------------------------------------------------------------------ 031
+
+    /**
+     * **La app nueva contra el servicio viejo** (research D5): sin `rol`, sin
+     * `repartidores` y sin `responsable`. Tiene que leerse como lo que era —un
+     * administrador con todos los pedidos de los administradores—.
+     */
+    @Test
+    fun `una lista sin las claves de 031 se lee como la de un administrador`() {
+        val r = json.decodeFromString<RespuestaPedidos>("""{"pedidos":[$completo]}""")
+
+        assertEquals(Roles.ADMIN, r.rol)
+        assertTrue(r.repartidores.isEmpty())
+        assertNull(r.pedidos.single().responsable)
+    }
+
+    /** Y la del servicio nuevo, con todo. */
+    @Test
+    fun `una lista de 031 trae rol, repartidores y responsable`() {
+        val conResponsable = completo.trimEnd().removeSuffix("}") + ""","responsable":"rita@example.com"}"""
+        val r = json.decodeFromString<RespuestaPedidos>(
+            """{"rol":"admin","repartidores":[{"email":"rita@example.com","nombre":"Rita"},""" +
+                """{"email":"nunca-entro@example.com"}],"pedidos":[$conResponsable]}""",
+        )
+
+        assertEquals("rita@example.com", r.pedidos.single().responsable)
+        assertEquals(listOf("Rita", "nunca-entro@example.com"), r.repartidores.map { it.rotulo })
+    }
+
+    @Test
+    fun `un repartidor recibe su rol y ninguna lista de repartidores`() {
+        val r = json.decodeFromString<RespuestaPedidos>("""{"rol":"repartidor","pedidos":[]}""")
+
+        assertEquals(Roles.REPARTIDOR, r.rol)
+        assertTrue(r.repartidores.isEmpty())
+    }
 }

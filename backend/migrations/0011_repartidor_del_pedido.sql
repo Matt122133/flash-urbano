@@ -1,0 +1,41 @@
+-- 0011 — el repartidor de cada pedido, de 031-repartidores.
+--
+-- Diego suma un segundo repartidor. Cada pedido gana un responsable: nulo es
+-- "de los administradores", y un mail es el repartidor al que Diego se lo dio.
+--
+-- --------------------------------------------------------------------------
+-- Por que NULLABLE, sin default y sin relleno
+-- --------------------------------------------------------------------------
+--
+-- Porque FR-007 lo pide: los pedidos que ya existen quedan de Diego **sin
+-- escribir una sola fila**. Y por la leccion de `0004`: una columna NOT NULL
+-- sobre una tabla con filas es como produccion dejo de levantar. `ADD COLUMN`
+-- nulable y sin default es solo catalogo: no reescribe la tabla.
+--
+-- --------------------------------------------------------------------------
+-- Por que un mail y no una FK a `usuarios`
+-- --------------------------------------------------------------------------
+--
+-- Quien es repartidor lo dice `REPARTIDOR_EMAILS`, no la base (FR-003, ADR
+-- more-than-one-courier). Diego puede asignarle un pedido a alguien que todavia
+-- no entro nunca, y entonces no tiene fila en `usuarios` a la que apuntar.
+--
+-- --------------------------------------------------------------------------
+-- Por que el CHECK exige minusculas
+-- --------------------------------------------------------------------------
+--
+-- La lista del repartidor y su reporte filtran por igualdad contra el mail
+-- normalizado. Un mail guardado con mayusculas dejaria pedidos invisibles para
+-- todos. Mismo razonamiento que el `email = lower(email)` de `0001`.
+--
+-- --------------------------------------------------------------------------
+-- "Fijo al entregar" no es otra columna
+-- --------------------------------------------------------------------------
+--
+-- La asignacion se escribe con `AND estado <> 'entrega'`: un pedido entregado
+-- no cambia de repartidor, y esta misma columna queda como el registro de a
+-- quien se le cuenta (FR-010b).
+ALTER TABLE pedidos
+    ADD COLUMN repartidor_email text CHECK (repartidor_email = lower(repartidor_email));
+
+CREATE INDEX pedidos_repartidor ON pedidos (repartidor_email) WHERE repartidor_email IS NOT NULL;

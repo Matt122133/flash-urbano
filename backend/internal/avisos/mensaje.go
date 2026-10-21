@@ -100,6 +100,11 @@ func limpiar(s string) string {
 type PedidoEditado struct {
 	Codigo       string
 	EntregaCalle string
+
+	// Repartidor es el mail del repartidor que tiene el pedido, o vacio si es de
+	// los administradores (031, FR-019a). **No es contenido del mensaje**: dice a
+	// quien mas le suena, y ArmarEdicion no lo lee.
+	Repartidor string
 }
 
 // PedidoDadoDeBaja es lo que hace falta para avisar que un pedido se dio de baja.
@@ -110,6 +115,21 @@ type PedidoEditado struct {
 // filtrar una direccion a una pantalla bloqueada.
 type PedidoDadoDeBaja struct {
 	Codigo string
+
+	// Repartidor, igual que en PedidoEditado: a quien mas le suena (031).
+	Repartidor string
+}
+
+// PedidoAsignado es lo que hace falta para avisarle a un repartidor que un
+// pedido es suyo (031, FR-017).
+//
+// Los mismos dos campos que PedidoNuevo, y por lo mismo: lo que no esta en el
+// struct no puede salir en la pantalla bloqueada. Repartidor es el destinatario,
+// no texto.
+type PedidoAsignado struct {
+	Codigo       string
+	EntregaCalle string
+	Repartidor   string
 }
 
 // ArmarEdicion decide que dice el aviso de que un pedido cambio.
@@ -143,4 +163,22 @@ func ArmarBaja(p PedidoDadoDeBaja) Mensaje {
 		Titulo: strings.TrimSpace("Pedido dado de baja " + codigo),
 		Codigo: codigo,
 	}
+}
+
+// ArmarAsignacion decide que dice el aviso de un pedido asignado (031).
+//
+// Con el mismo criterio que Armar: lo justo para que el repartidor sepa si le
+// queda de paso, y nada que deje legible la casa de un cliente.
+func ArmarAsignacion(p PedidoAsignado) Mensaje {
+	codigo := limpiar(p.Codigo)
+	calle := limpiar(p.EntregaCalle)
+
+	mensaje := Mensaje{
+		Titulo: strings.TrimSpace("Nuevo paquete asignado " + codigo),
+		Codigo: codigo,
+	}
+	if calle != "" {
+		mensaje.Cuerpo = "Entrega en " + calle
+	}
+	return mensaje
 }

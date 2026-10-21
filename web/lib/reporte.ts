@@ -74,8 +74,17 @@ export type FilaDeReporte = {
 /** El archivo entero, antes de ser texto. */
 export type Reporte = {
   filas: FilaDeReporte[];
-  /** El nombre o el mail de la cuenta. Va en el pie, no en cada fila. */
+  /**
+   * El nombre o el mail de la cuenta —o del repartidor, con `deRepartidor`—.
+   * Va en el pie, no en cada fila.
+   */
   cuenta: string;
+  /**
+   * `031`: el reporte es de lo que entrego un repartidor, no de los envios de
+   * un cliente. Cambia el rotulo del pie y el nombre del archivo, para que el
+   * de Rita y el de un cliente llamado Rita no se confundan en la carpeta.
+   */
+  deRepartidor?: boolean;
   /** El rotulo del periodo, el mismo que muestra el cuadro del tablero. */
   periodo: string;
   /** Fecha y hora **de Montevideo** en que se genero. */
@@ -196,7 +205,7 @@ export function textoDelReporte(r: Reporte): string {
     renglon(ENCABEZADO),
     ...r.filas.map((f) => renglon([f.codigo, f.retiro, f.entrega, f.direccion, f.zona, f.paquetes])),
     "",
-    renglon(["Cuenta", r.cuenta]),
+    renglon([r.deRepartidor ? "Repartidor" : "Cuenta", r.cuenta]),
     renglon(["Periodo", r.periodo]),
     renglon(["Generado el", r.generadoEl]),
   ];
@@ -215,7 +224,8 @@ export function nombreDeArchivo(r: Reporte): string {
       .replace(/[^a-zA-Z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .toLowerCase();
-  return `flash-urbano-${limpio(r.periodo)}-${limpio(r.cuenta)}.csv`;
+  const quien = r.deRepartidor ? `repartidor-${limpio(r.cuenta)}` : limpio(r.cuenta);
+  return `flash-urbano-${limpio(r.periodo)}-${quien}.csv`;
 }
 
 /**
@@ -252,6 +262,19 @@ export function generadoEnMontevideo(instante: Date): string {
  */
 export function rutaDelReporte(cliente: string, desde: string, hasta: string): string {
   const q = new URLSearchParams({ cliente, desde, hasta });
+  return `/admin/reporte?${q.toString()}`;
+}
+
+/**
+ * La ruta del reporte de UN repartidor (`031`): lo que entrego en el periodo,
+ * cortado por fecha de entrega en Montevideo (lo corta el servicio).
+ *
+ * **Una funcion aparte y no un parametro mas de la de arriba**: el servicio
+ * exige exactamente uno de `cliente` o `repartidor`, y con dos funciones no hay
+ * forma de armar una ruta con los dos.
+ */
+export function rutaDelReporteDeRepartidor(repartidor: string, desde: string, hasta: string): string {
+  const q = new URLSearchParams({ repartidor, desde, hasta });
   return `/admin/reporte?${q.toString()}`;
 }
 

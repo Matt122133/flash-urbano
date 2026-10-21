@@ -190,3 +190,37 @@ func TestElJsonDelReporteNoLlevaPlata(t *testing.T) {
 		t.Error("control del control")
 	}
 }
+
+// --- `031` -------------------------------------------------------------------
+
+// Contrato §5: exactamente uno de `cliente` o `repartidor`. Ninguno ya lo
+// cubre TestSinClienteNoDevuelveNadaDeNadie; aca, los dos.
+func TestClienteYRepartidorJuntosEsUnError(t *testing.T) {
+	srv, cuenta, _ := entornoHTTP(t)
+	estado, cuerpo := pedirReporte(t, srv, "tok-admin", map[string]string{
+		"cliente": cuenta, "repartidor": "rita@example.com", "desde": "2026-09-01", "hasta": "2026-09-30",
+	})
+	if estado != http.StatusBadRequest || !strings.Contains(string(cuerpo), mensajeUnoDeLosDos) {
+		t.Errorf("los dos juntos: %d %s, queria 400", estado, cuerpo)
+	}
+	// Control positivo: solo con repartidor, es un 200 (vacio: no entrego nada).
+	estado, cuerpo = pedirReporte(t, srv, "tok-admin", map[string]string{
+		"repartidor": "rita@example.com", "desde": "2026-09-01", "hasta": "2026-09-30",
+	})
+	if estado != http.StatusOK || strings.Contains(string(cuerpo), "Rivera") {
+		t.Errorf("solo repartidor: %d %s, queria 200 sin envios", estado, cuerpo)
+	}
+}
+
+// FR-016: un repartidor no ve el reporte, **ni el suyo**.
+func TestUnRepartidorNoVeNiSuPropioReporte(t *testing.T) {
+	srv := monta(t, NuevosHandlers(nil, soloDiego), map[string]*usuarios.Usuario{
+		"tok-rita": {ID: "u-rita", Email: "rita@example.com"},
+	})
+	estado, _ := pedirReporte(t, srv, "tok-rita", map[string]string{
+		"repartidor": "rita@example.com", "desde": "2026-09-01", "hasta": "2026-09-30",
+	})
+	if estado != http.StatusForbidden {
+		t.Errorf("Rita pidiendo su reporte recibio %d, queria 403", estado)
+	}
+}

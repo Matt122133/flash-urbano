@@ -32,6 +32,7 @@ type avisadorFalso struct {
 	avisados    []avisos.PedidoNuevo
 	editados    []avisos.PedidoEditado
 	dadosDeBaja []avisos.PedidoDadoDeBaja
+	asignados   []avisos.PedidoAsignado
 
 	// errDelContexto es `ctx.Err()` leido adentro de Avisar, despues de
 	// `antesDeVolver`. Nil significa "el contexto todavia servia".
@@ -83,6 +84,26 @@ func (a *avisadorFalso) AvisarBaja(ctx context.Context, p avisos.PedidoDadoDeBaj
 	a.dadosDeBaja = append(a.dadosDeBaja, p)
 	a.errDelContexto = ctx.Err()
 	a.conPlazo = conPlazo
+}
+
+// El de `031`.
+func (a *avisadorFalso) AvisarAsignacion(ctx context.Context, p avisos.PedidoAsignado) {
+	if a.antesDeVolver != nil {
+		a.antesDeVolver()
+	}
+	_, conPlazo := ctx.Deadline()
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.asignados = append(a.asignados, p)
+	a.errDelContexto = ctx.Err()
+	a.conPlazo = conPlazo
+}
+
+func (a *avisadorFalso) cuantosAsignados() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return len(a.asignados)
 }
 
 func (a *avisadorFalso) cuantosEditados() int {

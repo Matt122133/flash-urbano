@@ -167,8 +167,8 @@ func TestLaRespuestaDelClienteNoLlevaElColor(t *testing.T) {
 // desaparece de la tarjeta al tocar "Lo tengo".
 func TestLasRespuestasDelAdminSiLlevanElColor(t *testing.T) {
 	respuestas := map[string]any{
-		"GET /admin/pedidos":               respuestaListaAdmin{Pedidos: ParaAdminTodos([]*Pedido{pedidoConColor()})},
-		"PATCH /admin/pedidos/{id}/estado": respuestaEstado{Pedido: pedidoConColor().ParaAdmin()},
+		"GET /admin/pedidos":               respuestaListaAdmin{Pedidos: ParaAdminTodos([]*Pedido{pedidoConColor()}, nil)},
+		"PATCH /admin/pedidos/{id}/estado": respuestaEstado{Pedido: pedidoConColor().ParaAdmin(nil)},
 	}
 	for ruta, r := range respuestas {
 		crudo, err := json.Marshal(r)
@@ -183,11 +183,52 @@ func TestLasRespuestasDelAdminSiLlevanElColor(t *testing.T) {
 
 // Sin color la clave no viaja: ni `null` ni `""`.
 func TestUnaCuentaSinColorNoTraeLaClave(t *testing.T) {
-	crudo, err := json.Marshal(pedidoEntregado().ParaAdmin())
+	crudo, err := json.Marshal(pedidoEntregado().ParaAdmin(nil))
 	if err != nil {
 		t.Fatalf("no se pudo serializar: %v", err)
 	}
 	if strings.Contains(string(crudo), "colorCliente") {
 		t.Fatalf("un pedido de una cuenta sin color no puede traer la clave: %s", crudo)
+	}
+}
+
+// --- `031`: el repartidor del pedido ----------------------------------------
+
+const repartidorDePrueba = "repartidor-de-prueba@ejemplo.com"
+
+func pedidoAsignado() *Pedido {
+	p := pedidoEntregado()
+	r := repartidorDePrueba
+	p.repartidorEmail = &r
+	return p
+}
+
+// El cliente no tiene por que saber quien le lleva el paquete (T011).
+func TestLaRespuestaDelClienteNoLlevaAlRepartidor(t *testing.T) {
+	respuestas := map[string]any{
+		"GET /pedidos":        respuestaLista{Pedidos: []*Pedido{pedidoAsignado()}},
+		"POST o PATCH pedido": respuestaCrear{Pedido: pedidoAsignado()},
+	}
+	for ruta, r := range respuestas {
+		crudo, err := json.Marshal(r)
+		if err != nil {
+			t.Fatalf("%s: no se pudo serializar: %v", ruta, err)
+		}
+		if strings.Contains(string(crudo), repartidorDePrueba) || strings.Contains(string(crudo), "responsable") {
+			t.Fatalf("%s: el repartidor salio en una respuesta del CLIENTE: %s", ruta, crudo)
+		}
+	}
+}
+
+// El control positivo: con el mismo pedido, la respuesta de la app SI lo trae.
+// Sin esto, la prueba de arriba quedaria verde tambien si el campo no se
+// leyera nunca.
+func TestLaRespuestaDeLaAppSiLlevaAlRepartidor(t *testing.T) {
+	crudo, err := json.Marshal(pedidoAsignado().ParaAdmin(func(string) bool { return true }))
+	if err != nil {
+		t.Fatalf("no se pudo serializar: %v", err)
+	}
+	if !strings.Contains(string(crudo), `"responsable":"`+repartidorDePrueba+`"`) {
+		t.Fatalf("la respuesta de la app no trae al responsable: %s", crudo)
 	}
 }

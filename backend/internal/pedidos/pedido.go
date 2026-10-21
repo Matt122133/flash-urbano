@@ -46,6 +46,13 @@ var ErrNoExiste = errors.New("pedido inexistente")
 // specs/012-app-repartidor/contracts/servicio-y-pantallas.md seccion 1.
 var ErrEstadoInvalido = errors.New("estado inexistente")
 
+// ErrEntregado lo devuelve Asignar sobre un pedido entregado (031, FR-010b).
+//
+// Al entregarse, el repartidor del pedido queda fijo: es a quien se le cuenta
+// en el reporte del mes, y un mes ya pagado no puede cambiar despues. Para
+// corregirlo hay que deshacer la entrega primero.
+var ErrEntregado = errors.New("un pedido entregado no cambia de repartidor")
+
 // Estados del ciclo de vida. Son la respuesta del cliente del 2026-08-06, que
 // ademas descarto un cuarto ("confirmacion") que traia el relevamiento
 // original.
@@ -163,6 +170,15 @@ type Pedido struct {
 	// queda sin color.
 	colorCliente *string
 
+	// El repartidor al que se le dio el pedido (031), tal como esta guardado.
+	// Nil es "de los administradores", que es como nace todo pedido.
+	//
+	// **No exportado, como `colorCliente`**: el cliente no tiene por que saber
+	// quien le lleva el paquete, y lo que la app lee no es esto sino el
+	// responsable EFECTIVO, que depende de la configuracion (ver
+	// `Responsable`). Sale solo por `ParaAdmin(...)`.
+	repartidorEmail *string
+
 	CreadoEn      time.Time `json:"creadoEn"`
 	ActualizadoEn time.Time `json:"actualizadoEn"`
 }
@@ -206,24 +222,62 @@ type ParaAdmin struct {
 	// `omitempty`**: sin color, la clave no viaja, y la app dibuja la tarjeta
 	// como antes sin tener que distinguir `null` de `""`.
 	ColorCliente *string `json:"colorCliente,omitempty"`
+
+	// El repartidor responsable del pedido (031). **Omitido = de los
+	// administradores**: la app vieja no lo conoce y lo ignora, y la nueva
+	// separa "Mios" de "Todos" con esto.
+	Responsable *string `json:"responsable,omitempty"`
 }
 
-// ParaAdmin expone el pedido con lo que solo Diego puede ver.
+// ParaAdmin expone el pedido con lo que solo ven quienes reparten.
 //
 // **Es el unico camino por el que la cedula sale del proceso**, y por eso es
 // una llamada explicita y no una etiqueta en un campo: se lee en el sitio donde
 // se usa, no hay que ir a buscarla a la definicion del tipo.
-func (p *Pedido) ParaAdmin() *ParaAdmin {
-	return &ParaAdmin{Pedido: p, RecibioDocumento: p.recibioDocumento, ColorCliente: p.colorCliente}
+//
+// `esRepartidor` es la configuracion del entorno (031): con ella se calcula el
+// responsable efectivo. Nil es "no hay repartidores".
+func (p *Pedido) ParaAdmin(esRepartidor func(string) bool) *ParaAdmin {
+	return &ParaAdmin{
+		Pedido:           p,
+		RecibioDocumento: p.recibioDocumento,
+		ColorCliente:     p.colorCliente,
+		Responsable:      Responsable(p.repartidorEmail, p.Estado, esRepartidor),
+	}
 }
 
 // ParaAdminTodos es lo mismo, para una lista.
-func ParaAdminTodos(pedidos []*Pedido) []*ParaAdmin {
+func ParaAdminTodos(pedidos []*Pedido, esRepartidor func(string) bool) []*ParaAdmin {
 	fuera := make([]*ParaAdmin, 0, len(pedidos))
 	for _, p := range pedidos {
-		fuera = append(fuera, p.ParaAdmin())
+		fuera = append(fuera, p.ParaAdmin(esRepartidor))
 	}
 	return fuera
+}
+
+// Responsable es el repartidor que efectivamente tiene el pedido, o nil si es
+// de los administradores (031, data-model §3).
+//
+// **Se calcula al leer y no se guarda** (research D4). Sacar un mail de
+// `REPARTIDOR_EMAILS` tiene que devolverle a Diego los pedidos no entregados de
+// esa persona (FR-011), y hacerlo escribiendo seria una escritura masiva al
+// arrancar —la clase de cambio que tumbo produccion en `0004`—. Asi, la columna
+// queda como estaba y lo que cambia es como se lee.
+//
+// **Un pedido entregado conserva a su repartidor aunque ya no este
+// configurado** (FR-010b): es a quien se le cuenta esa entrega, y un mes ya
+// pagado no cambia porque alguien dejo de repartir.
+func Responsable(guardado *string, estado string, esRepartidor func(string) bool) *string {
+	switch {
+	case guardado == nil:
+		return nil
+	case estado == EstadoEntrega:
+		return guardado
+	case esRepartidor == nil || !esRepartidor(*guardado):
+		return nil
+	default:
+		return guardado
+	}
 }
 
 // Nuevo es lo que hace falta para crear un pedido.
@@ -291,7 +345,8 @@ const columnas = `
 	precio, zona_id,
 	creado_en, actualizado_en,
 	e.receptor_nombre, e.receptor_documento,
-	c.color_cliente`
+	c.color_cliente,
+	pedidos.repartidor_email`
 
 // De donde salen los pedidos, con quien recibio pegado.
 //
@@ -384,6 +439,7 @@ func escanear(fila pgx.Row) (*Pedido, error) {
 		&p.CreadoEn, &p.ActualizadoEn,
 		&recibioNombre, &recibioDocumento,
 		&p.colorCliente,
+		&p.repartidorEmail,
 	)
 	if err != nil {
 		return nil, err
@@ -593,6 +649,103 @@ func (r *Repositorio) Todos(ctx context.Context) ([]*Pedido, error) {
 	return r.consultar(ctx, sql)
 }
 
+// PorRepartidor devuelve los pedidos guardados a nombre de un repartidor, en el
+// mismo orden que Todos (031, FR-013).
+//
+// **Filtra por la columna y no por el responsable efectivo, y alcanza**: quien
+// llama a esto es un repartidor configurado —lo decidio el handler—, y para un
+// mail configurado la columna y el responsable dicen lo mismo, entregado o no.
+//
+// Como PorUsuario, **toma el mail por parametro y no admite filtro que lo
+// esquive**: el alcance vive en la capa que toca la base.
+func (r *Repositorio) PorRepartidor(ctx context.Context, email string) ([]*Pedido, error) {
+	const sql = `SELECT ` + columnas + desdePedidos + `
+		WHERE pedidos.repartidor_email = $1
+		ORDER BY creado_en ASC, id ASC`
+	return r.consultar(ctx, sql, email)
+}
+
+// Asignar le da un pedido a un repartidor, o se lo devuelve a los
+// administradores con `a == nil` (031).
+//
+// `soloSiEsDe` acota a un repartidor: si no es nil, el pedido tiene que estar
+// guardado a su nombre. Es lo que deja que un repartidor devuelva lo suyo **y
+// nada mas**.
+//
+// **Todo en el WHERE, como Editar**: el estado, el alcance y el "ya lo tiene"
+// los decide la base en la misma sentencia. Leer, comprobar en Go y despues
+// escribir deja una ventana en la que el pedido se entrega en el medio, y
+// entonces se reasignaria un pedido ya fijado (FR-010b).
+//
+// El `bool` dice si el pedido cambio de manos: asignarlo a quien ya lo tiene
+// no escribe, y quien llama no avisa.
+//
+// Con cero filas se relee para dar el motivo, **y el motivo respeta el
+// alcance**: a un repartidor, un pedido ajeno le da ErrNoExiste aunque este
+// entregado, para no contarle nada de un pedido que no es suyo (FR-015).
+func (r *Repositorio) Asignar(ctx context.Context, id string, a, soloSiEsDe *string) (*Pedido, bool, error) {
+	const sql = `
+		UPDATE pedidos SET repartidor_email = $2
+		WHERE id = $1
+		  AND estado <> 'entrega'
+		  AND ($3::text IS NULL OR repartidor_email = $3)
+		  AND repartidor_email IS DISTINCT FROM $2`
+
+	etiqueta, err := r.pool.Exec(ctx, sql, id, a, soloSiEsDe)
+	switch {
+	case esIDMalFormado(err):
+		return nil, false, ErrNoExiste
+	case err != nil:
+		return nil, false, fmt.Errorf("no se pudo asignar el pedido: %w", err)
+	}
+
+	p, err := r.porID(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, ErrNoExiste
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("no se pudo releer el pedido asignado: %w", err)
+	}
+	if etiqueta.RowsAffected() == 1 {
+		return p, true, nil
+	}
+
+	if soloSiEsDe != nil && (p.repartidorEmail == nil || *p.repartidorEmail != *soloSiEsDe) {
+		return nil, false, ErrNoExiste
+	}
+	if p.Estado == EstadoEntrega {
+		return nil, false, ErrEntregado
+	}
+	// Ni ajeno ni entregado: ya lo tenia quien se pidio.
+	return p, false, nil
+}
+
+// NombresPorEmail devuelve el nombre de perfil de cada mail que tenga uno.
+//
+// Es para mostrar a los repartidores de forma reconocible al asignar (FR-009):
+// un repartidor que nunca entro no tiene fila, y entonces se lo muestra por su
+// mail. Un mail sin nombre simplemente no esta en el mapa.
+func (r *Repositorio) NombresPorEmail(ctx context.Context, emails []string) (map[string]string, error) {
+	nombres := map[string]string{}
+	if len(emails) == 0 {
+		return nombres, nil
+	}
+	filas, err := r.pool.Query(ctx,
+		`SELECT email, nombre FROM usuarios WHERE email = ANY($1) AND nombre IS NOT NULL`, emails)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudieron leer los nombres: %w", err)
+	}
+	defer filas.Close()
+	for filas.Next() {
+		var email, nombre string
+		if err := filas.Scan(&email, &nombre); err != nil {
+			return nil, err
+		}
+		nombres[email] = nombre
+	}
+	return nombres, filas.Err()
+}
+
 func (r *Repositorio) consultar(ctx context.Context, sql string, args ...any) ([]*Pedido, error) {
 	filas, err := r.pool.Query(ctx, sql, args...)
 	if err != nil {
@@ -654,8 +807,28 @@ type Receptor struct {
 	Documento string
 }
 
+// Alcance acota un cambio de estado a quien lo pide (031).
+type Alcance struct {
+	// SoloDe, si no es nil, exige que el pedido este guardado a nombre de ese
+	// repartidor. Uno ajeno da ErrNoExiste, igual que uno inexistente (FR-015).
+	SoloDe *string
+
+	// EsRepartidor es la configuracion del entorno. Se usa al ENTREGAR: si el
+	// pedido sigue a nombre de alguien que ya no esta configurado, ese pedido
+	// era de los administradores (FR-011) y la entrega tiene que fijarse asi, no
+	// contarsele a quien ya no reparte. Nil es "no hay repartidores".
+	EsRepartidor func(string) bool
+}
+
 func (r *Repositorio) CambiarEstado(
 	ctx context.Context, id, estado string, receptor *Receptor,
+) (*Pedido, error) {
+	return r.CambiarEstadoCon(ctx, id, estado, receptor, Alcance{})
+}
+
+// CambiarEstadoCon es CambiarEstado acotado a quien llama (031).
+func (r *Repositorio) CambiarEstadoCon(
+	ctx context.Context, id, estado string, receptor *Receptor, alcance Alcance,
 ) (*Pedido, error) {
 	if !EstadoValido(estado) {
 		return nil, ErrEstadoInvalido
@@ -670,9 +843,17 @@ func (r *Repositorio) CambiarEstado(
 		//
 		// Hoy hay un solo repartidor y la carrera es improbable. Cuesta una
 		// palabra y deja de depender de que siga habiendo uno solo.
+		//
+		// **El alcance va en este mismo SELECT** (031): un repartidor que pide
+		// un pedido ajeno no lo encuentra, y la respuesta es la misma que para
+		// un id inventado. Si el filtro se aplicara despues de leer, el error
+		// distinto ya habria contado que el pedido existe.
 		var actual string
+		var guardado *string
 		err := tx.QueryRow(ctx,
-			`SELECT estado FROM pedidos WHERE id = $1 FOR UPDATE`, id).Scan(&actual)
+			`SELECT estado, repartidor_email FROM pedidos
+			 WHERE id = $1 AND ($2::text IS NULL OR repartidor_email = $2)
+			 FOR UPDATE`, id, alcance.SoloDe).Scan(&actual, &guardado)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			return ErrNoExiste
@@ -709,6 +890,20 @@ func (r *Repositorio) CambiarEstado(
 			`UPDATE pedidos SET estado = $2, actualizado_en = now() WHERE id = $1`,
 			id, estado); err != nil {
 			return fmt.Errorf("no se pudo mover el estado: %w", err)
+		}
+
+		// **Al entregar se fija el responsable, y tiene que ser el efectivo**
+		// (031, FR-010b, FR-011). Un pedido a nombre de alguien que salio de
+		// `REPARTIDOR_EMAILS` se lee como de los administradores; si se
+		// entregara con el mail viejo, `Responsable` lo devolveria a esa persona
+		// —entregado conserva lo guardado— y la entrega se le contaria a quien
+		// ya no reparte. Se limpia en la misma transaccion que la entrega.
+		if estado == EstadoEntrega && guardado != nil &&
+			(alcance.EsRepartidor == nil || !alcance.EsRepartidor(*guardado)) {
+			if _, err := tx.Exec(ctx,
+				`UPDATE pedidos SET repartidor_email = NULL WHERE id = $1`, id); err != nil {
+				return fmt.Errorf("no se pudo fijar el responsable al entregar: %w", err)
+			}
 		}
 
 		// `ocurrido_en` lo pone la base con su now(), que dentro de una
