@@ -1,6 +1,6 @@
 ---
 ticket: none
-status: active
+status: completed
 covers:
   # La funcion unica que arma el texto, y las dos pantallas que la usan.
   - android/app/src/main/java/uy/flashurbano/repartidor/pantallas/
@@ -16,6 +16,20 @@ analyzed: 2026-11-24
 # Implementation Plan: Orden de la dirección en la app
 
 **Branch**: `032-orden-de-la-direccion` | **Date**: 2026-11-24 | **Spec**: [spec.md](spec.md)
+
+> ## Cerrado el 2026-11-24
+>
+> `verify:` verde: 91 pruebas JVM, 0 salteadas, 0 fallidas. El control
+> positivo (T003) dio 4 de 8 en rojo con la esquina antes del número.
+>
+> **Staging**: app de debug contra staging en el emulador, con pedidos de
+> prueba FU-0003 y FU-0004. La tarjeta y la hoja muestran el orden nuevo (ver
+> T007 en `tasks.md`). La igualdad con la web se comprobó por código, no en el
+> navegador.
+>
+> **Abierto**: T009 (publicar `v0.6.1`) se hace desde `master` después del
+> merge, que es lo único que el tag puede marcar; y SC-003 queda en manos de
+> Diego con la versión instalada.
 
 **Input**: Feature specification from `specs/032-orden-de-la-direccion/spec.md`
 

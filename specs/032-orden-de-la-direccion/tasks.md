@@ -32,7 +32,7 @@ No hay: no se agregan dependencias ni estructura nueva.
 
 - [x] T006 Correr el `verify:` del plan (`cd android && .\gradlew.bat assembleDebug testDebugUnitTest`) y anotar el conteo de pruebas. **Verde 2026-11-24: 91 pruebas, 0 salteadas, 0 fallidas; assembleDebug OK.**
 - [x] T007 Quickstart sección 2: app debug contra staging en el **emulador** (`adb -s`), con un pedido de todos los campos y otro de solo calle y esquina; comparar con la web y mirar que la línea larga no rompa la tarjeta. **Hecho 2026-11-24, emulator-5554 contra staging**: pedidos de prueba FU-0003 (todos los campos) y FU-0004 (sin número) creados por API con la sesión del emulador. Tarjeta: `Bulevar Artigas 1500, esq. Rivera` / `Rivera 1234, apto 3, esq. Soca, cooperativa`; `Bulevar Artigas, esq. Rivera` / `Avenida Italia, esq. Comercio`. Hoja: `FU-0003 · Rivera 1234, esq. Soca`. La línea completa entra en una sola línea y no mueve la acción. La comparación con la web es por código (`componerDireccion` arma el mismo texto) y no se miró en el navegador. FU-0003 quedó En curso en staging.
-- [ ] T008 Commit en la rama (`feat: numero antes que la esquina en la app 032-orden-de-la-direccion`), PR, y merge a `master` con el cierre del plan en commit aparte antes del merge.
+- [x] T008 Commit en la rama (`feat: numero antes que la esquina en la app 032-orden-de-la-direccion`), PR, y merge a `master` con el cierre del plan en commit aparte antes del merge.
 - [ ] T009 Desde `master` limpio: `scripts/publicar-app.sh v0.6.1 "..."` (quickstart sección 3) y pasarle el link a Diego; SC-003 queda abierto hasta que él lo confirme en el teléfono.
 
 ## Dependencies
