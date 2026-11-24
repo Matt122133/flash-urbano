@@ -66,13 +66,6 @@ import uy.flashurbano.repartidor.ui.tema.Toques
 // ojos abiertos: es el componente estandar para esto y la alternativa seria
 // dibujar una hoja a mano, con su animacion, su arrastre y su manejo de foco.
 // Si cambia de API, cambia en un solo archivo.
-private fun direccionCorta(pedido: Pedido): String {
-    val d = pedido.entrega
-    val esquina = if (d.esquina.isBlank()) "" else " esq. " + d.esquina
-    val numero = d.numero?.takeIf { it.isNotBlank() }?.let { " " + it } ?: ""
-    return d.calle + esquina + numero
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HojaEntrega(
@@ -124,7 +117,7 @@ fun HojaEntrega(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    pedido.codigo + " · " + direccionCorta(pedido),
+                    pedido.codigo + " · " + textoDeDireccion(pedido.entrega, breve = true),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

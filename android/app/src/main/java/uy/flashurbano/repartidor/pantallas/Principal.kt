@@ -49,7 +49,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import uy.flashurbano.repartidor.datos.Direccion
 import uy.flashurbano.repartidor.datos.Estados
 import uy.flashurbano.repartidor.datos.Pedido
 import uy.flashurbano.repartidor.datos.RepartidorOfrecido
@@ -746,8 +745,8 @@ fun TarjetaPedido(
                     )
                 }
 
-                Direccion(IconoSale, "RETIRA", comoTexto(pedido.retiro), naranja = true)
-                Direccion(IconoLlega, "ENTREGA", comoTexto(pedido.entrega), naranja = false)
+                Direccion(IconoSale, "RETIRA", textoDeDireccion(pedido.retiro), naranja = true)
+                Direccion(IconoLlega, "ENTREGA", textoDeDireccion(pedido.entrega), naranja = false)
 
                 // Los DOS telefonos, del mismo tamano y los dos tocables (FR-015 de
                 // `012`). Quien envia hace falta tanto como quien recibe: si el
@@ -1041,20 +1040,6 @@ private fun BotonTelefono(
             }
         }
     }
-}
-
-/**
- * La direccion tal como se escribio.
- *
- * **No se usa el punto para nada aca, y por eso un pedido sin punto se lee
- * igual** (data-model seccion 5). Lo que Diego necesita para llegar es el texto.
- */
-private fun comoTexto(d: Direccion): String = buildString {
-    append(d.calle)
-    if (d.esquina.isNotBlank()) append(" esq. ").append(d.esquina)
-    d.numero?.takeIf { it.isNotBlank() }?.let { append(" ").append(it) }
-    d.apto?.takeIf { it.isNotBlank() }?.let { append(" apto ").append(it) }
-    if (d.cooperativa) append(" (cooperativa)")
 }
 
 /**
